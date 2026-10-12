@@ -1,29 +1,67 @@
-"""CLI: прогон сценария и (опционально) валидация против живого опроса.
+"""CLI для воспроизводимых симуляций, экспорта и сравнения с опросом."""
 
-python cli.py student_card --n 200 --mock
-python cli.py student_card --n 200 --survey data/survey.csv
-"""
+from __future__ import annotations
+
 import argparse
-import json
+import time
+from pathlib import Path
 
 from dvoinik.engine import simulate
 from dvoinik.population import build_population
+from dvoinik.reporting import export_json, make_record
 from dvoinik.scenarios import SCENARIOS
 from dvoinik.validate import compare, load_survey
 
-p = argparse.ArgumentParser()
-p.add_argument("scenario", choices=list(SCENARIOS))
-p.add_argument("--n", type=int, default=200)
-p.add_argument("--mock", action="store_true", help="без LLM, эвристическая модель")
-p.add_argument("--survey", help="CSV с ответами живых респондентов: segment,variant,decision")
-a = p.parse_args()
 
-sc = SCENARIOS[a.scenario]
-rep = simulate(build_population(a.n, sc["population"]), sc, mock=a.mock)
-for vid, r in rep.items():
-    print(f"\nВариант {vid}: конверсия {r['conversion']:.0%}")
-    for s in r["segments"].values():
-        print(f"  {s['name']:<42} {s['conversion']:>5.0%}  (n={s['n']})")
-    print("  Причины отказа:", json.dumps(r["objections"], ensure_ascii=False))
-if a.survey:
-    print("\nВалидация:", compare(rep, load_survey(a.survey)))
+def main():
+    parser = argparse.ArgumentParser(description="Двойник — синтетическое тестирование банковских продуктов")
+    parser.add_argument("scenario", choices=list(SCENARIOS))
+    parser.add_argument("--n", type=int, default=200, help="размер популяции")
+    parser.add_argument("--mock", action="store_true", help="эвристическая модель без LLM")
+    parser.add_argument("--seed", type=int, default=42, help="seed популяции и демо-ответов")
+    parser.add_argument("--concurrency", type=int, default=16, help="параллельных запросов к LLM")
+    parser.add_argument("--survey", help="CSV живого опроса: segment,variant,decision")
+    parser.add_argument("--output", type=Path, help="сохранить настройки, отчёт и валидацию в JSON")
+    args = parser.parse_args()
+    scenario = SCENARIOS[args.scenario]
+    started = time.perf_counter()
+    try:
+        twins = build_population(args.n, scenario["population"], seed=args.seed)
+        report = simulate(twins, scenario, mock=args.mock, seed=args.seed, concurrency=args.concurrency)
+        record = make_record(
+            args.scenario,
+            scenario,
+            args.n,
+            args.mock,
+            args.seed,
+            report,
+            twins,
+            time.perf_counter() - started,
+        )
+        if args.survey:
+            record["validation"] = compare(report, load_survey(args.survey))
+        if args.output:
+            args.output.write_text(export_json(record), encoding="utf-8")
+    except (ValueError, OSError) as exc:
+        parser.error(str(exc))
+    print(
+        "ДЕМО: эвристические ответы, не прогноз реального спроса."
+        if args.mock
+        else "LLM: синтетические ответы требуют живой валидации."
+    )
+    for vid, result in report.items():
+        print(
+            f"\nВариант {vid}: {result['conversion']:.1%} согласий (валидных: {result['n']}, ошибок: {result['failed_n']})"
+        )
+        for segment in result["segments"].values():
+            print(f"  {segment['name']:<42} {segment['conversion']:>6.1%}  (n={segment['n']})")
+    if "validation" in record:
+        print("\nВалидация:", export_json(record["validation"]))
+    if args.output:
+        print(f"\nОтчёт сохранён: {args.output}")
+    if not any(result["n"] for result in report.values()):
+        parser.exit(1, "Модель не вернула валидных ответов. Проверьте подключение.\n")
+
+
+if __name__ == "__main__":
+    main()
