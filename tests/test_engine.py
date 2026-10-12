@@ -74,7 +74,8 @@ def test_quotes_include_acceptance_and_rejection():
     assert {q["decision"] for q in aggregate(rows)["quotes"]} == {True, False}
 
 
-def test_mock_does_not_assign_fee_objection_to_unconditionally_free_offer():
+@pytest.mark.parametrize("variant", ["B", "C"])
+def test_mock_does_not_assign_fee_objection_to_unconditionally_free_offer(variant):
     import random
 
     from dvoinik.engine import _ask_mock
@@ -82,6 +83,18 @@ def test_mock_does_not_assign_fee_objection_to_unconditionally_free_offer():
     scenario = SCENARIOS["student_card"]
     twin = build_population(1, {"student_reg": 1})[0]
     rng = random.Random(9)
-    answers = [_ask_mock(rng, twin, scenario, scenario["variants"]["B"]) for _ in range(200)]
+    answers = [_ask_mock(rng, twin, scenario, scenario["variants"][variant]) for _ in range(200)]
     assert any(not a["decision"] for a in answers)
     assert all(a["objection"] != "плата и условия" for a in answers)
+
+
+def test_mock_does_not_reject_cashback_categories_when_no_cashback_is_offered():
+    import random
+
+    from dvoinik.engine import _ask_mock
+
+    scenario = SCENARIOS["student_card"]
+    twin = build_population(1, {"student_reg": 1})[0]
+    rng = random.Random(9)
+    answers = [_ask_mock(rng, twin, scenario, scenario["variants"]["C"]) for _ in range(200)]
+    assert all(a["objection"] != "кэшбэк не на мои траты" for a in answers)

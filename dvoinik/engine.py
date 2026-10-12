@@ -137,6 +137,8 @@ def _ask_mock(rng: random.Random, twin: Twin, scenario: dict, variant_text: str)
             weight = 4.0 if "только в приложении" in t else 0.5
         if "мошенник" in reason and "мошенник" in t:
             weight = 0.3
+        if "кэшбэк" in reason and "кэшбэк" not in t:
+            weight = 0.0
         weights.append(weight)
     obj = None if decision else rng.choices(objections, weights=weights)[0]
     if decision:
@@ -151,7 +153,7 @@ def _ask_mock(rng: random.Random, twin: Twin, scenario: dict, variant_text: str)
         }
         quote = motives[twin.segment]
     else:
-        quote = f"Пока не подключу: меня останавливает {obj}."
+        quote = f"Пока не подключу. Причина: {obj}."
     return {"decision": decision, "probability": round(p, 2), "objection": obj, "quote": quote}
 
 
