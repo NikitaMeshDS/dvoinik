@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from .draft_ui import remember_offer
-from .experiments import CUSTOM_SCENARIO
+from .experiments import CUSTOM_SCENARIO, normalize_population
 from .population import SEGMENTS, allocate_population
 from .presentation import markup
 from .runs import RunSettings
@@ -139,7 +139,7 @@ def render_editor(key, n):
                     )
                 )
 
-                counts = allocate_population(n, scenario["population"])
+                counts = allocate_population(n, normalize_population(scenario["population"]))
                 st.dataframe(
                     pd.DataFrame(
                         [

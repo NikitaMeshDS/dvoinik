@@ -75,7 +75,12 @@ def normalize_scenario(scenario):
     result["objections"] = [_text(o, "Категория отказа", 120) for o in objections]
     if len(set(result["objections"])) != len(objections):
         raise ValueError("Категории отказа не должны повторяться.")
-    weights = result.get("population")
+    result["population"] = normalize_population(result.get("population"))
+    return result
+
+
+def normalize_population(weights):
+    """Единая нормализация долей для предпросмотра и снимка запуска."""
     if not isinstance(weights, dict) or not weights or any(s not in SEGMENTS for s in weights):
         raise ValueError("Выберите известные сегменты аудитории.")
     for weight in weights.values():
@@ -83,8 +88,7 @@ def normalize_scenario(scenario):
     total = sum(weights.values())
     if not math.isfinite(total) or total <= 0:
         raise ValueError("Сумма долей аудитории должна быть больше нуля.")
-    result["population"] = {s: w / total for s, w in weights.items() if w > 0}
-    return result
+    return {sid: weight / total for sid, weight in weights.items() if weight > 0}
 
 
 def _timestamp(value):

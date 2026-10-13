@@ -424,3 +424,20 @@ def test_conflicted_pending_validation_does_not_block_another_pending_validation
     assert list(app.session_state["pending_records"]) == [local["id"]]
     assert store.get_record(local["id"])["validation"]["cells"][0]["yes"] == 1
     assert app.session_state["active_record"]["validation"]["cells"][0]["yes"] == 0
+
+
+def test_fractional_weight_preview_matches_normalized_run_at_rounding_boundary(monkeypatch):
+    app = launch(monkeypatch)
+    app.select_slider(key="population_n").set_value(50).run()
+    for sid, weight in [("student_msk", 80), ("student_reg", 18), ("teen", 2), ("nonresident", 56)]:
+        app.slider(key=f"weight_student_card_{sid}").set_value(weight).run()
+    preview = next(frame.value for frame in app.dataframe if "Двойников" in frame.value.columns)
+    assert list(preview["Двойников"]) == [25, 6, 1, 18]
+    app.button(key="run_experiment").click().run()
+    assert not app.exception
+    assert app.session_state["active_record"]["population_counts"] == {
+        "student_msk": 25,
+        "student_reg": 6,
+        "teen": 1,
+        "nonresident": 18,
+    }
