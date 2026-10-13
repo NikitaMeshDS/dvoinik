@@ -10,6 +10,8 @@ __pycache__/
 .streamlit/secrets.toml
 artifacts/
 .data/
+.worktrees/
+.superpowers/
 *.sqlite3
 *.sqlite3-journal
 *.sqlite3-wal
