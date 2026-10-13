@@ -46,3 +46,11 @@ def test_csv_export_does_not_execute_spreadsheet_formulas():
     rows = list(csv.DictReader(io.StringIO(reporting.export_csv(record))))
     assert rows[0]["variant"].startswith("'")
     assert rows[0]["segment_name"].startswith("'")
+
+
+def test_demo_snapshots_have_distinct_ids_for_archive():
+    scenario = {"title": "Демо", "variants": {"A": "Бесплатно"}, "population": {"senior": 1}}
+    first = reporting.make_record("demo", scenario, 1, True, 42, {}, [], sample=True)
+    second = reporting.make_record("demo", scenario, 1, True, 42, {}, [], sample=True)
+    assert first["id"] != second["id"]
+    assert first["sample"] is True

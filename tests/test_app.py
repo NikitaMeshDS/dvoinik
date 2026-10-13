@@ -1,10 +1,19 @@
 import io
 from pathlib import Path
 
+import pytest
 import streamlit as st
 from streamlit.testing.v1 import AppTest
 
+from dvoinik import ui
+from dvoinik.storage import ExperimentStore, StorageError
+
 APP = Path(__file__).parents[1] / "app.py"
+
+
+@pytest.fixture(autouse=True)
+def isolated_storage(monkeypatch, tmp_path):
+    monkeypatch.setenv("DVOINIK_STORAGE_PATH", str(tmp_path / "experiments.sqlite3"))
 
 
 def launch(monkeypatch):
@@ -172,3 +181,128 @@ def test_validation_can_be_saved_for_history_record_without_active_experiment(mo
     app.button(key=f"save_validation_{record_id}").click().run()
     assert not app.exception
     assert app.session_state["history"][0]["validation"]["result"]["survey_n"] == 1
+
+
+def test_history_survives_new_browser_session(monkeypatch):
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    record_id = app.session_state["history"][0]["id"]
+    reopened = launch(monkeypatch)
+    reopened.radio(key="navigation").set_value("История").run()
+    assert not reopened.exception
+    assert [r["id"] for r in reopened.session_state["history"]] == [record_id]
+    reopened.button(key=f"history_open_{record_id}").click().run()
+    assert reopened.session_state["history_view"] == record_id
+    assert any(button.key == "json_active" for button in reopened.get("download_button"))
+
+
+def test_storage_failure_preserves_new_report_for_download(monkeypatch, tmp_path):
+    occupied = tmp_path / "occupied"
+    occupied.write_text("not a folder")
+    monkeypatch.setenv("DVOINIK_STORAGE_PATH", str(occupied / "experiments.sqlite3"))
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    assert not app.exception
+    assert len(app.session_state["history"]) == 1
+    assert not app.session_state["active_record"]["sample"]
+    assert app.error
+    assert any(button.key == "json_active" for button in app.get("download_button"))
+
+
+def test_saved_validation_survives_new_session(monkeypatch):
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    record_id = app.session_state["active_record"]["id"]
+    real_upload = st.file_uploader
+
+    def upload(*args, **kwargs):
+        if str(kwargs.get("key", "")).startswith("survey_"):
+            return io.BytesIO(b"segment,variant,decision\nstudent_msk,A,0\n")
+        return real_upload(*args, **kwargs)
+
+    monkeypatch.setattr(st, "file_uploader", upload)
+    app.run()
+    app.button(key=f"save_validation_{record_id}").click().run()
+    monkeypatch.setattr(st, "file_uploader", real_upload)
+    reopened = launch(monkeypatch)
+    reopened.radio(key="navigation").set_value("История").run()
+    reopened.button(key=f"history_open_{record_id}").click().run()
+    assert not reopened.exception
+    assert reopened.session_state["history"][0]["validation"]["result"]["survey_n"] == 1
+    assert any(m.label == "Средняя абсолютная ошибка" for m in reopened.metric)
+
+
+def test_two_runs_can_be_compared_from_history(monkeypatch):
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    app.number_input(key="seed").set_value(51).run()
+    app.button(key="run_experiment").click().run()
+    app.radio(key="navigation").set_value("История").run()
+    assert not app.exception
+    assert len(app.selectbox(key="compare_left").options) == 2
+    assert app.selectbox(key="compare_left").value != app.selectbox(key="compare_right").value
+    assert any(button.key == "comparison_export" for button in app.get("download_button"))
+    assert any("Seed" in frame.value.to_string() for frame in app.dataframe)
+
+
+def test_unsaved_validation_is_not_replaced_by_old_disk_snapshot(monkeypatch):
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    record_id = app.session_state["active_record"]["id"]
+    real_upload = st.file_uploader
+
+    def upload(*args, **kwargs):
+        if str(kwargs.get("key", "")).startswith("survey_"):
+            return io.BytesIO(b"segment,variant,decision\nstudent_msk,A,0\n")
+        return real_upload(*args, **kwargs)
+
+    def fail_save(self, record, **kwargs):
+        raise StorageError("Диск недоступен")
+
+    exported = []
+    real_export = ui.export_json
+
+    def export(record):
+        if record.get("id") == record_id:
+            exported.append(record)
+        return real_export(record)
+
+    monkeypatch.setattr(st, "file_uploader", upload)
+    monkeypatch.setattr(ExperimentStore, "save", fail_save)
+    monkeypatch.setattr(ui, "export_json", export)
+    app.run()
+    app.button(key=f"save_validation_{record_id}").click().run()
+    assert app.error
+    assert exported[-1]["validation"]["result"]["survey_n"] == 1
+    app.radio(key="navigation").set_value("История").run()
+    assert not app.exception
+    assert app.session_state["history"][0]["validation"]["result"]["survey_n"] == 1
+
+
+def test_two_pending_survey_updates_recover_when_disk_returns(monkeypatch):
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    record_id = app.session_state["active_record"]["id"]
+    real_upload, real_save = st.file_uploader, ExperimentStore.save
+    answer = {"decision": 0}
+
+    def upload(*args, **kwargs):
+        if str(kwargs.get("key", "")).startswith("survey_"):
+            return io.BytesIO(f"segment,variant,decision\nstudent_msk,A,{answer['decision']}\n".encode())
+        return real_upload(*args, **kwargs)
+
+    def fail_save(self, record, **kwargs):
+        raise StorageError("Диск недоступен")
+
+    monkeypatch.setattr(st, "file_uploader", upload)
+    monkeypatch.setattr(ExperimentStore, "save", fail_save)
+    app.run()
+    app.button(key=f"save_validation_{record_id}").click().run()
+    answer["decision"] = 1
+    app.run()
+    app.button(key=f"save_validation_{record_id}").click().run()
+    monkeypatch.setattr(ExperimentStore, "save", real_save)
+    app.run()
+    assert not app.error
+    assert app.session_state["pending_records"] == {}
+    assert app.session_state["experiment_store"].list_records()[0]["validation"]["cells"][0]["yes"] == 1

@@ -15,7 +15,8 @@ from dvoinik.experiments import CUSTOM_SCENARIO, format_timestamp, load_experime
 from dvoinik.population import SEGMENTS, build_population
 from dvoinik.reporting import export_json, make_record, signature
 from dvoinik.scenarios import SCENARIOS
-from dvoinik.ui import escape, markup, methodology, section, show_report
+from dvoinik.storage import KEEP_VALIDATION, ExperimentStore, StorageError
+from dvoinik.ui import comparison_view, escape, markup, methodology, persist_record, section, show_report
 
 ROOT = Path(__file__).parent
 TITLES = {
@@ -37,6 +38,34 @@ st.set_page_config(
 )
 markup(f"<style>{(ROOT / 'assets/style.css').read_text()}</style>")
 st.session_state.setdefault("history", [])
+st.session_state.setdefault("pending_records", {})
+st.session_state.setdefault("pending_validation_bases", {})
+st.session_state.experiment_store = ExperimentStore(
+    os.getenv("DVOINIK_STORAGE_PATH", str(ROOT / ".data" / "experiments.sqlite3"))
+)
+try:
+    archived = st.session_state.experiment_store.list_records()
+    archived_ids = {r["id"] for r in archived}
+    # Подхватываем результаты уже открытой сессии при обновлении приложения.
+    pending = {r["id"]: r for r in st.session_state.history if r["id"] not in archived_ids}
+    pending.update(st.session_state.pending_records)
+    for existing in pending.values():
+        st.session_state.experiment_store.save(
+            existing,
+            expected_validation=st.session_state.pending_validation_bases.get(
+                existing["id"], KEEP_VALIDATION
+            ),
+        )
+        st.session_state.pending_records.pop(existing["id"], None)
+        st.session_state.pending_validation_bases.pop(existing["id"], None)
+    st.session_state.history = st.session_state.experiment_store.list_records()
+    active = st.session_state.get("active_record")
+    if active:
+        st.session_state.active_record = next(
+            (r for r in st.session_state.history if r["id"] == active["id"]), active
+        )
+except (StorageError, ValueError) as exc:
+    st.error(f"История на диске недоступна: {exc} Новые отчёты можно скачать из текущей сессии.")
 st.session_state.setdefault(
     "saved_inputs",
     {
@@ -133,7 +162,9 @@ if nav == "Методология":
     methodology()
 elif nav == "История":
     st.title("История экспериментов")
-    st.caption("До 20 последних запусков в текущей сессии. Скачайте отчёт, чтобы сохранить исследование.")
+    st.caption("Запуски и проверки опросом сохраняются на этом сервере и доступны после перезапуска.")
+    with st.expander("Сравнить два запуска"):
+        comparison_view(st.session_state.history)
     with st.expander("Открыть сохранённый эксперимент"):
         st.caption(
             "Загрузите полный JSON-отчёт Двойника. Настройки и проверка опросом восстановятся вместе с результатами."
@@ -144,14 +175,15 @@ elif nav == "История":
                 imported = load_experiment(uploaded.getvalue())
                 imported["import_origin_id"] = imported["id"]
                 imported["id"] = uuid.uuid4().hex[:10]
-                st.session_state.history = (st.session_state.history + [imported])[-20:]
+                saved = persist_record(imported)
                 st.session_state.history_view = imported["id"]
                 message = "Эксперимент открыт. Числа отчёта проверены."
                 if imported.get("validation"):
                     message += " Метрики опроса пересчитаны по сохранённым ответам."
                 else:
                     message += " Проверки живым опросом в этом файле нет."
-                st.success(message)
+                if saved:
+                    st.success(message)
             except ValueError as exc:
                 st.error(f"Не удалось открыть эксперимент: {exc}")
     if not st.session_state.history:
@@ -160,7 +192,9 @@ elif nav == "История":
         )
     for record in reversed(st.session_state.history):
         stamp = format_timestamp(record["created_at"])
-        with st.expander(f"{record['scenario']['title']} · {stamp} · {record['n']} двойников"):
+        with st.expander(
+            f"{record['id']} · {record['scenario']['title']} · {stamp} · {record['n']} двойников"
+        ):
             st.caption(f"{'Демо' if record['mock'] else 'LLM'} · {record['model']} · Seed {record['seed']}")
             st.download_button(
                 "Скачать полный отчёт",
@@ -326,8 +360,8 @@ else:
                     key, scenario, n, mock, int(seed), report, twins, time.perf_counter() - started
                 )
                 st.session_state.active_record = record
-                st.session_state.history = (st.session_state.history + [record])[-20:]
-                st.success("Эксперимент завершён. Настройки и результаты сохранены в истории сессии.")
+                if persist_record(record):
+                    st.success("Эксперимент завершён. Настройки и результаты сохранены в локальном архиве.")
             except (ValueError, OSError) as exc:
                 st.error(f"Не удалось запустить эксперимент: {exc}")
             finally:

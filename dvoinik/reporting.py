@@ -80,7 +80,7 @@ def make_record(key, scenario, n, mock, seed, report, twins, elapsed=0, sample=F
     config_model = None if mock else model + "|" + os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
     return {
         "schema_version": 2,
-        "id": "demo-" + key if sample else uuid.uuid4().hex[:10],
+        "id": uuid.uuid4().hex[:10],
         "created_at": datetime.now(ZoneInfo("Europe/Moscow")).isoformat(timespec="seconds"),
         "scenario_key": key,
         "scenario": copy.deepcopy(scenario),

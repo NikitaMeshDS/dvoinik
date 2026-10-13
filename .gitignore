@@ -9,3 +9,8 @@ __pycache__/
 .DS_Store
 .streamlit/secrets.toml
 artifacts/
+.data/
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
