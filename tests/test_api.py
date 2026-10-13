@@ -489,3 +489,16 @@ def test_explicit_demo_mode_selects_separate_default_database(tmp_path, monkeypa
     assert app.state.auth.path == tmp_path / "demo.sqlite3"
     assert not (tmp_path / "experiments.sqlite3").exists()
     app.state.jobs.close()
+
+
+def test_access_guard_failure_uses_supported_failed_job_status(app, monkeypatch):
+    import dvoinik.jobs as jobs
+    from dvoinik.auth import AuthError
+
+    monkeypatch.setattr(
+        jobs, "run_experiment", lambda *a, **k: (_ for _ in ()).throw(AuthError("access unavailable"))
+    )
+    client = login(app)
+    result = completed(client, start(client).json()["id"])
+    assert result["status"] == "failed"
+    assert result["record"] is None and not result["saved"]

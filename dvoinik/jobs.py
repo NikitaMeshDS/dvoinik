@@ -119,7 +119,7 @@ class Jobs:
         except (AccessExpired, AuthError):
             with self.lock:
                 job.record, job.saved = None, False
-                job.status, job.error = "cancelled", "Доступ завершён. Войдите снова."
+                job.status, job.error = "failed", "Доступ завершён. Войдите снова."
         except Exception:
             # Providers can include credentials in exceptions; do not expose them.
             with self.lock:
