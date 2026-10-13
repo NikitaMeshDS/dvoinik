@@ -10,7 +10,10 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from .auth import AccessExpired
+from .auth_ui import expire_access
 from .comparison import compare_runs
+from .download_ui import download
 from .experiments import attach_validation, format_timestamp, quality_status
 from .population import SEGMENTS
 from .reporting import export_csv, export_json, summarize
@@ -40,6 +43,8 @@ def persist_record(record, *, expected_validation=KEEP_VALIDATION):
     saved = True
     try:
         record = st.session_state.experiment_store.save(record, expected_validation=expected_validation)
+    except AccessExpired:
+        expire_access()
     except (StorageError, ValueError) as exc:
         saved = False
         st.session_state.pending_records[record["id"]] = record
@@ -167,7 +172,7 @@ def comparison_view(history):
     st.caption("«—» означает отсутствие варианта или валидных ответов, а не нулевую конверсию.")
     with st.expander("Разница по сегментам"):
         st.dataframe(table(result["segments"]), hide_index=True, width="stretch")
-    st.download_button(
+    download(
         "Скачать сравнение JSON",
         export_json({"comparison_version": 1, "left": left, "right": right, "comparison": result}),
         f"dvoinik-comparison-{first}-{second}.json",
@@ -191,20 +196,22 @@ def offers(scenario):
 def export_buttons(record, prefix="active"):
     name = f"dvoinik-{record['scenario_key']}-{record['id']}"
     cols = st.columns(2)
-    cols[0].download_button(
+    download(
         "Скачать отчёт JSON",
         export_json(record),
         name + ".json",
         mime="application/json",
         key=f"json_{prefix}",
+        target=cols[0],
         width="stretch",
     )
-    cols[1].download_button(
+    download(
         "Скачать сегменты CSV",
         "\ufeff" + export_csv(record),
         name + ".csv",
         mime="text/csv",
         key=f"csv_{prefix}",
+        target=cols[1],
         width="stretch",
     )
 
@@ -465,7 +472,7 @@ def validation_view(record):
     example = "segment,variant,decision\n" + "".join(
         f"{sid},{vid},0\n" for vid in record["report"] for sid in record["scenario"]["population"]
     )
-    st.download_button(
+    download(
         "Скачать шаблон опроса",
         example,
         "survey-template.csv",
@@ -530,7 +537,7 @@ def validation_view(record):
     for col in ["Опрос", "Симуляция", "Ошибка"]:
         table[col] = table[col].map(lambda x: f"{100 * x:.1f}%")
     st.dataframe(table, hide_index=True, width="stretch")
-    st.download_button(
+    download(
         "Скачать валидацию JSON",
         export_json(result),
         "validation.json",

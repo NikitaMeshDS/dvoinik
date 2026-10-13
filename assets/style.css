@@ -105,3 +105,14 @@ button:focus-visible, a:focus-visible { outline:3px solid #83a9ff!important; out
 .quality-panel.partial_validation,.quality-panel.incomplete,.quality-panel.unvalidated { background:#fff5e9; border-color:#ca965c; }
 .quality-panel.partial_validation strong,.quality-panel.incomplete strong,.quality-panel.unvalidated strong { color:#885b29; }
 [data-testid="stButton"] button[kind="primary"] p { white-space:normal!important; text-overflow:clip!important; }
+.login-story { padding:25px 35px 25px 0; max-width:640px; }
+.login-wordmark { color:#295bde; font-size:30px; font-weight:750; letter-spacing:-1px; margin-bottom:42px; }
+.login-story h1 { font-size:42px!important; line-height:1.15; max-width:22ch; margin-bottom:20px; }
+.login-story p { color:var(--muted); font-size:16px; max-width:46ch; margin-bottom:30px; }
+.login-process { display:flex; align-items:center; gap:12px; padding:18px 0; margin-bottom:20px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); color:#345692; font-size:13px; }
+.login-process span+span:before { content:"→"; color:#7b8eaf; margin-right:12px; }
+.login-story small { color:var(--muted); font-size:12px; }
+a.secure-download { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:8px 14px; background:#fff; border:1px solid #d8dfea; border-radius:9px; color:var(--ink)!important; font-size:14px; font-weight:600; text-decoration:none!important; text-align:center; line-height:1.4; }
+a.secure-download.stretch { width:100%; }
+a.secure-download:hover { border-color:#295bde; color:#295bde!important; }
+@media(max-width:640px) { .login-story { padding:10px 0; }.login-wordmark { margin-bottom:20px; }.login-story h1 { font-size:30px!important; }.login-story p { font-size:14px; margin-bottom:14px; }.login-process { margin-bottom:12px; } }

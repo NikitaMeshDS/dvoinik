@@ -9,14 +9,17 @@ from pathlib import Path
 
 import streamlit as st
 
+from dvoinik.auth import AccessExpired
+from dvoinik.auth_ui import account_sidebar, administration, expire_access, require_access
 from dvoinik.engine import simulate
 from dvoinik.experiments import CUSTOM_SCENARIO, format_timestamp, normalize_scenario
 from dvoinik.library import library_view
 from dvoinik.population import SEGMENTS, build_population
 from dvoinik.reporting import make_record, signature
 from dvoinik.scenarios import SCENARIOS
-from dvoinik.storage import KEEP_VALIDATION, ExperimentStore, StorageError
+from dvoinik.storage import KEEP_VALIDATION, StorageError
 from dvoinik.ui import comparison_view, escape, markup, methodology, persist_record, section, show_report
+from serve import storage_path
 
 ROOT = Path(__file__).parent
 TITLES = {
@@ -37,12 +40,15 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 markup(f"<style>{(ROOT / 'assets/style.css').read_text()}</style>")
+mode = os.getenv("DVOINIK_AUTH_MODE", "local")
+if mode not in {"local", "demo"}:
+    st.error("Ошибка конфигурации доступа: DVOINIK_AUTH_MODE должен быть local или demo.")
+    st.stop()
+auth, token, user = require_access(storage_path(), mode)
 st.session_state.setdefault("history", [])
 st.session_state.setdefault("pending_records", {})
 st.session_state.setdefault("pending_validation_bases", {})
-st.session_state.experiment_store = ExperimentStore(
-    os.getenv("DVOINIK_STORAGE_PATH", str(ROOT / ".data" / "experiments.sqlite3"))
-)
+st.session_state.experiment_store = auth.workspace(token)
 try:
     archived = st.session_state.experiment_store.list_records()
     archived_ids = {r["id"] for r in archived}
@@ -64,6 +70,8 @@ try:
         st.session_state.active_record = next(
             (r for r in st.session_state.history if r["id"] == active["id"]), active
         )
+except AccessExpired:
+    expire_access()
 except (StorageError, ValueError) as exc:
     st.error(f"История на диске недоступна: {exc} Новые отчёты можно скачать из текущей сессии.")
 st.session_state.setdefault(
@@ -79,10 +87,13 @@ st.session_state.setdefault(
 # Streamlit удаляет state скрытых виджетов. Черновики живут независимо от виджетов.
 for input_key, input_value in st.session_state.saved_inputs.items():
     st.session_state.setdefault(input_key, input_value)
+if user.role == "demo":
+    st.session_state.saved_inputs["mock_mode"] = True
+    st.session_state.mock_mode = True
 
 
 @st.cache_data(show_spinner=False)
-def sample_record(key):
+def sample_record(key, owner_id):
     scenario = copy.deepcopy(SCENARIOS[key])
     twins = build_population(200, scenario["population"], seed=42)
     report = simulate(twins, scenario, mock=True, seed=42)
@@ -130,6 +141,8 @@ NAV_LABELS = {
     "Сравнение": "Сравнение",
     "Методология": "Методология",
 }
+if user.role == "admin":
+    NAV_LABELS["Доступ"] = "Доступ команды"
 st.session_state.setdefault("navigation", "История" if st.session_state.history else "Эксперимент")
 
 
@@ -153,7 +166,7 @@ with st.sidebar:
         )
         sizes = sorted({50, 100, 200, 500, 1000, st.session_state.population_n})
         n = st.select_slider("Размер аудитории", sizes, key="population_n")
-        mock = st.toggle("Демо без подключения к LLM", key="mock_mode")
+        mock = st.toggle("Демо без подключения к LLM", key="mock_mode", disabled=user.role == "demo")
         if mock:
             st.caption("Эвристические ответы · без внешних запросов")
         else:
@@ -167,6 +180,7 @@ with st.sidebar:
     markup(
         '<div class="sidebar-note">Проверяйте гипотезы до запуска.<br>Синтетическая аудитория помогает подготовить живое исследование.</div>'
     )
+    account_sidebar(auth, token, user)
 
 markup(
     '<div class="topline"><span><strong>Рабочее пространство</strong> / '
@@ -177,6 +191,8 @@ markup(
 
 if nav == "Методология":
     methodology()
+elif nav == "Доступ":
+    administration(auth, token)
 elif nav == "История":
     library_view(reuse_record, navigate)
 elif nav == "Сравнение":
@@ -305,6 +321,7 @@ else:
                 twins = build_population(n, scenario["population"], seed=int(seed))
 
                 def progress(done, total):
+                    st.session_state.experiment_store.guard()
                     bar.progress(done / total, text=f"Оценено {done} из {total} предложений")
 
                 report = simulate(
@@ -321,13 +338,15 @@ else:
                 st.session_state.active_record = record
                 if persist_record(record):
                     st.success("Эксперимент завершён. Настройки и результаты сохранены в локальном архиве.")
+            except AccessExpired:
+                expire_access()
             except (ValueError, OSError) as exc:
                 st.error(f"Не удалось запустить эксперимент: {exc}")
             finally:
                 bar.empty()
     active = st.session_state.get("active_record")
     if not active or active["scenario_key"] != key:
-        active = None if key == "custom" else sample_record(key)
+        active = None if key == "custom" else sample_record(key, user.id)
         st.session_state.active_record = active
     if active is None:
         st.info(

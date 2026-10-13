@@ -98,3 +98,44 @@ def test_future_imported_time_does_not_block_explicit_new_survey(tmp_path, recor
     )
     store.save(second, expected_validation=first["validation"])
     assert store.list_records()[0]["validation"]["cells"][0]["yes"] == 1
+
+
+def test_archives_are_isolated_and_other_owner_cannot_overwrite(tmp_path, record):
+    path = tmp_path / "archive.sqlite3"
+    alice = ExperimentStore(path, owner_id="alice")
+    bob = ExperimentStore(path, owner_id="bob")
+    alice.save(record)
+    assert bob.list_records() == []
+    with pytest.raises(StorageError):
+        bob.save(record)
+    with pytest.raises(StorageError):
+        bob.get_record(record["id"])
+    assert alice.get_record(record["id"])["id"] == record["id"]
+
+
+def test_legacy_records_are_quarantined_with_backup(tmp_path, record):
+    import sqlite3
+
+    from dvoinik.reporting import export_json
+
+    path = tmp_path / "archive.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE experiments (id TEXT PRIMARY KEY, created_at REAL, payload TEXT)")
+        db.execute("INSERT INTO experiments VALUES (?, ?, ?)", (record["id"], 0, export_json(record)))
+    assert ExperimentStore(path, owner_id="first-user").list_records() == []
+    assert ExperimentStore(path).list_records()[0]["id"] == record["id"]
+    assert list(tmp_path.glob("*.pre-auth-*.sqlite3"))
+
+
+def test_revoked_session_cannot_access_bound_store(tmp_path, record):
+    from dvoinik.auth import AuthStore
+
+    auth = AuthStore(tmp_path / "archive.sqlite3")
+    user_id = auth.create_user("alice", "Алиса", "test-only-password-2026")
+    store = auth.workspace(auth.login("alice", "test-only-password-2026"))
+    store.save(record)
+    auth.set_active(user_id, False)
+    with pytest.raises(StorageError):
+        store.list_records()
+    with pytest.raises(StorageError):
+        store.save(record)

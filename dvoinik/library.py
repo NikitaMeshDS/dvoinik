@@ -7,6 +7,7 @@ from datetime import datetime
 
 import streamlit as st
 
+from .download_ui import download
 from .experiments import format_timestamp, load_experiment, quality_status
 from .reporting import export_json
 from .ui import escape, markup, persist_record, show_report
@@ -116,12 +117,13 @@ def _record_row(record, reuse_record):
             args=(record,),
             width="stretch",
         )
-        columns[2].download_button(
+        download(
             "JSON отчёта",
             export_json(record),
             f"dvoinik-{record['id']}.json",
             "application/json",
             key=f"history_export_{record['id']}",
+            target=columns[2],
             width="stretch",
         )
 
@@ -154,7 +156,7 @@ def library_view(reuse_record, navigate):
         on_click=navigate,
         args=("Эксперимент",),
     )
-    st.caption("Предложения, результаты и проверки опросом. Общий архив сохраняется между сессиями.")
+    st.caption("Предложения, результаты и проверки опросом. Ваш архив сохраняется между сессиями.")
     _summary(history)
     st.button(
         "Сравнить запуски",

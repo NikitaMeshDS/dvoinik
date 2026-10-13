@@ -2,3 +2,4 @@ streamlit==1.65.0
 openai==2.54.0
 pandas==2.3.3
 altair==6.3.0
+argon2-cffi==25.1.0

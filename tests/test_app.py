@@ -1,5 +1,6 @@
 import copy
 import io
+import re
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,12 @@ APP = Path(__file__).parents[1] / "app.py"
 @pytest.fixture(autouse=True)
 def isolated_storage(monkeypatch, tmp_path):
     monkeypatch.setenv("DVOINIK_STORAGE_PATH", str(tmp_path / "experiments.sqlite3"))
+    monkeypatch.setenv("DVOINIK_AUTH_MODE", "demo")
+    monkeypatch.setenv("DVOINIK_DOWNLOAD_ORIGIN", "http://127.0.0.1:9000")
+
+
+def download_keys(app):
+    return {key for item in app.markdown for key in re.findall(r'data-download-key="([^" ]+)"', item.value)}
 
 
 def launch(monkeypatch):
@@ -27,7 +34,7 @@ def test_startup_shows_explicit_demo_without_adding_to_history(monkeypatch):
     assert not app.exception
     assert app.session_state["active_record"]["sample"] is True
     assert app.session_state["history"] == []
-    assert len(app.get("download_button")) >= 2
+    assert len(download_keys(app)) >= 2
 
 
 def test_run_keeps_snapshot_and_warns_after_offer_is_edited(monkeypatch):
@@ -60,7 +67,7 @@ def test_all_scenarios_run_and_history_remains_accessible(monkeypatch):
     assert len(app.session_state["history"]) == 7
     app.radio(key="navigation").set_value("История").run()
     assert not app.exception
-    assert len(app.get("download_button")) >= 7
+    assert len(download_keys(app)) >= 7
 
 
 def test_empty_offer_does_not_create_experiment(monkeypatch):
@@ -194,20 +201,21 @@ def test_history_survives_new_browser_session(monkeypatch):
     assert [r["id"] for r in reopened.session_state["history"]] == [record_id]
     reopened.button(key=f"history_open_{record_id}").click().run()
     assert reopened.session_state["history_view"] == record_id
-    assert any(button.key == "json_active" for button in reopened.get("download_button"))
+    assert "json_active" in download_keys(reopened)
 
 
 def test_storage_failure_preserves_new_report_for_download(monkeypatch, tmp_path):
-    occupied = tmp_path / "occupied"
-    occupied.write_text("not a folder")
-    monkeypatch.setenv("DVOINIK_STORAGE_PATH", str(occupied / "experiments.sqlite3"))
+    def fail_save(self, record, **kwargs):
+        raise StorageError("Диск архива недоступен")
+
+    monkeypatch.setattr(ExperimentStore, "save", fail_save)
     app = launch(monkeypatch)
     app.button(key="run_experiment").click().run()
     assert not app.exception
     assert len(app.session_state["history"]) == 1
     assert not app.session_state["active_record"]["sample"]
     assert app.error
-    assert any(button.key == "json_active" for button in app.get("download_button"))
+    assert "json_active" in download_keys(app)
 
 
 def test_saved_validation_survives_new_session(monkeypatch):
@@ -243,7 +251,7 @@ def test_two_runs_can_be_compared_from_history(monkeypatch):
     assert not app.exception
     assert len(app.selectbox(key="compare_left").options) == 2
     assert app.selectbox(key="compare_left").value != app.selectbox(key="compare_right").value
-    assert any(button.key == "comparison_export" for button in app.get("download_button"))
+    assert "comparison_export" in download_keys(app)
     assert any("Seed" in frame.value.to_string() for frame in app.dataframe)
 
 
@@ -326,7 +334,7 @@ def test_library_filters_records_and_returns_from_report_to_catalog(monkeypatch)
     assert not any(b.key.startswith("history_open_") for b in app.button)
     app.selectbox(key="library_mode").select("all").run()
     app.button(key=f"history_open_{senior_id}").click().run()
-    assert any(b.key == "json_active" for b in app.get("download_button"))
+    assert "json_active" in download_keys(app)
     assert not any(b.key.startswith("history_open_") for b in app.button)
     app.button(key="library_back").click().run()
     assert app.text_input(key="library_query").value == "пенсионер"

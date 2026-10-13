@@ -36,7 +36,7 @@ Interfaces: `AuthStore(path, clock=time.time, allow_demo=False)`; `create_user(u
 
 - [ ] RED: тесты входа, одинаковой ошибки неизвестного логина/пароля, лимита из второй сессии, idle/absolute deadline, блокировки/reset/logout, изоляции двух владельцев, непередачи legacy первому пользователю.
 ```python
-token = auth.login('alice', 'a sufficiently long password')
+token = auth.login("alice", "a sufficiently long password")
 alice = auth.workspace(token)
 alice.save(record)
 assert auth.workspace(bob_token).list_records() == []
@@ -52,7 +52,7 @@ Interfaces: `AuthStore.issue_export(token,data,mime,filename) -> handle`; `consu
 
 - [ ] RED: реальные HTTP-тесты без handle, с изменённым handle, после logout/disable/timeout; однократность и гонка двух запросов; CSV/JSON content-disposition и безопасные заголовки.
 ```python
-handle = auth.issue_export(token, b'{}', 'application/json', 'report.json')
+handle = auth.issue_export(token, b"{}", "application/json", "report.json")
 assert download(handle).status == 200
 assert download(handle).status == 410
 ```
@@ -77,3 +77,13 @@ Files: README, .env.example, .streamlit/config.toml, docs/access-proposal.md, do
 - [ ] Проверить real-model mode не объявлять протестированным: тесты используют демо и изолированный транспорт.
 - [ ] Fresh independent security review, исправления с regression tests, полный suite/Ruff/diff-check.
 - [ ] Перенести проверенные коммиты в основную папку, запустить сервис, push main и проверить CI. Игнорируемые аккаунты/архивы не коммитить.
+
+## Execution evidence
+
+- Tasks 1–3 implemented together: account/session/owner checks, one-time HTTP exports, UI and administration CLI share one access boundary. Consolidated feature commit replaces the three proposed intermediate feature commits.
+- New behavior tests were observed failing before implementation. Independent review reproduced three additional defects (failed logout, consumed export cache, relative archive path); all three regression tests were observed failing, then passing after fixes.
+- Final local verification: 141 tests passed; Ruff check/format and git diff --check passed. Includes actual HTTP concurrent consumption, revoked links, owner isolation, legacy validation preservation, failed logout and unavailable access database.
+- Browser: wrong password refused; Alice created/saved an experiment and downloaded its JSON (file contents verified); Bob saw zero studies; Alice re-login restored one study. Login checked at 1440 px and 390 px, viewport reset afterward.
+- Review rulings: a one-time export URL is a bearer secret tied to a live server session, documented as such; local accounts do not imply SSO or certification. On database failure logout remains pending and another login is blocked.
+- No real LLM endpoint, bank SSO or live respondent accuracy was validated in this iteration.
+- Delivery: user already authorized pushing all project changes, so main integration and push follow that instruction without another approval menu.
