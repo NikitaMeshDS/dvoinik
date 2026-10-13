@@ -6,7 +6,7 @@ import html
 
 import streamlit as st
 
-COLORS = ["#295BDE", "#36A28F", "#9980D8", "#D28B46", "#BB6092"]
+COLORS = ["#2457D6", "#137D76", "#7D65B4", "#B27A30", "#B65C84"]
 
 
 def markup(text):

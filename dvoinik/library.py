@@ -139,12 +139,6 @@ def library_view(reuse_record, navigate):
         )
         st.title(viewed["scenario"]["title"])
         st.caption(f"{format_timestamp(viewed['created_at'])} · {viewed['model']} · {viewed['id']}")
-        st.button(
-            "Использовать как основу",
-            key=f"history_reuse_{viewed['id']}",
-            on_click=reuse_record,
-            args=(viewed,),
-        )
         show_report(viewed)
         return
     heading, action = st.columns([2.8, 1], vertical_alignment="center")

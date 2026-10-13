@@ -441,3 +441,27 @@ def test_fractional_weight_preview_matches_normalized_run_at_rounding_boundary(m
         "teen": 1,
         "nonresident": 18,
     }
+
+
+def test_report_can_seed_next_iteration_from_snapshot_after_editor_changes(monkeypatch):
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    original = copy.deepcopy(app.session_state["active_record"])
+    app.text_area(key="variant_student_card_A").set_value("Unsaved edits outside report").run()
+    app.button(key=f"report_reuse_{original['id']}").click().run()
+    assert not app.exception
+    assert app.selectbox(key="scenario_key").value == "custom"
+    assert app.text_area(key="variant_custom_A").value == original["scenario"]["variants"]["A"]
+    assert app.session_state["history"][0] == original
+    assert app.session_state["active_record"] is None
+
+
+def test_report_focus_changes_segment_view_without_mutating_snapshot(monkeypatch):
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    original = copy.deepcopy(app.session_state["active_record"])
+    app.selectbox(key=f"report_segment_{original['id']}").select("teen").run()
+    assert not app.exception
+    assert app.session_state["active_record"] == original
+    assert any("Подростки 14–17" in caption.value and "Сегмент" in caption.value for caption in app.caption)
+    assert "json_active" in download_keys(app)

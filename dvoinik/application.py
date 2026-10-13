@@ -77,10 +77,11 @@ def main():
             '<div class="sidebar-note">Проверяйте гипотезы до запуска.<br>Синтетическая аудитория помогает подготовить живое исследование.</div>'
         )
         account_sidebar(auth, token, user)
+    access_label = "Демо-пространство" if user.role == "demo" else "Личный архив"
     markup(
         '<div class="topline"><span><strong>Рабочее пространство</strong> / '
         + escape(labels[nav])
-        + '</span><span class="status-pill">Синтетическая аудитория</span></div>'
+        + f'</span><span class="status-pill">{access_label}</span></div>'
     )
     if nav == "Методология":
         methodology()

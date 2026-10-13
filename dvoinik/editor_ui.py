@@ -36,10 +36,10 @@ def sidebar_settings(*, demo=False):
     n = st.select_slider("Размер аудитории", sizes, key="population_n")
     mock = st.toggle("Демо без подключения к LLM", key="mock_mode", disabled=demo)
     if mock:
-        st.caption("Эвристические ответы · без внешних запросов")
+        st.caption("Демо включено · без внешних запросов")
     else:
         st.caption("Модель: " + os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"))
-        st.caption("Подключение задаётся LLM_BASE_URL и LLM_API_KEY в окружении сервера.")
+        st.caption("Модель и подключение настраивает администратор сервера.")
     with st.expander("Параметры запуска"):
         seed = st.number_input("Seed популяции и демо", min_value=0, max_value=999999, step=1, key="seed")
         concurrency = st.number_input(
@@ -53,8 +53,7 @@ def render_editor(key, n):
     st.title(st.session_state.get("title_custom", source["title"]) if key == "custom" else TITLES[key])
     st.caption(source["description"])
     markup(
-        '<div class="experiment-brief"><strong>Гипотеза → предложения → аудитория</strong>'
-        "<p>Подготовьте варианты, запустите симуляцию и сохраните результат для проверки опросом.</p></div>"
+        '<div class="preparation-flow"><span><b>1</b>Сформулируйте гипотезу</span><span><b>2</b>Сравните предложения</span><span><b>3</b>Задайте аудиторию</span></div>'
     )
     scenario = copy.deepcopy(source)
     defaults = {f"question_{key}": source["question"]}
@@ -99,11 +98,15 @@ def render_editor(key, n):
                         input_key = f"variant_{key}_{vid}"
                         if key == "custom" and input_key in st.session_state.saved_inputs:
                             st.session_state[input_key] = st.session_state.saved_inputs[input_key]
+                        markup(
+                            f'<div class="editor-variant variant-{vid}"><span>{vid}</span><strong>Предложение {vid}</strong></div>'
+                        )
                         scenario["variants"][vid] = st.text_area(
                             f"Вариант {vid}",
                             height=150,
                             max_chars=3000,
                             key=input_key,
+                            label_visibility="collapsed",
                             on_change=remember_offer,
                             args=(input_key,),
                         )
