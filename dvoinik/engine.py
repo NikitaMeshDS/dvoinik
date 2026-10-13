@@ -64,6 +64,7 @@ def _parse_response(content, scenario):
 async def _ask_llm(client, model, twin: Twin, scenario: dict, variant_text: str, sem):
     user = (
         f"Ты: {twin.profile()}\n\nБанк предлагает: {variant_text}\n\n"
+        f"Контекст исследования: {scenario.get('description', '')}\n"
         f"Вопрос: {scenario['question']}\n"
         f"Категории отказа: {', '.join(scenario['objections'])}"
     )
@@ -140,7 +141,7 @@ def _ask_mock(rng: random.Random, twin: Twin, scenario: dict, variant_text: str)
         if "кэшбэк" in reason and "кэшбэк" not in t:
             weight = 0.0
         weights.append(weight)
-    obj = None if decision else rng.choices(objections, weights=weights)[0]
+    obj = None if decision else rng.choices(objections, weights=weights if sum(weights) else None)[0]
     if decision:
         motives = {
             "student_msk": "Если это подходит для моих ежедневных покупок, готов попробовать.",

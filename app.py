@@ -5,12 +5,13 @@ from __future__ import annotations
 import copy
 import os
 import time
-from datetime import datetime
+import uuid
 from pathlib import Path
 
 import streamlit as st
 
 from dvoinik.engine import simulate
+from dvoinik.experiments import CUSTOM_SCENARIO, format_timestamp, load_experiment, normalize_scenario
 from dvoinik.population import SEGMENTS, build_population
 from dvoinik.reporting import export_json, make_record, signature
 from dvoinik.scenarios import SCENARIOS
@@ -18,6 +19,7 @@ from dvoinik.ui import escape, markup, methodology, section, show_report
 
 ROOT = Path(__file__).parent
 TITLES = {
+    "custom": "Собственный сценарий",
     "student_card": "Студенческая карта",
     "family_budget": "Семейный счёт",
     "credit_card": "Кредитная карта",
@@ -58,6 +60,36 @@ def sample_record(key):
     return make_record(key, scenario, 200, True, 42, report, twins, sample=True)
 
 
+def reuse_record(record):
+    """Копирование снимка в новый черновик; callback выполняется до рендера виджетов."""
+    scenario = normalize_scenario(record["scenario"])
+    values = {
+        "navigation": "Эксперимент",
+        "scenario_key": "custom",
+        "population_n": record["n"],
+        "mock_mode": record["mock"],
+        "seed": record["seed"],
+        "title_custom": scenario["title"],
+        "description_custom": scenario["description"],
+        "question_custom": scenario["question"],
+        "variant_count_custom": len(scenario["variants"]),
+        "objections_custom": "\n".join(scenario["objections"]),
+    }
+    values.update({f"variant_custom_{vid}": text for vid, text in scenario["variants"].items()})
+    values.update({f"weight_custom_{sid}": weight * 100 for sid, weight in scenario["population"].items()})
+    for sid in SEGMENTS:
+        values.setdefault(f"weight_custom_{sid}", 0.0)
+    for input_key, value in values.items():
+        st.session_state[input_key] = value
+        if input_key != "navigation":
+            st.session_state.saved_inputs[input_key] = value
+    st.session_state.active_record = None
+
+
+def remember_offer(input_key):
+    st.session_state.saved_inputs[input_key] = st.session_state[input_key]
+
+
 with st.sidebar:
     markup(
         '<div class="brand"><span class="brand-mark"></span><span class="brand-name">двойник</span></div>'
@@ -72,8 +104,11 @@ with st.sidebar:
     st.divider()
     if nav == "Эксперимент":
         st.caption("Настройки исследования")
-        key = st.selectbox("Сценарий", list(SCENARIOS), format_func=lambda k: TITLES[k], key="scenario_key")
-        n = st.select_slider("Размер аудитории", [50, 100, 200, 500, 1000], key="population_n")
+        key = st.selectbox(
+            "Сценарий", [*SCENARIOS, "custom"], format_func=lambda k: TITLES[k], key="scenario_key"
+        )
+        sizes = sorted({50, 100, 200, 500, 1000, st.session_state.population_n})
+        n = st.select_slider("Размер аудитории", sizes, key="population_n")
         mock = st.toggle("Демо без подключения к LLM", key="mock_mode")
         if mock:
             st.caption("Эвристические ответы · без внешних запросов")
@@ -99,13 +134,33 @@ if nav == "Методология":
 elif nav == "История":
     st.title("История экспериментов")
     st.caption("До 20 последних запусков в текущей сессии. Скачайте отчёт, чтобы сохранить исследование.")
+    with st.expander("Открыть сохранённый эксперимент"):
+        st.caption(
+            "Загрузите полный JSON-отчёт Двойника. Настройки и проверка опросом восстановятся вместе с результатами."
+        )
+        uploaded = st.file_uploader("JSON эксперимента", type=["json"], max_upload_size=5, key="import_file")
+        if st.button("Добавить в историю", key="import_record", disabled=uploaded is None):
+            try:
+                imported = load_experiment(uploaded.getvalue())
+                imported["import_origin_id"] = imported["id"]
+                imported["id"] = uuid.uuid4().hex[:10]
+                st.session_state.history = (st.session_state.history + [imported])[-20:]
+                st.session_state.history_view = imported["id"]
+                message = "Эксперимент открыт. Числа отчёта проверены."
+                if imported.get("validation"):
+                    message += " Метрики опроса пересчитаны по сохранённым ответам."
+                else:
+                    message += " Проверки живым опросом в этом файле нет."
+                st.success(message)
+            except ValueError as exc:
+                st.error(f"Не удалось открыть эксперимент: {exc}")
     if not st.session_state.history:
         st.info(
             "Здесь появятся запущенные эксперименты. Откройте раздел «Эксперимент» и запустите исследование."
         )
     for record in reversed(st.session_state.history):
-        stamp = datetime.fromisoformat(record["created_at"]).strftime("%d.%m.%Y %H:%M МСК")
-        with st.expander(f"{TITLES[record['scenario_key']]} · {stamp} · {record['n']} двойников"):
+        stamp = format_timestamp(record["created_at"])
+        with st.expander(f"{record['scenario']['title']} · {stamp} · {record['n']} двойников"):
             st.caption(f"{'Демо' if record['mock'] else 'LLM'} · {record['model']} · Seed {record['seed']}")
             st.download_button(
                 "Скачать полный отчёт",
@@ -116,14 +171,20 @@ elif nav == "История":
             )
             if st.button("Открыть результаты", key=f"history_open_{record['id']}"):
                 st.session_state.history_view = record["id"]
+            st.button(
+                "Использовать как основу",
+                key=f"history_reuse_{record['id']}",
+                on_click=reuse_record,
+                args=(record,),
+            )
     chosen = st.session_state.get("history_view")
     viewed = next((r for r in st.session_state.history if r["id"] == chosen), None)
     if viewed:
-        section("Сохранённый эксперимент", TITLES[viewed["scenario_key"]])
+        section("Сохранённый эксперимент", viewed["scenario"]["title"])
         show_report(viewed)
 else:
-    source = SCENARIOS[key]
-    st.title(TITLES[key])
+    source = CUSTOM_SCENARIO if key == "custom" else SCENARIOS[key]
+    st.title(st.session_state.get("title_custom", source["title"]) if key == "custom" else TITLES[key])
     st.caption(source["description"])
     markup(
         '<div class="hero"><h2>Узнайте, что откликается вашей аудитории</h2>'
@@ -144,24 +205,73 @@ else:
     defaults.update(
         {f"weight_{key}_{sid}": round(weight * 100) for sid, weight in source["population"].items()}
     )
+    if key == "custom":
+        defaults.update(
+            {
+                "title_custom": source["title"],
+                "description_custom": source["description"],
+                "variant_count_custom": 2,
+                "objections_custom": "\n".join(source["objections"]),
+            }
+        )
+        defaults.update({f"variant_custom_{vid}": "" for vid in "ABCDE"})
+        defaults.update(
+            {f"weight_custom_{sid}": float(source["population"].get(sid, 0) * 100) for sid in SEGMENTS}
+        )
     for input_key, input_value in defaults.items():
         st.session_state.setdefault(input_key, input_value)
-    with st.expander("Настроить гипотезу, предложения и аудиторию"):
+    with st.expander("Настроить гипотезу, предложения и аудиторию", expanded=key == "custom"):
         setup = st.tabs(["Предложения", "Состав аудитории"])
         with setup[0]:
+            if key == "custom":
+                scenario["title"] = st.text_input("Название эксперимента", max_chars=200, key="title_custom")
+                scenario["description"] = st.text_area(
+                    "Контекст исследования", max_chars=4000, height=80, key="description_custom"
+                )
+                count = st.number_input(
+                    "Вариантов предложения", min_value=2, max_value=5, step=1, key="variant_count_custom"
+                )
+                scenario["variants"] = {vid: "" for vid in "ABCDE"[:count]}
             scenario["question"] = st.text_input("Вопрос двойникам", key=f"question_{key}")
-            for col, (vid, text) in zip(st.columns(len(source["variants"])), source["variants"].items()):
-                with col:
-                    scenario["variants"][vid] = st.text_area(
-                        f"Вариант {vid}", height=150, max_chars=3000, key=f"variant_{key}_{vid}"
-                    )
+            variant_ids = list(scenario["variants"])
+            for start in range(0, len(variant_ids), 3):
+                for col, vid in zip(
+                    st.columns(min(3, len(variant_ids) - start)), variant_ids[start : start + 3]
+                ):
+                    with col:
+                        input_key = f"variant_{key}_{vid}"
+                        if key == "custom" and input_key in st.session_state.saved_inputs:
+                            st.session_state[input_key] = st.session_state.saved_inputs[input_key]
+                        scenario["variants"][vid] = st.text_area(
+                            f"Вариант {vid}",
+                            height=150,
+                            max_chars=3000,
+                            key=input_key,
+                            on_change=remember_offer,
+                            args=(input_key,),
+                        )
+            if key == "custom":
+                reasons = st.text_area(
+                    "Категории отказа — одна на строку", max_chars=1500, height=120, key="objections_custom"
+                )
+                scenario["objections"] = [line.strip() for line in reasons.splitlines() if line.strip()]
         with setup[1]:
             st.caption(
                 "Измените относительные доли сегментов. Сумма нормируется при запуске; нулевая доля исключает сегмент."
             )
             weights = {}
-            for sid, weight in source["population"].items():
-                weights[sid] = st.slider(SEGMENTS[sid]["name"], 0, 100, key=f"weight_{key}_{sid}")
+            for sid in SEGMENTS if key == "custom" else source["population"]:
+                if key == "custom":
+                    weights[sid] = st.number_input(
+                        SEGMENTS[sid]["name"],
+                        min_value=0.0,
+                        max_value=100.0,
+                        step=1.0,
+                        format="%.2f",
+                        key=f"weight_custom_{sid}",
+                    )
+                else:
+                    weights[sid] = st.slider(SEGMENTS[sid]["name"], 0, 100, key=f"weight_{key}_{sid}")
             scenario["population"] = {sid: value for sid, value in weights.items() if value > 0}
             total_weight = sum(weights.values())
             if total_weight:
@@ -174,11 +284,17 @@ else:
             else:
                 st.warning("Выберите хотя бы один сегмент с ненулевой долей.")
     for input_key in [*defaults, "scenario_key", "population_n", "mock_mode", "seed", "concurrency"]:
+        if (
+            key == "custom"
+            and input_key.startswith("variant_custom_")
+            and input_key[-1] not in scenario["variants"]
+        ):
+            continue
         st.session_state.saved_inputs[input_key] = st.session_state[input_key]
     left, right = st.columns([2.5, 1], vertical_alignment="center")
     with left:
         st.caption(
-            f"{n} двойников · {len(scenario['variants'])} варианта · {n * len(scenario['variants'])} ответов"
+            f"{n} двойников · {len(scenario['variants'])} {'варианта' if len(scenario['variants']) < 5 else 'вариантов'} · {n * len(scenario['variants'])} ответов"
         )
     run = right.button("Запустить эксперимент", type="primary", key="run_experiment", width="stretch")
     if run:
@@ -192,6 +308,7 @@ else:
             bar = st.progress(0, text="Готовим цифровых двойников…")
             started = time.perf_counter()
             try:
+                scenario = normalize_scenario(scenario)
                 twins = build_population(n, scenario["population"], seed=int(seed))
 
                 def progress(done, total):
@@ -217,8 +334,14 @@ else:
                 bar.empty()
     active = st.session_state.get("active_record")
     if not active or active["scenario_key"] != key:
-        active = sample_record(key)
+        active = None if key == "custom" else sample_record(key)
         st.session_state.active_record = active
+    if active is None:
+        st.info(
+            "Заполните предложения, выберите аудиторию и запустите свой первый эксперимент. Результаты появятся здесь."
+        )
+        st.session_state.results_stale = False
+        st.stop()
     config_model = (
         None
         if mock
@@ -226,7 +349,11 @@ else:
         + "|"
         + os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
     )
-    stale = active["signature"] != signature(scenario, n, mock, int(seed), config_model)
+    try:
+        current_scenario = normalize_scenario(scenario)
+    except ValueError:
+        current_scenario = scenario
+    stale = active["signature"] != signature(current_scenario, n, mock, int(seed), config_model)
     st.session_state.results_stale = stale
     if active["sample"]:
         st.info(
@@ -236,7 +363,7 @@ else:
         st.warning(
             "Настройки изменились. Ниже сохранён результат предыдущего запуска; запустите эксперимент заново, чтобы проверить новое предложение."
         )
-    stamp = datetime.fromisoformat(active["created_at"]).strftime("%d.%m.%Y %H:%M МСК")
+    stamp = format_timestamp(active["created_at"])
     section(
         "Результаты эксперимента",
         ("Демонстрационный пример" if active["sample"] else stamp) + " · " + active["model"],

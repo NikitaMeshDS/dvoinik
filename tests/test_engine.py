@@ -98,3 +98,13 @@ def test_mock_does_not_reject_cashback_categories_when_no_cashback_is_offered():
     rng = random.Random(9)
     answers = [_ask_mock(rng, twin, scenario, scenario["variants"]["C"]) for _ in range(200)]
     assert all(a["objection"] != "кэшбэк не на мои траты" for a in answers)
+
+
+def test_custom_demo_with_one_objection_does_not_crash():
+    scenario = {
+        "question": "Подключите?",
+        "variants": {"A": "Всегда бесплатно", "B": "Без комиссии"},
+        "objections": ["плата"],
+    }
+    report = simulate(build_population(50, {"student_reg": 1}), scenario, mock=True)
+    assert report["A"]["n"] == report["B"]["n"] == 50

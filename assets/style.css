@@ -85,3 +85,10 @@ button:focus-visible, a:focus-visible { outline:3px solid #83a9ff!important; out
 .section-line h2 span { font-size:inherit; color:inherit; }
 [data-testid="stSidebar"] [data-testid="stExpander"] { background:#223450; border-color:#40516e; }
 [data-testid="stSidebar"] [data-testid="stNumberInput"] button { color:#18243e; }
+.quality-panel { border-left:3px solid #93aacb; border-radius:4px; background:#edf1f7; padding:12px 17px; margin:8px 0 20px; }
+.quality-panel strong { font-size:13px; color:#405575; }
+.quality-panel p { font-size:12px; color:#60708a; line-height:1.6; margin:4px 0 0; max-width:95ch; }
+.quality-panel.validated { background:#edf4ff; border-color:#497ada; }
+.quality-panel.partial_validation,.quality-panel.incomplete,.quality-panel.unvalidated { background:#fff5e9; border-color:#ca965c; }
+.quality-panel.partial_validation strong,.quality-panel.incomplete strong,.quality-panel.unvalidated strong { color:#885b29; }
+[data-testid="stButton"] button[kind="primary"] p { white-space:normal!important; text-overflow:clip!important; }

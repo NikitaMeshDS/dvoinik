@@ -7,10 +7,11 @@ import time
 from pathlib import Path
 
 from dvoinik.engine import simulate
+from dvoinik.experiments import attach_validation
 from dvoinik.population import build_population
 from dvoinik.reporting import export_json, make_record
 from dvoinik.scenarios import SCENARIOS
-from dvoinik.validate import compare, load_survey
+from dvoinik.validate import load_survey
 
 
 def main():
@@ -23,6 +24,10 @@ def main():
     parser.add_argument("--survey", help="CSV живого опроса: segment,variant,decision")
     parser.add_argument("--output", type=Path, help="сохранить настройки, отчёт и валидацию в JSON")
     args = parser.parse_args()
+    if not 1 <= args.n <= 10000:
+        parser.error("Размер аудитории должен быть от 1 до 10000.")
+    if not 0 <= args.seed <= 999999:
+        parser.error("Seed должен быть от 0 до 999999.")
     scenario = SCENARIOS[args.scenario]
     started = time.perf_counter()
     try:
@@ -39,7 +44,7 @@ def main():
             time.perf_counter() - started,
         )
         if args.survey:
-            record["validation"] = compare(report, load_survey(args.survey))
+            record = attach_validation(record, load_survey(args.survey))
         if args.output:
             args.output.write_text(export_json(record), encoding="utf-8")
     except (ValueError, OSError) as exc:

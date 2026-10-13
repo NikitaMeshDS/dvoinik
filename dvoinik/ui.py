@@ -9,11 +9,12 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from .experiments import attach_validation, format_timestamp, quality_status
 from .population import SEGMENTS
 from .reporting import export_csv, export_json, summarize
-from .validate import compare, load_survey
+from .validate import load_survey
 
-COLORS = ["#295BDE", "#36A28F", "#9980D8"]
+COLORS = ["#295BDE", "#36A28F", "#9980D8", "#D28B46", "#BB6092"]
 
 
 def markup(text):
@@ -29,12 +30,15 @@ def section(title, note=""):
 
 
 def offers(scenario):
-    for col, (vid, text) in zip(st.columns(len(scenario["variants"])), scenario["variants"].items()):
-        with col:
-            markup(
-                f'<div class="offer"><div class="offer-head"><span class="variant-letter">{escape(vid)}</span>'
-                f"Вариант {escape(vid)}</div><p>{escape(text)}</p></div>"
-            )
+    variants = list(scenario["variants"].items())
+    for start in range(0, len(variants), 3):
+        row = variants[start : start + 3]
+        for col, (vid, text) in zip(st.columns(len(row)), row):
+            with col:
+                markup(
+                    f'<div class="offer"><div class="offer-head"><span class="variant-letter">{escape(vid)}</span>'
+                    f"Вариант {escape(vid)}</div><p>{escape(text)}</p></div>"
+                )
 
 
 def export_buttons(record, prefix="active"):
@@ -133,7 +137,9 @@ def conversion_chart(rep):
     )
     bars = base.mark_bar(size=30, cornerRadiusEnd=5).encode(
         x=alt.X("Конверсия:Q", scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format="%"), title=None),
-        color=alt.Color("Вариант:N", scale=alt.Scale(range=COLORS), legend=None),
+        color=alt.Color(
+            "Вариант:N", scale=alt.Scale(domain=[f"Вариант {v}" for v in "ABCDE"], range=COLORS), legend=None
+        ),
         tooltip=[
             "Вариант:N",
             alt.Tooltip("Конверсия:Q", format=".1%"),
@@ -148,7 +154,7 @@ def conversion_chart(rep):
     )
     chart = (
         (bars + rules + text)
-        .properties(height=180)
+        .properties(height=max(180, len(rep) * 60))
         .configure_view(stroke=None)
         .configure_axis(gridColor="#edf0f5", domain=False, tickColor="#e2e7f0", labelColor="#69758b")
     )
@@ -208,7 +214,11 @@ def results_view(record, summary):
                 y=alt.Y("Сегмент:N", title=None, sort=None, axis=alt.Axis(labelLimit=280)),
                 x=alt.X("Конверсия:Q", title=None, scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format="%")),
                 yOffset="Вариант:N",
-                color=alt.Color("Вариант:N", scale=alt.Scale(range=COLORS), legend=alt.Legend(orient="top")),
+                color=alt.Color(
+                    "Вариант:N",
+                    scale=alt.Scale(domain=list("ABCDE"), range=COLORS),
+                    legend=alt.Legend(orient="top"),
+                ),
                 tooltip=["Сегмент:N", "Вариант:N", alt.Tooltip("Конверсия:Q", format=".1%"), "Ответов:Q"],
             )
             .properties(height=max(180, len(scenario["population"]) * 90))
@@ -247,9 +257,14 @@ def audience_view(record):
         "Доли заданы для этого эксперимента. Атрибуты сегментов — экспертные предположения; подтверждённой калибровки на данных банка пока нет."
     )
     counts = record["population_counts"]
-    for col, (sid, count) in zip(st.columns(len(counts)), counts.items()):
-        with col:
-            st.metric(SEGMENTS[sid]["name"], count, f"{count / record['n']:.0%} аудитории", delta_color="off")
+    segments = list(counts.items())
+    for start in range(0, len(segments), 3):
+        row = segments[start : start + 3]
+        for col, (sid, count) in zip(st.columns(len(row)), row):
+            with col:
+                st.metric(
+                    SEGMENTS[sid]["name"], count, f"{count / record['n']:.0%} аудитории", delta_color="off"
+                )
     st.subheader("Примеры профилей")
     for twin in record["population_sample"]:
         with st.container(border=True):
@@ -314,16 +329,39 @@ def validation_view(record):
     uploaded = st.file_uploader(
         "CSV живого опроса", type=["csv"], max_upload_size=5, key=f"survey_{record['id']}"
     )
-    if uploaded is None:
+    saved = record.get("validation")
+    result = saved["result"] if saved else None
+    if saved:
+        st.caption(
+            f"Сохранённая проверка: {format_timestamp(saved['created_at'])}. Опрос предоставлен пользователем."
+        )
+    if uploaded is not None:
+        try:
+            survey = load_survey(io.StringIO(uploaded.getvalue().decode("utf-8-sig")))
+            preview = attach_validation(record, survey)
+            result = preview["validation"]["result"]
+        except (ValueError, UnicodeError) as exc:
+            st.error(f"Не удалось сравнить опрос: {exc}")
+        else:
+            st.caption(
+                "Предпросмотр нового опроса. Сохраните проверку, чтобы включить её в историю и полный отчёт."
+            )
+            if st.button(
+                "Сохранить проверку в эксперименте", type="primary", key=f"save_validation_{record['id']}"
+            ):
+                if (st.session_state.get("active_record") or {}).get("id") == record["id"]:
+                    st.session_state.active_record = preview
+                history = [
+                    preview if r["id"] == record["id"] else r for r in st.session_state.get("history", [])
+                ]
+                if not any(r["id"] == record["id"] for r in history):
+                    history.append(preview)
+                st.session_state.history = history[-20:]
+                st.rerun()
+    if result is None:
         st.info(
             "Валидация ещё не проведена. Добавьте ответы живых респондентов, чтобы измерить ошибку симуляции."
         )
-        return
-    try:
-        survey = load_survey(io.StringIO(uploaded.getvalue().decode("utf-8-sig")))
-        result = compare(record["report"], survey)
-    except (ValueError, UnicodeError) as exc:
-        st.error(f"Не удалось сравнить опрос: {exc}")
         return
     cols = st.columns(3)
     cols[0].metric("Средняя абсолютная ошибка", f"{result['mae_conversion'] * 100:.1f} п.п.")
@@ -361,6 +399,10 @@ def validation_view(record):
 
 
 def show_report(record):
+    status = quality_status(record)
+    markup(
+        f'<div class="quality-panel {escape(status["kind"])}"><strong>{escape(status["title"])}</strong><p>{escape(status["detail"])}</p></div>'
+    )
     summary = overview(record)
     tabs = st.tabs(
         ["Обзор результатов", "Аудитория", "Голоса двойников", "Валидация"], key=f"report_tabs_{record['id']}"
@@ -401,7 +443,7 @@ def methodology():
         ),
         (
             "История и воспроизводимость",
-            "История содержит до 20 последних запусков в текущей сессии браузера. Она исчезает при потере сессии или перезапуске сервера. Скачайте JSON, чтобы сохранить настройки, ответы и результаты; CSV содержит агрегаты по сегментам.",
+            "История содержит до 20 последних запусков в текущей сессии браузера. Она исчезает при потере сессии или перезапуске сервера. Скачайте JSON, чтобы сохранить настройки, результаты и проверку опросом. В истории можно открыть этот файл снова или использовать эксперимент как основу; CSV содержит агрегаты по сегментам.",
         ),
         (
             "Что ещё нужно для банковского пилота",

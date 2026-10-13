@@ -9,8 +9,11 @@ from dvoinik.population import build_population
 
 
 def test_openai_compatible_protocol_and_client_lifecycle(monkeypatch):
+    messages = []
+
     def respond(request):
         payload = json.loads(request.content)
+        messages.append(payload["messages"][1]["content"])
         accept = "accept-offer" in payload["messages"][1]["content"]
         answer = {
             "decision": accept,
@@ -49,6 +52,7 @@ def test_openai_compatible_protocol_and_client_lifecycle(monkeypatch):
 
     monkeypatch.setattr(engine, "_client", client_factory)
     scenario = {
+        "description": "Контекст: клиент изучает новую банковскую подписку",
         "question": "Подключите?",
         "variants": {"A": "accept-offer", "B": "decline-offer"},
         "objections": ["плата"],
@@ -58,6 +62,7 @@ def test_openai_compatible_protocol_and_client_lifecycle(monkeypatch):
     assert report["B"]["conversion"] == 0
     assert report["B"]["objections"] == {"плата": 4}
     assert clients[0].is_closed()
+    assert all(scenario["description"] in message for message in messages)
     # Повторный запуск не переиспользует закрытый клиент или event loop.
     assert engine.simulate(build_population(4, {"senior": 1}), scenario)["A"]["n"] == 4
 
