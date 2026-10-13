@@ -90,6 +90,7 @@ class Validation(Survey):
 class Export(Body):
     format: StrictStr = "json"
     kind: StrictStr = "record"
+    preview_id: StrictStr | None = None
 
 
 class RecordExport(Export):
@@ -283,17 +284,32 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
             raise ValueError(f"{label}: максимальный размер — 5 МБ.")
         return value.lstrip("\ufeff")
 
-    def survey_preview(token, record_id, content):
+    def checked_validation(token, record_id, content):
         record = accessible(token, record_id)
         preview = attach_validation(record, load_survey(io.StringIO(checked_text(content, "CSV"))))
         auth.resolve(token)
+        return {"record": preview, "base_validation": copy.deepcopy(record.get("validation"))}
+
+    def survey_preview(token, record_id, content):
+        result = checked_validation(token, record_id, content)
+        preview_id = uuid.uuid4().hex
         with snapshots.lock:
             previews = snapshots.state(token)["previews"]
-            previews[record_id] = preview
-            previews.move_to_end(record_id)
+            previews[preview_id] = copy.deepcopy(result["record"])
             while len(previews) > 128:
                 previews.popitem(last=False)
-        return {"record": preview, "base_validation": copy.deepcopy(record.get("validation"))}
+        return {"preview_id": preview_id, **result}
+
+    def cached_preview(token, record_id, preview_id):
+        if preview_id is None:
+            raise ValueError("Укажите идентификатор предпросмотра опроса.")
+        with snapshots.lock:
+            preview = snapshots.state(token)["previews"].get(preview_id)
+            if preview is None:
+                raise ValueError("Предпросмотр недоступен или устарел. Подготовьте его заново.")
+            if preview["id"] != record_id:
+                raise ValueError("Предпросмотр относится к другому исследованию.")
+            return copy.deepcopy(preview)
 
     def issue(token, record, options):
         if options.format not in {"json", "csv"} or options.kind not in {
@@ -308,11 +324,7 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
         if options.kind == "preview":
             if options.format != "json":
                 raise ValueError("Предпросмотр проверки доступен в JSON.")
-            with snapshots.lock:
-                preview = snapshots.state(token)["previews"].get(record["id"])
-                if preview is None:
-                    raise ValueError("Сначала подготовьте предпросмотр опроса.")
-                data = export_json(preview)
+            data = export_json(cached_preview(token, record["id"], options.preview_id))
         elif options.kind == "record":
             data = export_json(record) if options.format == "json" else export_csv(record)
         elif options.kind == "survey-template":
@@ -326,9 +338,12 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
                     writer.writerow([sid, vid, 0])
             data = stream.getvalue()
         else:
-            with snapshots.lock:
-                preview = snapshots.state(token)["previews"].get(record["id"])
-                validation = (preview or record).get("validation")
+            validation_record = (
+                cached_preview(token, record["id"], options.preview_id)
+                if options.preview_id is not None
+                else record
+            )
+            validation = validation_record.get("validation")
             if validation is None:
                 raise ValueError("Сначала загрузите опрос.")
             result = validation["result"]
@@ -443,6 +458,10 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
     def job(job_id: str, access=Depends(identity)):
         return jobs.get(access[0], job_id)
 
+    @app.get("/api/recovery")
+    def recovery(access=Depends(identity)):
+        return {"jobs": jobs.recovery(access[0])}
+
     @app.post("/api/runs/{job_id}/retry")
     def retry(job_id: str, access=Depends(identity)):
         return jobs.retry(access[0], job_id)
@@ -463,10 +482,10 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
 
     @app.put("/api/experiments/{record_id}/validation")
     def save_validation(record_id: str, body: Validation, access=Depends(identity)):
-        preview = survey_preview(access[0], record_id, body.csv)["record"]
+        preview = checked_validation(access[0], record_id, body.csv)["record"]
         record = auth.workspace(access[0]).save(preview, expected_validation=body.base_validation)
+        jobs.reconcile_saved(access[0], record)
         with snapshots.lock:
-            snapshots.state(access[0])["previews"].pop(record_id, None)
             samples = snapshots.state(access[0])["samples"]
             for key, sample in samples.items():
                 if sample["id"] == record_id:

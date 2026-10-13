@@ -186,7 +186,13 @@ def test_validation_cas_conflict_preserves_exportable_preview(app):
     )
     assert conflict.status_code == 409
     link = second.post(
-        "/api/export", json={"record_id": record["id"], "kind": "validation", "format": "json"}
+        "/api/export",
+        json={
+            "record_id": record["id"],
+            "kind": "validation",
+            "format": "json",
+            "preview_id": other["preview_id"],
+        },
     ).json()["url"]
     assert second.get(link).json()["cells"][0]["actual"] == 0
     assert client.get(f"/api/experiments/{record['id']}").json()["validation"]["cells"][0]["yes"] == 1
@@ -432,10 +438,16 @@ def test_conflict_preview_download_contains_full_server_snapshot(app):
     client, second = login(app), login(app)
     record = run(client)["record"]
     endpoint = f"/api/experiments/{record['id']}/validation"
-    assert second.post(endpoint + "/preview", json={"csv": csv_for(record, 0)}).status_code == 200
+    preview = second.post(endpoint + "/preview", json={"csv": csv_for(record, 0)})
+    assert preview.status_code == 200
     assert client.put(endpoint, json={"csv": csv_for(record, 1), "base_validation": None}).status_code == 200
     assert second.put(endpoint, json={"csv": csv_for(record, 0), "base_validation": None}).status_code == 409
-    body = {"record_id": record["id"], "format": "json", "kind": "preview"}
+    body = {
+        "record_id": record["id"],
+        "format": "json",
+        "kind": "preview",
+        "preview_id": preview.json()["preview_id"],
+    }
     exported = second.post("/api/export", json=body)
     assert exported.status_code == 200, exported.text
     snapshot = second.get(exported.json()["url"]).json()
@@ -550,3 +562,198 @@ def test_old_tab_read_is_rejected_after_browser_cookie_switches_account(app):
     response = old_tab.get("/api/experiments")
     assert response.status_code == 401
     assert "records" not in response.json()
+
+
+def test_recovery_discovery_survives_refresh_and_is_cookie_scoped(app, monkeypatch):
+    original = ExperimentStore.save
+    monkeypatch.setattr(
+        ExperimentStore, "save", lambda *a, **k: (_ for _ in ()).throw(StorageError("offline"))
+    )
+    client, other = login(app), login(app, "bob")
+    result = completed(client, start(client).json()["id"])
+    refreshed = TestClient(app, base_url="http://127.0.0.1")
+    refreshed.cookies.update(client.cookies)
+    refreshed.headers.update(client.headers)
+    response = refreshed.get("/api/recovery")
+    assert response.status_code == 200, response.text
+    assert response.json() == {"jobs": [result]}
+    assert TestClient(app, base_url="http://127.0.0.1").get("/api/recovery").status_code == 401
+    assert client.get(f"/api/experiments/{result['record']['id']}").json() == result["record"]
+    assert other.get("/api/recovery").json() == {"jobs": []}
+    assert login(app).get("/api/recovery").json() == {"jobs": []}
+    monkeypatch.setattr(ExperimentStore, "save", original)
+    assert refreshed.post(f"/api/runs/{result['id']}/retry").json()["saved"]
+    assert refreshed.get("/api/recovery").json() == {"jobs": []}
+
+
+def test_preview_ids_keep_same_cookie_tabs_independent_and_survive_saves(app):
+    client = login(app)
+    second_tab = TestClient(app, base_url="http://127.0.0.1")
+    second_tab.cookies.update(client.cookies)
+    second_tab.headers.update(client.headers)
+    record = run(client)["record"]
+    endpoint = f"/api/experiments/{record['id']}/validation"
+    first = client.post(endpoint + "/preview", json={"csv": csv_for(record, 0)}).json()
+    second = second_tab.post(endpoint + "/preview", json={"csv": csv_for(record, 1)}).json()
+    assert "preview_id" in first and "preview_id" in second
+    assert first["preview_id"] != second["preview_id"]
+    assert (
+        second_tab.put(endpoint, json={"csv": csv_for(record, 1), "base_validation": None}).status_code == 200
+    )
+    assert client.put(endpoint, json={"csv": csv_for(record, 0), "base_validation": None}).status_code == 409
+    for preview, yes in [(first, 0), (second, 1)]:
+        body = {
+            "record_id": record["id"],
+            "kind": "preview",
+            "format": "json",
+            "preview_id": preview["preview_id"],
+        }
+        exported = client.post("/api/export", json=body)
+        assert exported.status_code == 200, exported.text
+        assert client.get(exported.json()["url"]).json()["validation"]["cells"][0]["yes"] == yes
+    exported = client.post(
+        "/api/export", json={"record_id": record["id"], "kind": "validation", "format": "json"}
+    )
+    assert client.get(exported.json()["url"]).json()["cells"][0]["actual"] == 1
+    exported = client.post(
+        "/api/export",
+        json={
+            "record_id": record["id"],
+            "kind": "validation",
+            "format": "json",
+            "preview_id": first["preview_id"],
+        },
+    )
+    assert client.get(exported.json()["url"]).json()["cells"][0]["actual"] == 0
+    foreign_record = run(client)["record"]
+    for kind in ["preview", "validation"]:
+        assert (
+            client.post(
+                "/api/export",
+                json={
+                    "record_id": foreign_record["id"],
+                    "kind": kind,
+                    "format": "json",
+                    "preview_id": first["preview_id"],
+                },
+            ).status_code
+            == 422
+        )
+    assert (
+        client.post(
+            "/api/export", json={"record_id": record["id"], "kind": "preview", "format": "json"}
+        ).status_code
+        == 422
+    )
+    assert (
+        login(app)
+        .post(
+            "/api/export",
+            json={
+                "record_id": record["id"],
+                "kind": "preview",
+                "format": "json",
+                "preview_id": first["preview_id"],
+            },
+        )
+        .status_code
+        == 422
+    )
+
+
+def test_preview_capacity_reports_expired_identifier_instead_of_latest(app):
+    client = login(app)
+    record = run(client)["record"]
+    endpoint = f"/api/experiments/{record['id']}/validation/preview"
+    first = client.post(endpoint, json={"csv": csv_for(record, 0)}).json()
+    assert "preview_id" in first
+    for _ in range(128):
+        latest = client.post(endpoint, json={"csv": csv_for(record, 1)}).json()
+    body = {"record_id": record["id"], "kind": "preview", "format": "json", "preview_id": first["preview_id"]}
+    expired = client.post("/api/export", json=body)
+    assert expired.status_code == 422 and "detail" in expired.json()
+    body["preview_id"] = latest["preview_id"]
+    assert client.post("/api/export", json=body).status_code == 200
+
+
+def test_validation_save_reconciles_original_session_pending_job(app, monkeypatch):
+    client = login(app)
+    original = ExperimentStore.save
+    monkeypatch.setattr(
+        ExperimentStore, "save", lambda *a, **k: (_ for _ in ()).throw(StorageError("offline"))
+    )
+    result = completed(client, start(client).json()["id"])
+    record = result["record"]
+    monkeypatch.setattr(ExperimentStore, "save", original)
+    response = client.put(
+        f"/api/experiments/{record['id']}/validation",
+        json={"csv": csv_for(record, 1), "base_validation": None},
+    )
+    assert response.status_code == 200, response.text
+    assert client.get(f"/api/experiments/{record['id']}").json() == response.json()
+    job = client.get(f"/api/runs/{result['id']}").json()
+    assert job["saved"] and job["error"] is None and job["record"] == response.json()
+    assert client.get("/api/recovery").json() == {"jobs": []}
+
+
+def test_close_cancels_queued_job_and_interrupts_running_guard(app, monkeypatch):
+    import dvoinik.jobs as module
+    from dvoinik.jobs import JobBusy, Jobs
+    from dvoinik.runs import RunSettings
+
+    original = module.run_experiment
+    entered, release = threading.Event(), threading.Event()
+    calls = []
+
+    def blocked(*args, **kwargs):
+        calls.append(args[0])
+        entered.set()
+        assert release.wait(3)
+        kwargs["progress"](1, 20)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(module, "run_experiment", blocked)
+    alice, bob = login(app), login(app, "bob")
+    jobs = Jobs(app.state.auth, workers=1, queue_size=1)
+    alice_token, bob_token = alice.cookies["dvoinik_session"], bob.cookies["dvoinik_session"]
+    first = jobs.submit(alice_token, KEY, SCENARIOS[KEY], RunSettings(n=10))
+    assert entered.wait(2)
+    second = jobs.submit(bob_token, KEY, SCENARIOS[KEY], RunSettings(n=10))
+    stopped = threading.Event()
+    closer = threading.Thread(target=lambda: (jobs.close(), stopped.set()))
+    closer.start()
+    try:
+        for _ in range(100):
+            if jobs.closed:
+                break
+            time.sleep(0.01)
+        assert jobs.closed
+        for _ in range(100):
+            if jobs.get(bob_token, second["id"])["status"] == "failed":
+                break
+            time.sleep(0.01)
+        assert jobs.get(bob_token, second["id"])["status"] == "failed"
+        assert jobs.active_count == 1 and not stopped.is_set()
+    finally:
+        release.set()
+        closer.join(3)
+    assert stopped.is_set() and len(calls) == 1
+    assert jobs.get(alice_token, first["id"])["status"] == "failed"
+    queued = jobs.get(bob_token, second["id"])
+    assert queued["status"] == "failed" and queued["record"] is None
+    assert jobs.get(alice_token, first["id"])["done"] == 0
+    assert jobs.active_count == 0
+    assert (
+        len(
+            ExperimentStore(
+                app.state.auth.path, owner_id=app.state.auth.resolve(alice_token).id
+            ).list_records()
+        )
+        == 0
+    )
+    assert jobs.capacity.acquire(blocking=False) and jobs.capacity.acquire(blocking=False)
+    assert not jobs.capacity.acquire(blocking=False)
+    jobs.capacity.release()
+    jobs.capacity.release()
+    with pytest.raises(JobBusy):
+        jobs.submit(alice_token, KEY, SCENARIOS[KEY], RunSettings(n=10))

@@ -24,6 +24,10 @@ class JobMissing(LookupError):
     pass
 
 
+class JobInterrupted(RuntimeError):
+    pass
+
+
 @dataclass
 class Job:
     id: str
@@ -35,6 +39,7 @@ class Job:
     record: dict | None = None
     error: str | None = None
     saved: bool = False
+    released: bool = field(default=False, repr=False)
 
     def public(self):
         return copy.deepcopy(
@@ -80,7 +85,8 @@ class Jobs:
             self.jobs[job.id] = job
             self.owners.add(user.id)
             try:
-                self.pool.submit(self._execute, job, key, copy.deepcopy(scenario), settings)
+                future = self.pool.submit(self._execute, job, key, copy.deepcopy(scenario), settings)
+                future.add_done_callback(lambda done: self._cancelled(job) if done.cancelled() else None)
             except RuntimeError:
                 self.jobs.pop(job.id)
                 self.owners.remove(user.id)
@@ -91,31 +97,44 @@ class Jobs:
     def _execute(self, job, key, scenario, settings):
         try:
             store = self.auth.workspace(job.token)
-            store.guard()
+            access_guard = store.guard
+
+            def guard():
+                with self.lock:
+                    if self.closed:
+                        raise JobInterrupted("Сервис остановлен. Исследование прервано.")
+                    access_guard()
+
+            store.guard = guard
             with self.lock:
+                guard()
                 job.status = "running"
 
             def progress(done, total):
-                store.guard()
                 with self.lock:
+                    guard()
                     job.done, job.total = done, total
 
             record = run_experiment(key, scenario, settings, progress=progress, guard=store.guard)
             # A finished engine still cannot supply unchecked, exportable data.
             record = load_experiment(export_json(record))
-            store.guard()
             error, saved = None, False
-            try:
-                record = store.save(record)
-                saved = True
-            except AccessExpired:
-                raise
-            except (StorageError, ValueError) as exc:
-                error = str(exc)
-            store.guard()
             with self.lock:
+                guard()
+                try:
+                    record = store.save(record)
+                    saved = True
+                except AccessExpired:
+                    raise
+                except (StorageError, ValueError) as exc:
+                    error = str(exc)
+                guard()
                 job.record, job.error, job.saved = record, error, saved
                 job.status = "completed"
+        except JobInterrupted as exc:
+            with self.lock:
+                job.record, job.saved = None, False
+                job.status, job.error = "failed", str(exc)
         except (AccessExpired, AuthError):
             with self.lock:
                 job.record, job.saved = None, False
@@ -128,18 +147,29 @@ class Jobs:
                     "Не удалось завершить исследование. Проверьте настройки модели.",
                 )
         finally:
-            with self.lock:
-                self.owners.discard(job.owner)
-                self.capacity.release()
-                recovery_ids = {item.id for item in self._recovery()}
-                disposable = [
-                    jid
-                    for jid, item in self.jobs.items()
-                    if item.status not in {"queued", "running"} and jid not in recovery_ids
-                ]
-                keep = max(0, self.retained - len(recovery_ids))
-                for jid in disposable[:-keep] if keep else disposable:
-                    self.jobs.pop(jid, None)
+            self._finish(job)
+
+    def _cancelled(self, job):
+        with self.lock:
+            job.status, job.error = "failed", "Сервис остановлен. Исследование прервано."
+            self._finish(job)
+
+    def _finish(self, job):
+        with self.lock:
+            if job.released:
+                return
+            job.released = True
+            self.owners.discard(job.owner)
+            self.capacity.release()
+            recovery_ids = {item.id for item in self._recovery()}
+            disposable = [
+                jid
+                for jid, item in self.jobs.items()
+                if item.status not in {"queued", "running"} and jid not in recovery_ids
+            ]
+            keep = max(0, self.retained - len(recovery_ids))
+            for jid in disposable[:-keep] if keep else disposable:
+                self.jobs.pop(jid, None)
 
     def _recovery(self):
         return [
@@ -160,6 +190,23 @@ class Jobs:
             job = self._get(token, job_id)
             return job.public()
 
+    def recovery(self, token):
+        self.auth.resolve(token)
+        with self.lock:
+            return [job.public() for job in self._recovery() if job.token == token]
+
+    def reconcile_saved(self, token, record):
+        self.auth.resolve(token)
+        with self.lock:
+            for job in self.jobs.values():
+                if (
+                    job.token == token
+                    and job.status == "completed"
+                    and job.record
+                    and job.record["id"] == record["id"]
+                ):
+                    job.record, job.error, job.saved = copy.deepcopy(record), None, True
+
     def record(self, token, record_id, *, pending_only=False):
         self.auth.resolve(token)
         with self.lock:
@@ -176,6 +223,8 @@ class Jobs:
 
     def retry(self, token, job_id):
         with self.lock:
+            if self.closed:
+                raise JobBusy("Сервис завершает работу. Повторите позже.")
             job = self._get(token, job_id)
             if job.status != "completed" or not job.record:
                 raise JobBusy("Результат исследования ещё не готов.")
@@ -195,4 +244,4 @@ class Jobs:
     def close(self):
         with self.lock:
             self.closed = True
-        self.pool.shutdown(wait=True, cancel_futures=False)
+        self.pool.shutdown(wait=True, cancel_futures=True)
