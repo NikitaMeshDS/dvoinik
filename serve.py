@@ -1,7 +1,8 @@
-"""Запуск интерфейса и закрытой выдачи отчётов: python serve.py."""
+"""Локальный React/FastAPI сервис; --ui streamlit запускает прежний интерфейс."""
 
 from __future__ import annotations
 
+import argparse
 import os
 import subprocess
 import sys
@@ -12,7 +13,7 @@ from dvoinik.downloads import create_download_server
 from dvoinik.settings import ROOT, auth_mode, storage_path
 
 
-def main():
+def legacy_main():
     path = storage_path()
     mode = auth_mode()
     auth = AuthStore(path, allow_demo=mode == "demo")
@@ -55,6 +56,29 @@ def main():
         server.shutdown()
         server.server_close()
         worker.join(timeout=2)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--ui", choices=["react", "streamlit"], default="react")
+    args = parser.parse_args(argv)
+    if args.ui == "streamlit":
+        return legacy_main()
+    static = ROOT / "frontend" / "dist"
+    if not (static / "index.html").is_file():
+        print(
+            "Интерфейс ещё не собран. Выполните npm ci --prefix frontend и npm run build --prefix frontend.",
+            file=sys.stderr,
+        )
+        return 1
+    import uvicorn
+
+    from dvoinik.api import create_app
+
+    port = int(os.getenv("DVOINIK_PORT", "8501"))
+    print(f"Двойник: http://127.0.0.1:{port}/", flush=True)
+    uvicorn.run(create_app(static_dir=static), host="127.0.0.1", port=port, access_log=False)
+    return 0
 
 
 if __name__ == "__main__":

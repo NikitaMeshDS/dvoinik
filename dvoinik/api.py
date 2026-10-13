@@ -148,6 +148,13 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.auth, app.state.jobs = auth, jobs
 
+    def access_failure(exc):
+        status = 503 if str(exc).startswith("Хранилище доступа недоступно") else 401
+        payload = {"detail": str(exc)}
+        if status == 503:
+            payload["code"] = "access_unavailable"
+        return JSONResponse(payload, status_code=status)
+
     @app.middleware("http")
     async def origin_boundary(request, call_next):
         parsed = urlsplit(str(request.url))
@@ -165,11 +172,16 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
             try:
                 auth.resolve(token)
             except AuthError as exc:
-                status = 503 if str(exc).startswith("Хранилище доступа недоступно") else 401
-                response = JSONResponse({"detail": str(exc)}, status_code=status)
+                response = access_failure(exc)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; "
+            "base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+        )
         return response
 
     @app.exception_handler(RequestValidationError)
@@ -178,8 +190,7 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
 
     @app.exception_handler(AuthError)
     async def auth_error(request, exc):
-        status = 503 if str(exc).startswith("Хранилище доступа недоступно") else 401
-        return JSONResponse({"detail": str(exc)}, status_code=status)
+        return access_failure(exc)
 
     @app.exception_handler(AccessExpired)
     async def expired(request, exc):
@@ -213,6 +224,10 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
         # Polling never prolongs inactivity; all other authenticated interaction does.
         poll = request.method == "GET" and re.fullmatch(r"/api/runs/[^/]+", request.url.path)
         user = auth.resolve(token)
+        supplied = request.headers.get("x-csrf-token", "")
+        if request.method in {"GET", "HEAD"} and supplied:
+            if not supplied.isascii() or not hmac.compare_digest(supplied, csrf(token)):
+                raise HTTPException(401, "Сессия в браузере изменена. Обновите страницу.")
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             supplied = request.headers.get("x-csrf-token", "")
             if not supplied.isascii() or not hmac.compare_digest(supplied, csrf(token)):
@@ -228,6 +243,7 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
             "user": asdict(user),
             "csrf_token": csrf(token),
             "mode": mode,
+            "default_mock": mode == "demo" or os.getenv("DVOINIK_MOCK", "1") == "1",
             "model": model_identity(mode == "demo")[0],
         }
 

@@ -32,7 +32,7 @@
 
 **Files:** Create `dvoinik/api.py`, `dvoinik/jobs.py`, `tests/test_api.py`; modify `requirements.txt`, `requirements-dev.txt` only for pinned dependencies.
 
-**Interfaces:** Produces `create_app(path=None, mode=None, static_dir=None) -> FastAPI`, matching the complete route table in the spec. Consumes `AuthStore.workspace`, `RunSettings`, `run_experiment`, `attach_validation`, `import_experiment`, `compare_runs` and existing export methods.
+**Interfaces:** Produces `create_app(path=None, mode=None, static_dir=None) -> FastAPI`, matching the complete route table in the spec. Consumes `AuthStore.workspace`, `RunSettings`, `run_experiment`, `attach_validation`, `load_experiment`, `compare_runs` and existing export methods.
 
 - [ ] Write tests using `TestClient(create_app(tmp_path / 'app.sqlite3', mode='local'))`; an unauthenticated `GET /api/experiments` returns 401.
 - [ ] Exercise separate admin/analyst cookies: another owner's record and job return 404; admin can manage users but cannot read their records.

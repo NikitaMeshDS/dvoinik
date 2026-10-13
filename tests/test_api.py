@@ -87,7 +87,7 @@ def test_session_boundary_and_csrf(app):
     )
     client = login(app)
     session = client.get("/api/session")
-    assert set(session.json()) == {"user", "csrf_token", "mode", "model"}
+    assert set(session.json()) == {"user", "csrf_token", "mode", "model", "default_mock"}
     assert "token" not in session.json()
     cookie = (
         client.post("/api/login", json={"username": "alice", "password": PASSWORD})
@@ -502,3 +502,51 @@ def test_access_guard_failure_uses_supported_failed_job_status(app, monkeypatch)
     result = completed(client, start(client).json()["id"])
     assert result["status"] == "failed"
     assert result["record"] is None and not result["saved"]
+
+
+def test_react_shell_rejects_framing_and_limits_scripts_to_local_assets(tmp_path):
+    static = tmp_path / "dist"
+    static.mkdir()
+    (static / "index.html").write_text('<html><body><div id="root"></div></body></html>')
+    app = create_app(tmp_path / "shell.sqlite3", mode="local", static_dir=static)
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        shell = client.get("/")
+        assert shell.status_code == 200
+        assert shell.headers.get("x-frame-options") == "DENY"
+        policy = shell.headers.get("content-security-policy", "")
+        assert "frame-ancestors 'none'" in policy
+        assert "script-src 'self'" in policy
+        assert "script-src 'self' 'unsafe-inline'" not in policy
+        assert client.get("/api/session").headers.get("x-frame-options") == "DENY"
+
+
+def test_session_default_mock_follows_configuration_but_demo_stays_mock(app, tmp_path, monkeypatch):
+    monkeypatch.setenv("DVOINIK_MOCK", "0")
+    client = login(app)
+    assert client.get("/api/session").json()["default_mock"] is False
+    demo = create_app(tmp_path / "demo-default.sqlite3", mode="demo")
+    with TestClient(demo, base_url="http://127.0.0.1") as client:
+        assert client.get("/api/session").json()["default_mock"] is True
+
+
+def test_access_store_outage_is_distinguishable_from_failed_report_storage(app, monkeypatch):
+    from dvoinik.auth import AuthError
+
+    client = login(app)
+
+    def unavailable(*args, **kwargs):
+        raise AuthError("Хранилище доступа недоступно. Обратитесь к администратору.")
+
+    monkeypatch.setattr(app.state.auth, "resolve", unavailable)
+    response = client.get("/api/experiments")
+    assert response.status_code == 503
+    assert response.json().get("code") == "access_unavailable"
+
+
+def test_old_tab_read_is_rejected_after_browser_cookie_switches_account(app):
+    old_tab = login(app, "alice")
+    new_tab = login(app, "bob")
+    old_tab.cookies.update(new_tab.cookies)
+    response = old_tab.get("/api/experiments")
+    assert response.status_code == 401
+    assert "records" not in response.json()

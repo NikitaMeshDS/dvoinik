@@ -28,7 +28,7 @@
 
 | Метод и маршрут | Запрос и результат |
 | --- | --- |
-| GET `/api/session` | `{user: {id,username,name,role}, csrf_token, mode, model}`; в локальном режиме без входа 401, в демо создаётся HttpOnly-сессия |
+| GET `/api/session` | `{user: {id,username,name,role}, csrf_token, mode, model, default_mock}`; в локальном режиме без входа 401, в демо создаётся HttpOnly-сессия |
 | POST `/api/login` | `{username,password}`; устанавливает cookie, возвращает тот же объект сессии |
 | POST `/api/logout` | отзыв сессии и связанных экспортов; cookie удаляется только после успешного отзыва |
 | GET `/api/catalog` | `{scenarios,segments}` — исходные тексты и публичные характеристики сегментов |
@@ -40,10 +40,11 @@
 | POST `/api/runs` | `{scenario_key,scenario,n,mock,seed,concurrency}` → 202 `{id,status,done,total}` |
 | GET `/api/runs/{id}` | `{id,status,done,total,record,error,saved}`; доступ только создавшей сессии |
 | POST `/api/runs/{id}/retry` | повторное сохранение готового снимка при прежнем действующем доступе |
+| POST `/api/insights` | `{record_id,segment}` → `{report,summary,quality}`; сегментные интервалы и статус считает Python |
 | POST `/api/compare` | `{left_id,right_id}` → `{left,right,comparison}`; оба снимка проверяются по владельцу |
 | POST `/api/experiments/{id}/validation/preview` | `{csv}` → `{record,base_validation}` без записи |
 | PUT `/api/experiments/{id}/validation` | `{csv,base_validation}` → сохранённый снимок; CAS сравнивает предыдущую проверку, конфликт → 409 |
-| POST `/api/export` | `{record_id,format,kind}` → `{url}`; format `json`/`csv`, kind `record`/`validation`/`survey-template`; только доступный серверный снимок |
+| POST `/api/export` | `{record_id,format,kind}` → `{url}`; format `json`/`csv`, kind `record`/`validation`/`survey-template`/`preview`; только доступный серверный снимок |
 | POST `/api/runs/{id}/export` | экспорт готового, в том числе несохранённого, результата принадлежащего сессии |
 | POST `/api/compare/export` | `{left_id,right_id}` → одноразовая ссылка на JSON сравнения |
 | GET `/api/users` | `{users}` только администратору, без хешей паролей |
