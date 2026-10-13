@@ -3,3 +3,5 @@ openai==2.54.0
 pandas==2.3.3
 altair==6.3.0
 argon2-cffi==25.1.0
+fastapi==0.143.0
+uvicorn==0.53.0
