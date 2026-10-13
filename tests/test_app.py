@@ -1,3 +1,4 @@
+import copy
 import io
 from pathlib import Path
 
@@ -238,6 +239,7 @@ def test_two_runs_can_be_compared_from_history(monkeypatch):
     app.number_input(key="seed").set_value(51).run()
     app.button(key="run_experiment").click().run()
     app.radio(key="navigation").set_value("История").run()
+    app.button(key="library_compare").click().run()
     assert not app.exception
     assert len(app.selectbox(key="compare_left").options) == 2
     assert app.selectbox(key="compare_left").value != app.selectbox(key="compare_right").value
@@ -306,3 +308,56 @@ def test_two_pending_survey_updates_recover_when_disk_returns(monkeypatch):
     assert not app.error
     assert app.session_state["pending_records"] == {}
     assert app.session_state["experiment_store"].list_records()[0]["validation"]["cells"][0]["yes"] == 1
+
+
+def test_library_filters_records_and_returns_from_report_to_catalog(monkeypatch):
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    student_id = app.session_state["active_record"]["id"]
+    app.selectbox(key="scenario_key").select("senior_deposit").run()
+    app.button(key="run_experiment").click().run()
+    senior_id = app.session_state["active_record"]["id"]
+    app.radio(key="navigation").set_value("История").run()
+    app.text_input(key="library_query").set_value("пенсионер").run()
+    assert not app.exception
+    assert any(b.key == f"history_open_{senior_id}" for b in app.button)
+    assert not any(b.key == f"history_open_{student_id}" for b in app.button)
+    app.selectbox(key="library_mode").select("llm").run()
+    assert not any(b.key.startswith("history_open_") for b in app.button)
+    app.selectbox(key="library_mode").select("all").run()
+    app.button(key=f"history_open_{senior_id}").click().run()
+    assert any(b.key == "json_active" for b in app.get("download_button"))
+    assert not any(b.key.startswith("history_open_") for b in app.button)
+    app.button(key="library_back").click().run()
+    assert app.text_input(key="library_query").value == "пенсионер"
+    assert any(b.key == f"history_open_{senior_id}" for b in app.button)
+
+
+def test_open_constructor_from_library_keeps_current_draft(monkeypatch):
+    app = launch(monkeypatch)
+    app.text_area(key="variant_student_card_A").set_value("Мой незапущенный вариант").run()
+    app.radio(key="navigation").set_value("История").run()
+    app.button(key="library_new").click().run()
+    assert not app.exception
+    assert app.text_area(key="variant_student_card_A").value == "Мой незапущенный вариант"
+
+
+def test_catalog_pagination_keeps_page_after_viewing_report(monkeypatch):
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    original = app.session_state["active_record"]
+    store = app.session_state["experiment_store"]
+    for index in range(8):
+        record = copy.deepcopy(original)
+        record["id"] = f"page-run-{index}"
+        store.save(record)
+    app.radio(key="navigation").set_value("История").run()
+    open_buttons = [b for b in app.button if b.key.startswith("history_open_")]
+    assert len(open_buttons) == 8
+    app.selectbox(key="library_page").select(2).run()
+    open_buttons = [b for b in app.button if b.key.startswith("history_open_")]
+    assert len(open_buttons) == 1
+    open_buttons[0].click().run()
+    app.button(key="library_back").click().run()
+    assert not app.exception
+    assert app.selectbox(key="library_page").value == 2

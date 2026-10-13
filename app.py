@@ -5,15 +5,15 @@ from __future__ import annotations
 import copy
 import os
 import time
-import uuid
 from pathlib import Path
 
 import streamlit as st
 
 from dvoinik.engine import simulate
-from dvoinik.experiments import CUSTOM_SCENARIO, format_timestamp, load_experiment, normalize_scenario
+from dvoinik.experiments import CUSTOM_SCENARIO, format_timestamp, normalize_scenario
+from dvoinik.library import library_view
 from dvoinik.population import SEGMENTS, build_population
-from dvoinik.reporting import export_json, make_record, signature
+from dvoinik.reporting import make_record, signature
 from dvoinik.scenarios import SCENARIOS
 from dvoinik.storage import KEEP_VALIDATION, ExperimentStore, StorageError
 from dvoinik.ui import comparison_view, escape, markup, methodology, persist_record, section, show_report
@@ -58,7 +58,7 @@ try:
         )
         st.session_state.pending_records.pop(existing["id"], None)
         st.session_state.pending_validation_bases.pop(existing["id"], None)
-    st.session_state.history = st.session_state.experiment_store.list_records()
+    st.session_state.history = st.session_state.experiment_store.list_records() if pending else archived
     active = st.session_state.get("active_record")
     if active:
         st.session_state.active_record = next(
@@ -113,10 +113,24 @@ def reuse_record(record):
         if input_key != "navigation":
             st.session_state.saved_inputs[input_key] = value
     st.session_state.active_record = None
+    st.session_state.history_view = None
 
 
 def remember_offer(input_key):
     st.session_state.saved_inputs[input_key] = st.session_state[input_key]
+
+
+def navigate(page):
+    st.session_state.navigation = page
+
+
+NAV_LABELS = {
+    "Эксперимент": "Конструктор",
+    "История": "Исследования",
+    "Сравнение": "Сравнение",
+    "Методология": "Методология",
+}
+st.session_state.setdefault("navigation", "История" if st.session_state.history else "Эксперимент")
 
 
 with st.sidebar:
@@ -126,7 +140,8 @@ with st.sidebar:
     )
     nav = st.radio(
         "Рабочее пространство",
-        ["Эксперимент", "История", "Методология"],
+        list(NAV_LABELS),
+        format_func=lambda value: NAV_LABELS[value],
         key="navigation",
         label_visibility="collapsed",
     )
@@ -154,84 +169,28 @@ with st.sidebar:
     )
 
 markup(
-    '<div class="topline"><span><strong>Рабочее пространство</strong> / ' + escape(nav) + "</span>"
+    '<div class="topline"><span><strong>Рабочее пространство</strong> / '
+    + escape(NAV_LABELS[nav])
+    + "</span>"
     '<span class="status-pill">Синтетическая аудитория</span></div>'
 )
 
 if nav == "Методология":
     methodology()
 elif nav == "История":
-    st.title("История экспериментов")
-    st.caption("Запуски и проверки опросом сохраняются на этом сервере и доступны после перезапуска.")
-    with st.expander("Сравнить два запуска"):
-        comparison_view(st.session_state.history)
-    with st.expander("Открыть сохранённый эксперимент"):
-        st.caption(
-            "Загрузите полный JSON-отчёт Двойника. Настройки и проверка опросом восстановятся вместе с результатами."
-        )
-        uploaded = st.file_uploader("JSON эксперимента", type=["json"], max_upload_size=5, key="import_file")
-        if st.button("Добавить в историю", key="import_record", disabled=uploaded is None):
-            try:
-                imported = load_experiment(uploaded.getvalue())
-                imported["import_origin_id"] = imported["id"]
-                imported["id"] = uuid.uuid4().hex[:10]
-                saved = persist_record(imported)
-                st.session_state.history_view = imported["id"]
-                message = "Эксперимент открыт. Числа отчёта проверены."
-                if imported.get("validation"):
-                    message += " Метрики опроса пересчитаны по сохранённым ответам."
-                else:
-                    message += " Проверки живым опросом в этом файле нет."
-                if saved:
-                    st.success(message)
-            except ValueError as exc:
-                st.error(f"Не удалось открыть эксперимент: {exc}")
-    if not st.session_state.history:
-        st.info(
-            "Здесь появятся запущенные эксперименты. Откройте раздел «Эксперимент» и запустите исследование."
-        )
-    for record in reversed(st.session_state.history):
-        stamp = format_timestamp(record["created_at"])
-        with st.expander(
-            f"{record['id']} · {record['scenario']['title']} · {stamp} · {record['n']} двойников"
-        ):
-            st.caption(f"{'Демо' if record['mock'] else 'LLM'} · {record['model']} · Seed {record['seed']}")
-            st.download_button(
-                "Скачать полный отчёт",
-                export_json(record),
-                f"dvoinik-{record['id']}.json",
-                "application/json",
-                key=f"history_export_{record['id']}",
-            )
-            if st.button("Открыть результаты", key=f"history_open_{record['id']}"):
-                st.session_state.history_view = record["id"]
-            st.button(
-                "Использовать как основу",
-                key=f"history_reuse_{record['id']}",
-                on_click=reuse_record,
-                args=(record,),
-            )
-    chosen = st.session_state.get("history_view")
-    viewed = next((r for r in st.session_state.history if r["id"] == chosen), None)
-    if viewed:
-        section("Сохранённый эксперимент", viewed["scenario"]["title"])
-        show_report(viewed)
+    library_view(reuse_record, navigate)
+elif nav == "Сравнение":
+    st.title("Сравнение запусков")
+    st.caption("Сопоставьте два исследования: предложения, условия, результаты и покрытие сегментов.")
+    comparison_view(st.session_state.history)
+
 else:
     source = CUSTOM_SCENARIO if key == "custom" else SCENARIOS[key]
     st.title(st.session_state.get("title_custom", source["title"]) if key == "custom" else TITLES[key])
     st.caption(source["description"])
     markup(
-        '<div class="hero"><h2>Узнайте, что откликается вашей аудитории</h2>'
-        "<p>Сравните предложения на цифровых двойниках клиентов. Найдите различия между сегментами и барьеры, которые стоит проверить до пилота.</p>"
-        '<svg viewBox="0 0 260 190" aria-hidden="true"><g stroke="#aec3ec" stroke-width="1.2" fill="none">'
-        '<path d="M38 93L97 48L157 87L220 48M38 93L98 137L157 87L218 141M97 48L98 137M220 48L218 141M98 137L218 141"/>'
-        '</g><g fill="#d5e1f7"><circle cx="38" cy="93" r="20"/><circle cx="97" cy="48" r="20"/>'
-        '<circle cx="98" cy="137" r="20"/><circle cx="220" cy="48" r="20"/><circle cx="218" cy="141" r="20"/></g>'
-        '<circle cx="157" cy="87" r="29" fill="#295bde"/><g fill="#7d9cd7"><circle cx="38" cy="87" r="5"/>'
-        '<path d="M28 101Q38 88 48 101"/><circle cx="97" cy="42" r="5"/><path d="M87 56Q97 43 107 56"/>'
-        '<circle cx="98" cy="131" r="5"/><path d="M88 145Q98 132 108 145"/><circle cx="220" cy="42" r="5"/>'
-        '<path d="M210 56Q220 43 230 56"/><circle cx="218" cy="135" r="5"/><path d="M208 149Q218 136 228 149"/></g>'
-        '<g fill="#fff"><circle cx="157" cy="78" r="7"/><path d="M143 99Q157 79 171 99"/></g></svg></div>'
+        '<div class="experiment-brief"><strong>Гипотеза → предложения → аудитория</strong>'
+        "<p>Подготовьте варианты, запустите симуляцию и сохраните результат для проверки опросом.</p></div>"
     )
     scenario = copy.deepcopy(source)
     defaults = {f"question_{key}": source["question"]}
@@ -254,7 +213,7 @@ else:
         )
     for input_key, input_value in defaults.items():
         st.session_state.setdefault(input_key, input_value)
-    with st.expander("Настроить гипотезу, предложения и аудиторию", expanded=key == "custom"):
+    with st.expander("Настроить гипотезу, предложения и аудиторию", expanded=True):
         setup = st.tabs(["Предложения", "Состав аудитории"])
         with setup[0]:
             if key == "custom":
