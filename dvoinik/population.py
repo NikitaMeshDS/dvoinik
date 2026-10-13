@@ -114,8 +114,8 @@ class Twin:
         return asdict(self)
 
 
-def build_population(n: int, segments: dict[str, float], seed: int = 42) -> list[Twin]:
-    """Стратифицированная популяция: доли нормируются, остатки распределяются по величине."""
+def allocate_population(n: int, segments: dict[str, float]) -> dict[str, int]:
+    """Точные размеры сегментов методом наибольших остатков, без генерации профилей."""
     if isinstance(n, bool) or not isinstance(n, int) or n < 1:
         raise ValueError("Размер популяции должен быть положительным целым числом.")
     if not segments or any(s not in SEGMENTS for s in segments):
@@ -128,7 +128,6 @@ def build_population(n: int, segments: dict[str, float], seed: int = 42) -> list
         or sum(segments.values()) <= 0
     ):
         raise ValueError("Доли сегментов должны быть неотрицательными, а их сумма — больше нуля.")
-    rng = random.Random(seed)
     total = sum(segments.values())
     expected = {s: n * w / total for s, w in segments.items()}
     counts = Counter({s: math.floor(value) for s, value in expected.items()})
@@ -136,6 +135,13 @@ def build_population(n: int, segments: dict[str, float], seed: int = 42) -> list
         : n - sum(counts.values())
     ]:
         counts[sid] += 1
+    return dict(counts)
+
+
+def build_population(n: int, segments: dict[str, float], seed: int = 42) -> list[Twin]:
+    """Стратифицированная популяция: доли нормируются, остатки распределяются по величине."""
+    counts = allocate_population(n, segments)
+    rng = random.Random(seed)
     assignments = [s for s, count in counts.items() for _ in range(count)]
     rng.shuffle(assignments)
     twins = []

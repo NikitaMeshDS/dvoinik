@@ -84,3 +84,25 @@ def test_cli_rejects_values_that_cannot_be_reopened(flag, value):
     )
     assert result.returncode != 0
     assert "Traceback" not in result.stderr
+
+
+def test_cli_refuses_excessive_concurrency_without_creating_report(tmp_path):
+    output = tmp_path / "report.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "cli.py",
+            "senior_deposit",
+            "--mock",
+            "--concurrency",
+            "65",
+            "--output",
+            str(output),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert not output.exists()
+    assert "Traceback" not in result.stderr

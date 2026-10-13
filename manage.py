@@ -11,8 +11,8 @@ import uuid
 from pathlib import Path
 
 from dvoinik.auth import AuthError, AuthStore
+from dvoinik.settings import storage_path
 from dvoinik.storage import ExperimentStore
-from serve import storage_path
 
 
 class Parser(argparse.ArgumentParser):

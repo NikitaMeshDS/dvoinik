@@ -1,10 +1,8 @@
-"""Представление отчёта: графики, отзывы, валидация и методология."""
+"""Представление отчёта: графики, синтетические объяснения и валидация."""
 
 from __future__ import annotations
 
-import html
 import io
-import json
 
 import altair as alt
 import pandas as pd
@@ -12,173 +10,30 @@ import streamlit as st
 
 from .auth import AccessExpired
 from .auth_ui import expire_access
-from .comparison import compare_runs
 from .download_ui import download
 from .experiments import attach_validation, format_timestamp, quality_status
 from .population import SEGMENTS
+from .presentation import COLORS, escape, markup, section
 from .reporting import export_csv, export_json, summarize
-from .storage import KEEP_VALIDATION, StorageError
+from .storage import KEEP_VALIDATION
 from .validate import load_survey
-
-COLORS = ["#295BDE", "#36A28F", "#9980D8", "#D28B46", "#BB6092"]
-
-
-def markup(text):
-    st.markdown(text, unsafe_allow_html=True)
-
-
-def escape(text):
-    return html.escape(str(text))
-
-
-def section(title, note=""):
-    markup(f'<div class="section-line"><h2>{escape(title)}</h2><span>{escape(note)}</span></div>')
+from .workspace import Workspace
 
 
 def persist_record(record, *, expected_validation=KEEP_VALIDATION):
-    """Отчёт остаётся в сессии даже при недоступном диске; успех не скрывает ошибки."""
-    # Локальный preview не продвигает базу CAS до успешного commit.
-    if record["id"] in st.session_state.pending_validation_bases:
-        expected_validation = st.session_state.pending_validation_bases[record["id"]]
-    saved = True
+    """UI-адаптер: состояние архива меняет Workspace, здесь только сообщения."""
     try:
-        record = st.session_state.experiment_store.save(record, expected_validation=expected_validation)
+        outcome = Workspace(st.session_state, st.session_state.experiment_store).persist(
+            record, expected_validation=expected_validation
+        )
     except AccessExpired:
         expire_access()
-    except (StorageError, ValueError) as exc:
-        saved = False
-        st.session_state.pending_records[record["id"]] = record
-        if expected_validation is not KEEP_VALIDATION:
-            st.session_state.pending_validation_bases[record["id"]] = expected_validation
-        st.error(f"Не удалось сохранить отчёт на диск: {exc} Скачайте JSON, пока сессия открыта.")
-    else:
-        st.session_state.pending_records.pop(record["id"], None)
-        st.session_state.pending_validation_bases.pop(record["id"], None)
-    history = st.session_state.get("history", [])
-    st.session_state.history = [r for r in history if r["id"] != record["id"]] + [record]
-    if (st.session_state.get("active_record") or {}).get("id") == record["id"]:
-        st.session_state.active_record = record
-    return saved
-
-
-def comparison_view(history):
-    if len(history) < 2:
-        st.info("Для сравнения нужны два сохранённых запуска. Повторите эксперимент или откройте JSON-отчёт.")
-        return
-    records = {r["id"]: r for r in history}
-    ids = list(reversed(records))
-
-    def label(record_id):
-        record = records[record_id]
-        return f"{record_id} · {record['scenario']['title']}"
-
-    cols = st.columns(2)
-    first = cols[0].selectbox("Исходный запуск", ids, index=1, format_func=label, key="compare_left")
-    second = cols[1].selectbox("Новый запуск", ids, index=0, format_func=label, key="compare_right")
-    if first == second:
-        st.info("Выберите два разных эксперимента.")
-        return
-    left, right = records[first], records[second]
-    for col, record in zip(cols, (left, right)):
-        col.caption(
-            f"{format_timestamp(record['created_at'])} · {record['n']} двойников · Seed {record['seed']} · {record['model']}"
-        )
-    result = compare_runs(left, right)
-    st.caption(
-        "Дельта = новый запуск − исходный. Сопоставление идёт по буквам вариантов; тексты показаны ниже."
-    )
-    if result["changes"]:
-        st.warning(
-            "Условия запусков различаются. Разницу результатов нельзя приписать только изменению предложения."
-        )
-
-        def display(value):
-            if value is None:
-                return "Нет варианта"
-            return json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value)
-
-        st.dataframe(
-            pd.DataFrame(
-                [
-                    {
-                        "Изменение": c["label"],
-                        "Исходный запуск": display(c["before"]),
-                        "Новый запуск": display(c["after"]),
-                    }
-                    for c in result["changes"]
-                ]
-            ),
-            hide_index=True,
-            width="stretch",
-        )
-    else:
-        st.info(
-            "Сохранённые условия совпадают. Повтор LLM может дать другие ответы; демо с тем же seed воспроизводится."
-        )
-    st.caption("Сравнение описательное: оно не доказывает значимость разницы или изменение реального спроса.")
-    if left["mock"] or right["mock"]:
-        st.caption("В сравнении есть демо: его проценты получены по эвристическим правилам.")
-    if any(r["failed_n"] for rec in (left, right) for r in rec["report"].values()):
-        st.warning("Есть ошибки ответов модели. Разное покрытие сегментов может сместить сравнение.")
-    with st.expander("Тексты сравниваемых предложений"):
-        for col, record in zip(st.columns(2), (left, right)):
-            with col:
-                st.markdown(f"**{record['scenario']['title']}**")
-                for vid, text in record["scenario"]["variants"].items():
-                    st.write(f"{vid}: {text}")
-    chart_rows = [
-        {"Вариант": row["variant"], "Запуск": label, "Конверсия": row[side], "Ответов": row[f"{side}_n"]}
-        for row in result["variants"]
-        for side, label in [("left", "Исходный"), ("right", "Новый")]
-        if row[side] is not None
-    ]
-    if chart_rows:
-        chart = (
-            alt.Chart(pd.DataFrame(chart_rows))
-            .mark_bar(cornerRadiusEnd=4)
-            .encode(
-                y=alt.Y("Вариант:N", title=None),
-                yOffset="Запуск:N",
-                x=alt.X("Конверсия:Q", title=None, scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format="%")),
-                color=alt.Color(
-                    "Запуск:N",
-                    scale=alt.Scale(domain=["Исходный", "Новый"], range=COLORS[:2]),
-                    legend=alt.Legend(orient="top"),
-                ),
-                tooltip=["Вариант:N", "Запуск:N", alt.Tooltip("Конверсия:Q", format=".1%"), "Ответов:Q"],
-            )
-            .properties(height=80 * len(result["variants"]))
-            .configure_view(stroke=None)
-        )
-        st.altair_chart(chart, width="stretch")
-
-    def table(rows):
-        return pd.DataFrame(
-            [
-                {
-                    "Вариант": row["variant"],
-                    **({"Сегмент": SEGMENTS[row["segment"]]["name"]} if "segment" in row else {}),
-                    "Исходный": "—" if row["left"] is None else f"{row['left']:.1%}",
-                    "Новый": "—" if row["right"] is None else f"{row['right']:.1%}",
-                    "Дельта, п.п.": "—" if row["delta_pp"] is None else f"{row['delta_pp']:+.1f}",
-                    "Ответов: исходный": row["left_n"],
-                    "Ответов: новый": row["right_n"],
-                }
-                for row in rows
-            ]
-        )
-
-    st.dataframe(table(result["variants"]), hide_index=True, width="stretch")
-    st.caption("«—» означает отсутствие варианта или валидных ответов, а не нулевую конверсию.")
-    with st.expander("Разница по сегментам"):
-        st.dataframe(table(result["segments"]), hide_index=True, width="stretch")
-    download(
-        "Скачать сравнение JSON",
-        export_json({"comparison_version": 1, "left": left, "right": right, "comparison": result}),
-        f"dvoinik-comparison-{first}-{second}.json",
-        "application/json",
-        key="comparison_export",
-    )
+    except ValueError as exc:
+        st.error(f"Некорректный отчёт: {exc}")
+        return False
+    if not outcome.saved:
+        st.error(f"Не удалось сохранить отчёт на диск: {outcome.error} Скачайте JSON, пока сессия открыта.")
+    return outcome.saved
 
 
 def offers(scenario):
@@ -563,40 +418,3 @@ def show_report(record):
         voices_view(record)
     with tabs[3]:
         validation_view(record)
-
-
-def methodology():
-    st.title("Как устроен Двойник")
-    st.write("Инструмент для предварительной проверки продуктовых гипотез на синтетической аудитории.")
-    items = [
-        (
-            "Одна аудитория для всех вариантов",
-            "Профили распределяются по заданным долям методом наибольших остатков. Все варианты оценивают одни и те же двойники. Seed фиксирует профили и ответы в демо-режиме; LLM-ответы могут меняться между запусками.",
-        ),
-        (
-            "Два режима исследования",
-            "Демо использует правила и ключевые слова; численные результаты служат для знакомства с интерфейсом. LLM оценивает предложение от лица заданного профиля через OpenAI-совместимый API. Поддерживается локальное развёртывание через Ollama или vLLM.",
-        ),
-        (
-            "Что означает конверсия",
-            "Число валидных ответов «да», делённое на число валидных ответов. Это заявленная готовность синтетических клиентов, а не прогноз фактических открытий счетов. Ошибки API и некорректный JSON исключаются и показываются отдельно.",
-        ),
-        (
-            "Интервалы и выбор лидера",
-            "95% интервалы Wilson показывают разброс бинарных ответов внутри симуляции. Они не учитывают смещение модели или качество профилей. Ничьи показываются явно; выбор кандидата для пилота нужно подтвердить живым исследованием.",
-        ),
-        (
-            "Проверка на живом опросе",
-            "CSV сохраняет число респондентов в каждой паре «вариант — сегмент». MAE взвешивается по этим числам. Ранжирование сравнивается на составе загруженного опроса; совпадающим значениям присваиваются средние ранги. При отсутствии разброса корреляция не определена.",
-        ),
-        (
-            "История и воспроизводимость",
-            "Запуски и проверки опросом сохраняются в локальном архиве сервера и доступны после перезапуска. Это общее рабочее пространство без разграничения доступа. Скачайте JSON для переноса и резервной копии; эксперимент можно использовать как основу нового запуска. CSV содержит агрегаты по сегментам.",
-        ),
-        (
-            "Что ещё нужно для банковского пилота",
-            "Профили пока основаны на экспертных предположениях. Нужны калибровка на целевой аудитории, ретро-тесты и живые интервью. Внешнюю модель подключают в соответствии с правилами организации; в профили не следует загружать персональные данные клиентов.",
-        ),
-    ]
-    for title, text in items:
-        markup(f'<div class="method"><h3>{escape(title)}</h3><p>{escape(text)}</p></div>')

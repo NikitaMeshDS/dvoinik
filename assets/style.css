@@ -116,3 +116,7 @@ a.secure-download { display:inline-flex; align-items:center; justify-content:cen
 a.secure-download.stretch { width:100%; }
 a.secure-download:hover { border-color:#295bde; color:#295bde!important; }
 @media(max-width:640px) { .login-story { padding:10px 0; }.login-wordmark { margin-bottom:20px; }.login-story h1 { font-size:30px!important; }.login-story p { font-size:14px; margin-bottom:14px; }.login-process { margin-bottom:12px; } }
+
+.launch-readiness { display:flex; gap:14px; align-items:baseline; flex-wrap:wrap; padding:12px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin:10px 0; }
+.launch-readiness strong { color:var(--ink); font-size:14px; }
+.launch-readiness span { color:var(--muted); font-size:13px; }

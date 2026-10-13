@@ -9,8 +9,9 @@ import streamlit as st
 
 from .download_ui import download
 from .experiments import format_timestamp, load_experiment, quality_status
+from .presentation import escape, markup
 from .reporting import export_json
-from .ui import escape, markup, persist_record, show_report
+from .ui import persist_record, show_report
 
 PAGE_SIZE = 8
 

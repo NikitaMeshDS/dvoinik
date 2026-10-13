@@ -55,8 +55,11 @@ def normalize_scenario(scenario):
     if not isinstance(scenario, dict):
         raise ValueError("Сценарий должен быть объектом.")
     result = copy.deepcopy(scenario)
-    for field, limit in [("title", 200), ("question", 1000)]:
-        result[field] = _text(result.get(field), field, limit)
+    for field, label, limit in [
+        ("title", "Название исследования", 200),
+        ("question", "Вопрос двойникам", 1000),
+    ]:
+        result[field] = _text(result.get(field), label, limit)
     result["description"] = _text(result.get("description", ""), "Описание", 4000, required=False)
     variants = result.get("variants")
     if (

@@ -369,3 +369,58 @@ def test_catalog_pagination_keeps_page_after_viewing_report(monkeypatch):
     app.button(key="library_back").click().run()
     assert not app.exception
     assert app.selectbox(key="library_page").value == 2
+
+
+def test_constructor_previews_exact_segment_counts_before_running(monkeypatch):
+    app = launch(monkeypatch)
+    app.select_slider(key="population_n").set_value(50).run()
+    tables = [frame.value for frame in app.dataframe if "Двойников" in frame.value.columns]
+    assert tables, "Constructor needs an audience preview before simulation"
+    counts = dict(zip(tables[0]["Сегмент"], tables[0]["Двойников"]))
+    assert counts == {
+        "Студенты 18–22, Москва": 18,
+        "Студенты регионов": 18,
+        "Подростки 14–17 (решение с родителем)": 7,
+        "Иностранные студенты и мигранты": 7,
+    }
+    app.button(key="run_experiment").click().run()
+    assert not app.exception
+    assert app.session_state["active_record"]["population_counts"] == {
+        "student_msk": 18,
+        "student_reg": 18,
+        "teen": 7,
+        "nonresident": 7,
+    }
+
+
+def test_conflicted_pending_validation_does_not_block_another_pending_validation(monkeypatch):
+    from dvoinik.experiments import attach_validation
+    from dvoinik.validate import load_survey
+
+    app = launch(monkeypatch)
+    app.button(key="run_experiment").click().run()
+    original = app.session_state["active_record"]
+    store = app.session_state["experiment_store"]
+    remote = attach_validation(
+        original, load_survey(io.StringIO("segment,variant,decision\nstudent_msk,A,1\n"))
+    )
+    store.save(remote, expected_validation=None)
+    local = attach_validation(
+        original, load_survey(io.StringIO("segment,variant,decision\nstudent_msk,A,0\n"))
+    )
+    second = copy.deepcopy(original)
+    second["id"] = "independent-pending-run"
+    store.save(second)
+    second = attach_validation(
+        second, load_survey(io.StringIO("segment,variant,decision\nstudent_msk,B,0\n"))
+    )
+    app.session_state["active_record"] = local
+    app.session_state["history"] = [local, second]
+    app.session_state["pending_records"] = {local["id"]: local, second["id"]: second}
+    app.session_state["pending_validation_bases"] = {local["id"]: None, second["id"]: None}
+    app.run()
+    assert not app.exception
+    assert store.get_record(second["id"])["validation"]["cells"][0]["yes"] == 0
+    assert list(app.session_state["pending_records"]) == [local["id"]]
+    assert store.get_record(local["id"])["validation"]["cells"][0]["yes"] == 1
+    assert app.session_state["active_record"]["validation"]["cells"][0]["yes"] == 0

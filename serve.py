@@ -6,25 +6,15 @@ import os
 import subprocess
 import sys
 import threading
-from pathlib import Path
 
 from dvoinik.auth import AuthStore
 from dvoinik.downloads import create_download_server
-
-ROOT = Path(__file__).resolve().parent
-
-
-def storage_path():
-    mode = os.getenv("DVOINIK_AUTH_MODE", "local")
-    if mode not in {"local", "demo"}:
-        raise ValueError("DVOINIK_AUTH_MODE: допустимы local и demo.")
-    default = ROOT / ".data" / ("demo.sqlite3" if mode == "demo" else "experiments.sqlite3")
-    return Path(os.getenv("DVOINIK_STORAGE_PATH", str(default))).expanduser().resolve()
+from dvoinik.settings import ROOT, auth_mode, storage_path
 
 
 def main():
     path = storage_path()
-    mode = os.getenv("DVOINIK_AUTH_MODE", "local")
+    mode = auth_mode()
     auth = AuthStore(path, allow_demo=mode == "demo")
     server = create_download_server(auth)
     worker = threading.Thread(target=server.serve_forever, daemon=True)

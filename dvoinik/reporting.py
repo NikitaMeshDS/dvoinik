@@ -8,11 +8,12 @@ import hashlib
 import io
 import json
 import math
-import os
 import uuid
 from collections import Counter
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+from .settings import model_identity
 
 
 def summarize(report):
@@ -76,8 +77,7 @@ def make_record(key, scenario, n, mock, seed, report, twins, elapsed=0, sample=F
         if twin.segment not in seen:
             profiles.append(twin.to_dict())
             seen.add(twin.segment)
-    model = "Эвристика" if mock else os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
-    config_model = None if mock else model + "|" + os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
+    model, config_model = model_identity(mock)
     return {
         "schema_version": 2,
         "id": uuid.uuid4().hex[:10],
