@@ -27,24 +27,32 @@ TITLES = {
 }
 
 
-def sidebar_settings(*, demo=False):
-    st.caption("Настройки исследования")
-    key = st.selectbox(
-        "Сценарий", [*SCENARIOS, "custom"], format_func=lambda k: TITLES[k], key="scenario_key"
-    )
-    sizes = sorted({50, 100, 200, 500, 1000, st.session_state.population_n})
-    n = st.select_slider("Размер аудитории", sizes, key="population_n")
-    mock = st.toggle("Демо без подключения к LLM", key="mock_mode", disabled=demo)
-    if mock:
-        st.caption("Демо включено · без внешних запросов")
-    else:
-        st.caption("Модель: " + os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"))
-        st.caption("Модель и подключение настраивает администратор сервера.")
-    with st.expander("Параметры запуска"):
-        seed = st.number_input("Seed популяции и демо", min_value=0, max_value=999999, step=1, key="seed")
-        concurrency = st.number_input(
-            "Параллельных запросов LLM", min_value=1, max_value=64, step=1, key="concurrency"
-        )
+def workspace_settings(*, demo=False):
+    with st.container(border=True, key="research_settings"):
+        st.subheader("Настройки исследования")
+        scenario_col, audience_col, mode_col = st.columns([1.5, 1.3, 1])
+        with scenario_col:
+            key = st.selectbox(
+                "Сценарий", [*SCENARIOS, "custom"], format_func=lambda k: TITLES[k], key="scenario_key"
+            )
+        with audience_col:
+            sizes = sorted({50, 100, 200, 500, 1000, st.session_state.population_n})
+            n = st.select_slider("Размер аудитории", sizes, key="population_n")
+        with mode_col:
+            mock = st.toggle("Демо без LLM", key="mock_mode", disabled=demo)
+            if mock:
+                st.caption("Демо включено · без внешних запросов")
+            else:
+                st.caption("Модель: " + os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"))
+                st.caption("Модель и подключение настраивает администратор сервера.")
+        with st.expander("Параметры запуска"):
+            seed_col, concurrency_col = st.columns(2)
+            seed = seed_col.number_input(
+                "Seed популяции и демо", min_value=0, max_value=999999, step=1, key="seed"
+            )
+            concurrency = concurrency_col.number_input(
+                "Параллельных запросов LLM", min_value=1, max_value=64, step=1, key="concurrency"
+            )
     return key, RunSettings(n=n, mock=mock, seed=int(seed), concurrency=int(concurrency))
 
 

@@ -9,7 +9,7 @@ from .auth_ui import account_sidebar, administration, expire_access, require_acc
 from .comparison_ui import comparison_view
 from .constructor_ui import render_constructor
 from .draft_ui import initialize_drafts, navigate, reuse_record
-from .editor_ui import sidebar_settings
+from .editor_ui import workspace_settings
 from .library import library_view
 from .methodology_ui import methodology
 from .presentation import escape, markup
@@ -70,9 +70,6 @@ def main():
             key="navigation",
             label_visibility="collapsed",
         )
-        st.divider()
-        if nav == "Эксперимент":
-            key, settings = sidebar_settings(demo=user.role == "demo")
         markup(
             '<div class="sidebar-note">Проверяйте гипотезы до запуска.<br>Синтетическая аудитория помогает подготовить живое исследование.</div>'
         )
@@ -94,6 +91,7 @@ def main():
         st.caption("Сопоставьте два исследования: предложения, условия, результаты и покрытие сегментов.")
         comparison_view(st.session_state.history)
     else:
+        key, settings = workspace_settings(demo=user.role == "demo")
         render_constructor(key, settings, user.id)
     markup(
         '<div class="footer">Двойник · MISIS X · Академия Финтеха 2026<br>Синтетические ответы помогают формулировать гипотезы. Решения о запуске подтверждаются на живой аудитории.</div>'
