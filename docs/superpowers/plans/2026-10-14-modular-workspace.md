@@ -44,4 +44,4 @@ Interfaces: preview rendering consumes saved report conversions/nulls; no estima
 - [x] Add loading/failed-refresh/retry states; browser QA with isolated demo and fake accounts, including390px and real run/CSV/import.
 - [x] Save screenshots; update architecture docs and plan status from verified results.
 - [x] Run full Python/frontend verification; independent whole-diff review and fix material findings.
-- [ ] Back up root SQLite, fast-forward clean main, build/restart service, verify preservation, push and observe successful CI.
+- [x] Back up root SQLite, fast-forward clean main, build/restart service, verify preservation, push and observe successful CI.
