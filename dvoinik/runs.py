@@ -58,6 +58,7 @@ def run_experiment(
         seed=settings.seed,
         concurrency=settings.concurrency,
         progress=advance,
+        guard=check_access,
     )
     check_access()
     return make_record(

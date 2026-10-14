@@ -108,3 +108,107 @@ def test_custom_demo_with_one_objection_does_not_crash():
     }
     report = simulate(build_population(50, {"student_reg": 1}), scenario, mock=True)
     assert report["A"]["n"] == report["B"]["n"] == 50
+
+
+@pytest.mark.parametrize("blocked_call", [1, 2])
+def test_job_shutdown_stops_real_engine_before_next_provider_request(tmp_path, monkeypatch, blocked_call):
+    import copy
+    import threading
+    import time
+
+    import dvoinik.engine as engine
+    from dvoinik.auth import AuthStore
+    from dvoinik.jobs import Jobs
+    from dvoinik.runs import RunSettings
+
+    auth = AuthStore(tmp_path / "shutdown.sqlite3")
+    owner = auth.create_user("analyst", "Analyst", "test-password-long")
+    token = auth.login("analyst", "test-password-long")
+    jobs = Jobs(auth, workers=1, queue_size=1)
+    entered, release, stopped = threading.Event(), threading.Event(), threading.Event()
+    calls, calls_after_close = [], []
+
+    class Completions:
+        async def create(self, **kwargs):
+            calls.append(kwargs)
+            if jobs.closed:
+                calls_after_close.append(kwargs)
+            if len(calls) == blocked_call:
+                entered.set()
+                while not release.is_set():
+                    await asyncio.sleep(0.001)
+            else:
+                await asyncio.sleep(0.001)
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content='{"decision":true,"probability":1,"objection":null,"quote":"example"}'
+                        )
+                    )
+                ]
+            )
+
+    class Client:
+        chat = SimpleNamespace(completions=Completions())
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+    monkeypatch.setattr(engine, "_client", Client)
+    scenario = copy.deepcopy(SCENARIOS["student_card"])
+    scenario["variants"].update({"D": "Предложение D", "E": "Предложение E"})
+    submitted = jobs.submit(token, "student_card", scenario, RunSettings(n=1000, mock=False, concurrency=1))
+    assert entered.wait(3)
+    closer = threading.Thread(target=lambda: (jobs.close(), stopped.set()))
+    closer.start()
+    try:
+        for _ in range(100):
+            if jobs.closed:
+                break
+            time.sleep(0.01)
+        assert jobs.closed
+    finally:
+        release.set()
+        closer.join(5)
+    assert stopped.is_set()
+    assert calls_after_close == []
+    assert len(calls) == blocked_call
+    result = jobs.get(token, submitted["id"])
+    assert result["status"] == "failed" and result["record"] is None and not result["saved"]
+    assert jobs.active_count == 0
+    assert auth.workspace(token).list_records() == []
+    assert auth.resolve(token).id == owner
+
+
+def test_mock_access_guard_is_independent_of_ui_progress_throttle(monkeypatch):
+    import dvoinik.engine as engine
+    from dvoinik.auth import AccessExpired
+
+    original = engine._ask_mock
+    revoked, calls, progress = [], [], []
+
+    def guard():
+        if revoked:
+            raise AccessExpired("Сессия завершена")
+
+    def answer(*args):
+        calls.append(1)
+        result = original(*args)
+        revoked.append(True)
+        return result
+
+    monkeypatch.setattr(engine, "_ask_mock", answer)
+    scenario = SCENARIOS["student_card"]
+    with pytest.raises(AccessExpired):
+        engine.simulate(
+            build_population(1000, scenario["population"]),
+            scenario,
+            mock=True,
+            guard=guard,
+            progress=lambda done, total: progress.append(done),
+        )
+    assert calls == [1] and progress == []

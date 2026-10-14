@@ -61,7 +61,15 @@ def _parse_response(content, scenario):
     }
 
 
-async def _ask_llm(client, model, twin: Twin, scenario: dict, variant_text: str, sem):
+async def _ask_llm(
+    client,
+    model,
+    twin: Twin,
+    scenario: dict,
+    variant_text: str,
+    sem,
+    guard: Callable[[], None] | None = None,
+):
     user = (
         f"Ты: {twin.profile()}\n\nБанк предлагает: {variant_text}\n\n"
         f"Контекст исследования: {scenario.get('description', '')}\n"
@@ -69,6 +77,10 @@ async def _ask_llm(client, model, twin: Twin, scenario: dict, variant_text: str,
         f"Категории отказа: {', '.join(scenario['objections'])}"
     )
     async with sem:
+        # Check after waiting for capacity and outside the provider-error handler.
+        # Access revocation must abort the run, never become a simulated refusal.
+        if guard:
+            guard()
         try:
             r = await client.chat.completions.create(
                 model=model,
@@ -165,6 +177,7 @@ def simulate(
     seed: int = 0,
     concurrency: int = 16,
     progress: Callable[[int, int], None] | None = None,
+    guard: Callable[[], None] | None = None,
 ) -> dict:
     """Оценивает варианты одной популяцией. Сбои отделены от клиентских отказов."""
     if not twins or not scenario.get("variants") or concurrency < 1:
@@ -173,9 +186,12 @@ def simulate(
         raise ValueError("Текст каждого варианта должен быть заполнен.")
     results, done = {}, 0
     total = len(twins) * len(scenario["variants"])
+    check_access = guard or (lambda: None)
+    check_access()
 
     def advance():
         nonlocal done
+        check_access()
         done += 1
         if progress and (done == total or done % max(1, total // 100) == 0):
             progress(done, total)
@@ -185,6 +201,7 @@ def simulate(
             rng = random.Random(f"{seed}-{vid}")
             results[vid] = []
             for tw in twins:
+                check_access()
                 results[vid].append((tw, _ask_mock(rng, tw, scenario, text)))
                 advance()
     else:
@@ -195,7 +212,7 @@ def simulate(
                 model = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
 
                 async def ask(tw, text):
-                    answer = await _ask_llm(client, model, tw, scenario, text, sem)
+                    answer = await _ask_llm(client, model, tw, scenario, text, sem, guard=check_access)
                     advance()
                     return tw, answer
 
@@ -210,6 +227,7 @@ def simulate(
                 }:
                     raise ValueError("LLM недоступна: проверьте адрес API, ключ доступа и название модели.")
                 for vid, text in scenario["variants"].items():
+                    check_access()
                     rest = twins[1:] if vid == first_vid else twins
                     rows = await asyncio.gather(*(ask(tw, text) for tw in rest))
                     results[vid] = [first, *rows] if vid == first_vid else rows
