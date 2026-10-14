@@ -66,7 +66,7 @@
 - [x] Add frontend installation/build to CI while retaining Python tests on 3.11 and 3.12.
 - [x] Run all Python tests, Ruff checks and frontend build; review the whole branch independently before merge.
 - [x] Make an ignored local backup of the working SQLite database and confirm existing IDs/validation survive after switching the service.
-- [ ] Fast-forward clean main, push the public repository and verify CI on the published SHA.
+- [x] Fast-forward clean main, push the public repository and verify CI on the published SHA.
 - [x] Restart the main local service only after acceptance checks pass; keep fallback and CLI usable. Reset browser viewport, close temporary QA tabs and deliver screenshots.
 
 ## Self-review
