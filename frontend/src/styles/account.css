@@ -1,0 +1,128 @@
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.login-story {
+  background: #204acc;
+  color: #fff;
+  padding: 44px 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 50px;
+}
+.login-story .brand {
+  color: #fff;
+}
+.login-story .brand-mark i:last-child {
+  color: #8bddd2;
+}
+.login-story h1 {
+  font-size: clamp(42px, 4.5vw, 66px);
+  letter-spacing: -2.7px;
+  line-height: 1.12;
+  margin: 24px 0;
+}
+.login-story .mini-label {
+  color: #b5c7fd;
+}
+.login-story p {
+  font-size: 16px;
+  color: #c6d4ff;
+  max-width: 42ch;
+}
+.login-story .login-footnote {
+  font-size: 13px;
+}
+.login-story > small {
+  color: #a5bdf9;
+  font-size: 11px;
+}
+.login-twins {
+  position: relative;
+  height: 117px;
+  display: flex;
+  align-items: center;
+  margin: 36px 0 19px;
+}
+.login-twins > span {
+  display: grid;
+  place-items: center;
+  width: 69px;
+  height: 82px;
+  border: 2px solid #fff7;
+  border-radius: 28px;
+  background: #315cd5;
+  margin-left: -10px;
+  font-size: 30px;
+  font-weight: 600;
+  z-index: 1;
+}
+.login-twins > span:first-child {
+  margin: 0;
+  transform: rotate(-10deg);
+  background: #305dcf;
+}
+.login-twins > span:nth-child(2) {
+  transform: rotate(5deg);
+  background: #248c9b;
+}
+.login-twins > span:nth-child(3) {
+  transform: rotate(-5deg);
+  background: #536dcf;
+}
+.login-twins > span:nth-child(4) {
+  transform: rotate(9deg);
+  background: #3858bd;
+}
+.login-form {
+  background: #fff;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+}
+.login-form form {
+  width: 100%;
+  max-width: 360px;
+}
+.login-form h2 {
+  font-size: 29px;
+  letter-spacing: -0.9px;
+  line-height: 1.25;
+  margin-bottom: 12px;
+}
+.login-form form > p {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 30px;
+}
+.login-form .field {
+  margin-bottom: 21px;
+}
+.login-form .button {
+  width: 100%;
+  margin-top: 5px;
+}
+.login-form form > small {
+  display: block;
+  color: #8092a8;
+  font-size: 11px;
+  line-height: 1.8;
+  margin-top: 25px;
+}
+.login-symbol {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: #ebf1ff;
+  color: var(--blue);
+  border-radius: 12px;
+  margin-bottom: 23px;
+}
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}

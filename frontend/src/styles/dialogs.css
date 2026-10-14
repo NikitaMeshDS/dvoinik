@@ -1,0 +1,118 @@
+.modal {
+  width: min(920px, calc(100vw - 44px));
+  max-height: 90vh;
+  border: 0;
+  border-radius: 13px;
+  padding: 27px 30px;
+  color: var(--ink);
+  background: #f8faff;
+  box-shadow: 0 24px 80px #192d4040;
+}
+.modal::backdrop {
+  background: #192d4070;
+  backdrop-filter: blur(2px);
+}
+.modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 21px;
+}
+.modal > header h2 {
+  margin: 0;
+  font-size: 24px;
+}
+.modal > p {
+  font-size: 13px;
+  color: var(--muted);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 23px;
+}
+.compare-pickers {
+  display: grid;
+  grid-template-columns: 1fr 20px 1fr;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 25px;
+}
+.comparison-change {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.comparison-change > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 8px;
+}
+.comparison-change p {
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+.user-list {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 22px;
+}
+.user-list article {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.user-list article:last-child {
+  border: 0;
+}
+.user-list article > div {
+  flex: 1;
+}
+.user-list strong {
+  display: block;
+  font-size: 14px;
+}
+.user-list small {
+  display: block;
+  color: var(--muted);
+  margin-top: 5px;
+  font-size: 11px;
+}
+.status-active,
+.status-off {
+  font-size: 11px;
+  color: var(--mint);
+}
+.status-off {
+  color: #8596a9;
+}
+.method-process {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  margin: 40px 0;
+}
+.method-process > div {
+  border-top: 2px solid #b7c8e3;
+  padding-top: 24px;
+}
+.method-process svg {
+  color: var(--blue);
+  margin-bottom: 16px;
+}
+.method-process p,
+.method-section p {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 80ch;
+}
+.method-section {
+  border-top: 1px solid var(--line);
+  padding-top: 26px;
+  margin-top: 30px;
+}

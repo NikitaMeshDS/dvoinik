@@ -1,0 +1,254 @@
+.library-overview {
+  display: flex;
+  gap: 44px;
+  align-items: baseline;
+  margin: 10px 0 27px;
+  padding-bottom: 25px;
+  border-bottom: 1px solid var(--line);
+}
+.library-overview div {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+}
+.library-overview strong {
+  font-size: 29px;
+  letter-spacing: -1px;
+}
+.library-overview span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 23px 0;
+  flex-wrap: wrap;
+}
+.filter-bar select {
+  font-size: 12px;
+  max-width: 360px;
+  min-height: 42px;
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #cdd9e7;
+  padding-left: 13px;
+  border-radius: 8px;
+  flex: 1;
+  min-width: 230px;
+  color: #8ba0b6;
+}
+.search input {
+  border: 0;
+  background: transparent;
+  width: 100%;
+  font-size: 13px;
+}
+.study-list {
+  border-top: 1px solid var(--line);
+}
+.study-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border-bottom: 1px solid var(--line);
+  padding: 0 10px 0 0;
+}
+.study-row:hover {
+  background: #edf2fb;
+}
+.study-icon {
+  width: 45px;
+  height: 48px;
+  background: #e7edfa;
+  color: var(--blue);
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 22px;
+  font-weight: 650;
+  flex-shrink: 0;
+}
+.study-context {
+  min-width: 0;
+}
+.study-main strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: -0.3px;
+}
+.study-main small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+.study-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.study-tags i {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-style: normal;
+  font-size: 10px;
+  color: #536b82;
+  background: #e9eff5;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.study-tags i.demo {
+  color: var(--blue);
+  background: #e4ebff;
+}
+.study-tags i.llm {
+  color: var(--mint);
+  background: #e4f3ef;
+}
+.study-tags i.warning {
+  color: #985f22;
+  background: #fff1db;
+}
+.study-result {
+  min-width: 92px;
+  text-align: right;
+  margin-right: 7px;
+}
+.study-result b {
+  font-size: 25px;
+  letter-spacing: -0.7px;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 22px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pagination > div {
+  display: flex;
+  gap: 8px;
+}
+.pagination .button {
+  padding: 8px;
+  min-height: 35px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.field > span {
+  font-size: 13px;
+  font-weight: 550;
+  color: #4a6078;
+}
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+}
+.field textarea {
+  min-height: 115px;
+}
+.mini-label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 13px;
+}
+.help {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 12px 0 20px;
+  max-width: 95ch;
+}
+/* One journal entry exposes the question, audience and each saved alternative. */
+.study-main {
+  display: grid;
+  grid-template-columns: 45px minmax(0, 1fr) minmax(160px, 230px) 85px 19px;
+  padding: 24px 12px;
+  gap: 20px;
+}
+.study-question {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 5px 0 7px;
+}
+.study-context > small {
+  font-size: 10px;
+}
+.response-preview {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 10px;
+  align-items: end;
+}
+.response-mini {
+  display: block;
+  min-width: 0;
+}
+.response-mini > span:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 9px;
+}
+.study-main .response-mini small {
+  font-size: 10px;
+  margin: 0;
+}
+.response-mini b {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--muted);
+}
+.response-mini.is-leader small {
+  color: var(--ink);
+  font-weight: 750;
+}
+.response-mini-track {
+  height: 5px;
+  display: block;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.response-mini-track i {
+  height: 100%;
+  display: block;
+  border-radius: 2px;
+}
+.archive-loading {
+  padding: 25px 0;
+  color: var(--muted);
+}
+.archive-loading > div {
+  height: 92px;
+  margin: 14px 0;
+  background: #e9eef5;
+  border-radius: 8px;
+}
+.refresh-status {
+  font-size: 11px;
+  color: var(--muted);
+}

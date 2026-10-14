@@ -1,0 +1,338 @@
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  max-width: 690px;
+  margin: 34px 0;
+}
+.stepper button,
+.future-step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7c8da2;
+}
+.stepper button span,
+.future-step b {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border: 1px solid #cbd6e5;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+}
+.stepper .current {
+  color: var(--blue);
+}
+.stepper .current span {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+.stepper .complete {
+  color: var(--mint);
+}
+.stepper .complete span {
+  background: #e3f1ed;
+  border-color: #bfd8d3;
+}
+.stepper > i {
+  height: 1px;
+  background: #d5dfed;
+  flex: 1;
+  min-width: 20px;
+}
+.research-intro {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) 1fr;
+  gap: 30px;
+  align-items: center;
+  margin-bottom: 30px;
+}
+.research-intro > p {
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 74ch;
+}
+.question-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+.offer-editor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 15px;
+}
+.offer-input {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #d2ddeb;
+  border-top: 3px solid var(--blue);
+  border-radius: 9px;
+  overflow: hidden;
+}
+.offer-input > span {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 15px 15px 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.offer-input b {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: #edf2ff;
+  color: var(--blue);
+}
+.offer-input textarea {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  min-height: 180px;
+  width: 100%;
+  font-size: 14px;
+  padding: 15px;
+  resize: vertical;
+  flex: 1;
+}
+.variant-B {
+  border-top-color: #137d76;
+}
+.variant-B b {
+  background: #e7f4f1;
+  color: #137d76;
+}
+.variant-C {
+  border-top-color: #7d65b4;
+}
+.variant-C b {
+  background: #f0ebf8;
+  color: #7d65b4;
+}
+.variant-D {
+  border-top-color: #b27a30;
+}
+.variant-E {
+  border-top-color: #b65c84;
+}
+.disclosure {
+  margin: 24px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.disclosure > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure > summary::after {
+  content: "+";
+  font-size: 20px;
+  font-weight: 400;
+  margin-left: auto;
+  color: #7f91a6;
+}
+.disclosure[open] > summary::after {
+  content: "−";
+}
+.disclosure-content {
+  padding: 2px 0 20px;
+  font-size: 13px;
+  color: #536b83;
+  line-height: 1.7;
+}
+.step-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 9px;
+  padding: 17px 20px;
+  margin-top: 30px;
+  position: sticky;
+  bottom: 15px;
+  z-index: 8;
+}
+.step-actions > span,
+.step-actions > div > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.step-actions > div {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.audience-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 28px;
+  background: #e8eefb;
+  border-radius: 12px;
+  margin-bottom: 28px;
+}
+.audience-intro h2 {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 37px;
+  color: var(--blue);
+  margin: 0 0 5px;
+}
+.audience-intro h2 small {
+  font-size: 18px;
+  color: #536a87;
+  font-weight: 500;
+}
+.audience-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.audience-intro .field {
+  width: 160px;
+}
+.segment-editor {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 0 20px;
+}
+.segment-editor > label {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  padding: 17px 0;
+  border-bottom: 1px solid #e6edf5;
+}
+.segment-editor > label:last-child {
+  border-bottom: 0;
+}
+.segment-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  background: #edf1f7;
+  color: #69839f;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 600;
+}
+.segment-editor .active .segment-avatar {
+  background: #e6edff;
+  color: var(--blue);
+}
+.segment-name {
+  flex: 1;
+  min-width: 0;
+}
+.segment-name strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+}
+.segment-name small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.segment-editor input {
+  width: 82px;
+  font-size: 13px;
+  text-align: center;
+}
+.segment-count {
+  width: 72px;
+  font-size: 21px;
+  text-align: right;
+  font-weight: 650;
+  color: var(--blue);
+}
+.segment-count small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 20px;
+}
+.settings-grid > .help {
+  grid-column: 1/-1;
+  margin: 0;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #72859a;
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+.back-link:hover {
+  color: var(--blue);
+}
+.quality-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 16px 0 23px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 26px;
+}
+.quality-note > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8a9dc0;
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+.quality-note.demo > span {
+  background: var(--blue);
+}
+.quality-note.validated > span {
+  background: var(--mint);
+}
+.quality-note strong {
+  font-size: 12px;
+  color: #536b82;
+}
+.quality-note p {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 90ch;
+  margin: 4px 0 0;
+}

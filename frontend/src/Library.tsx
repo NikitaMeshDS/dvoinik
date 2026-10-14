@@ -7,10 +7,20 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
-import { Button, Heading, Empty, Menu, date, percent } from "./components";
+import {
+  Button,
+  Heading,
+  Empty,
+  Menu,
+  Notice,
+  date,
+  percent,
+} from "./components";
 import { type Experiment } from "./types";
 import { chronological, plural } from "./data";
+import ResponsePreview from "./features/research/ResponsePreview";
 export type LibraryState = {
   search: string;
   mode: string;
@@ -37,6 +47,9 @@ export default function Library({
   onSample,
   onCompare,
   pending,
+  loading = false,
+  error = "",
+  onReload,
 }: {
   records: Experiment[];
   state: LibraryState;
@@ -47,6 +60,9 @@ export default function Library({
   onSample: () => void;
   onCompare: (ids: string[]) => void;
   pending: Set<string>;
+  loading?: boolean;
+  error?: string;
+  onReload?: () => void;
 }) {
   const patch = (p: Partial<LibraryState>) => onState({ ...state, ...p });
   const filtered = chronological(records).filter((r) => {
@@ -102,7 +118,29 @@ export default function Library({
           </div>
         }
       />
-      {records.length === 0 ? (
+      {error && (
+        <Notice kind="error">
+          {error}
+          <div className="inline-actions">
+            <Button onClick={onReload}>
+              <RefreshCw size={16} />
+              Повторить загрузку исследований
+            </Button>
+          </div>
+        </Notice>
+      )}
+      {loading && records.length === 0 ? (
+        <div
+          className="archive-loading"
+          role="status"
+          aria-label="Загрузка исследований"
+        >
+          <p>Открываем ваши исследования…</p>
+          <div />
+          <div />
+          <div />
+        </div>
+      ) : records.length === 0 && !error ? (
         <Empty
           title="Ваша лаборатория готова"
           action={
@@ -115,7 +153,7 @@ export default function Library({
           Выберите сценарий, сформулируйте предложения и узнайте, какие вопросы
           стоит задать живой аудитории.
         </Empty>
-      ) : (
+      ) : records.length > 0 ? (
         <>
           <div className="library-overview">
             <div>
@@ -183,6 +221,11 @@ export default function Library({
               <option value="no">Без опроса</option>
             </select>
           </div>
+          {loading && (
+            <p className="refresh-status" role="status">
+              Обновляем исследования…
+            </p>
+          )}
           {state.compare && (
             <div className="selection-bar">
               <span>
@@ -245,8 +288,11 @@ export default function Library({
                       <span className="study-icon" aria-hidden="true">
                         {r.scenario.title[0]}
                       </span>
-                      <span>
+                      <span className="study-context">
                         <strong>{r.scenario.title}</strong>
+                        <span className="study-question">
+                          {r.scenario.question}
+                        </span>
                         <small>
                           {date(r.created_at)} · {r.n.toLocaleString("ru-RU")}{" "}
                           {plural(r.n, "профиль", "профиля", "профилей")} ·{" "}
@@ -267,6 +313,7 @@ export default function Library({
                           )}
                         </span>
                       </span>
+                      <ResponsePreview report={r.report} />
                       <span className="study-result">
                         <b>{percent(best, 0)}</b>
                         <small>
@@ -311,7 +358,7 @@ export default function Library({
             </div>
           </div>
         </>
-      )}
+      ) : null}
     </>
   );
 }

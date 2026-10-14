@@ -1,0 +1,212 @@
+:root {
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  color: #192d40;
+  background: #f3f5f9;
+  font-synthesis: none;
+  --blue: #2457d6;
+  --ink: #192d40;
+  --muted: #60758c;
+  --line: #dce4ee;
+  --paper: #fff;
+  --mint: #137d76;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+textarea,
+select,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+a,
+summary {
+  cursor: pointer;
+}
+button {
+  color: inherit;
+}
+a {
+  color: var(--blue);
+  text-decoration: none;
+}
+p {
+  line-height: 1.65;
+}
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-top: 0;
+}
+h1 {
+  font-size: clamp(30px, 3.2vw, 44px);
+  letter-spacing: -1.5px;
+  line-height: 1.18;
+  font-weight: 750;
+  margin-bottom: 14px;
+}
+h2 {
+  font-size: 21px;
+  letter-spacing: -0.5px;
+  line-height: 1.35;
+  margin-bottom: 12px;
+}
+h3 {
+  font-size: 17px;
+  margin-bottom: 5px;
+}
+h4 {
+  font-size: 14px;
+  margin-bottom: 9px;
+}
+small {
+  font-size: 12px;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.matrix-scroll:focus-visible {
+  outline: 3px solid #80a7f0;
+  outline-offset: 3px;
+}
+input,
+textarea,
+select {
+  min-width: 0;
+  border: 1px solid #cdd9e7;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 11px 13px;
+  max-width: 100%;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--blue);
+}
+textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+input[type="checkbox"] {
+  accent-color: var(--blue);
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+input[type="file"] {
+  width: 100%;
+  font-size: 13px;
+}
+input::placeholder {
+  color: #91a0b2;
+}
+.button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  min-height: 43px;
+  border: 1px solid #cbd7e5;
+  border-radius: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.button:hover:not(:disabled) {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.button.primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.button.primary:hover:not(:disabled) {
+  background: #1647bc;
+  border-color: #1647bc;
+  color: #fff;
+}
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  padding: 8px;
+  border-radius: 6px;
+}
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  background: none;
+  border: 0;
+  padding: 5px 0;
+  color: var(--blue);
+}
+.text-link:hover {
+  text-decoration: underline;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--blue);
+  font-size: 29px;
+  letter-spacing: -1.2px;
+  font-weight: 800;
+}
+.brand-mark {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 34px;
+}
+.brand-mark i {
+  position: absolute;
+  width: 25px;
+  height: 30px;
+  top: 2px;
+  border: 2px solid currentColor;
+  border-radius: 10px;
+}
+.brand-mark i:first-child {
+  left: 0;
+}
+.brand-mark i:last-child {
+  left: 11px;
+  color: #168f89;
+  background: #ffffff15;
+}
+.brand-link {
+  display: block;
+}
