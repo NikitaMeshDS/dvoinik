@@ -36,7 +36,7 @@ class Security:
     def identity(self, request: Request):
         token = request.cookies.get(COOKIE, "")
         # Polling never prolongs inactivity; all other authenticated interaction does.
-        poll = request.method == "GET" and re.fullmatch(r"/api/runs/[^/]+", request.url.path)
+        poll = request.method == "GET" and re.fullmatch(r"/api/runs(?:/[^/]+)?", request.url.path)
         user = self.runtime.auth.resolve(token)
         supplied = request.headers.get("x-csrf-token", "")
         if request.method in {"GET", "HEAD"} and supplied:

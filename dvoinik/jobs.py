@@ -6,7 +6,7 @@ import copy
 import threading
 import uuid
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from .auth import AccessExpired, AuthError
@@ -28,6 +28,13 @@ class JobInterrupted(RuntimeError):
     pass
 
 
+class JobCancelled(JobInterrupted):
+    pass
+
+
+ACTIVE_STATUSES = {"queued", "running", "cancelling"}
+
+
 @dataclass
 class Job:
     id: str
@@ -40,6 +47,8 @@ class Job:
     error: str | None = None
     saved: bool = False
     released: bool = field(default=False, repr=False)
+    cancel_requested: bool = field(default=False, repr=False)
+    future: Future | None = field(default=None, repr=False)
 
     def public(self):
         return copy.deepcopy(
@@ -86,6 +95,7 @@ class Jobs:
             self.owners.add(user.id)
             try:
                 future = self.pool.submit(self._execute, job, key, copy.deepcopy(scenario), settings)
+                job.future = future
                 future.add_done_callback(lambda done: self._cancelled(job) if done.cancelled() else None)
             except RuntimeError:
                 self.jobs.pop(job.id)
@@ -101,6 +111,8 @@ class Jobs:
 
             def guard():
                 with self.lock:
+                    if job.cancel_requested:
+                        raise JobCancelled("Исследование остановлено. Частичный результат не сохранён.")
                     if self.closed:
                         raise JobInterrupted("Сервис остановлен. Исследование прервано.")
                     access_guard()
@@ -131,6 +143,10 @@ class Jobs:
                 guard()
                 job.record, job.error, job.saved = record, error, saved
                 job.status = "completed"
+        except JobCancelled as exc:
+            with self.lock:
+                job.record, job.saved = None, False
+                job.status, job.error = "cancelled", str(exc)
         except JobInterrupted as exc:
             with self.lock:
                 job.record, job.saved = None, False
@@ -142,16 +158,22 @@ class Jobs:
         except Exception:
             # Providers can include credentials in exceptions; do not expose them.
             with self.lock:
+                job.record, job.saved = None, False
                 job.status, job.error = (
-                    "failed",
-                    "Не удалось завершить исследование. Проверьте настройки модели.",
+                    ("cancelled", "Исследование остановлено. Частичный результат не сохранён.")
+                    if job.cancel_requested
+                    else ("failed", "Не удалось завершить исследование. Проверьте настройки модели.")
                 )
         finally:
             self._finish(job)
 
     def _cancelled(self, job):
         with self.lock:
-            job.status, job.error = "failed", "Сервис остановлен. Исследование прервано."
+            job.status, job.error = (
+                ("cancelled", "Исследование остановлено до начала выполнения.")
+                if job.cancel_requested
+                else ("failed", "Сервис остановлен. Исследование прервано.")
+            )
             self._finish(job)
 
     def _finish(self, job):
@@ -159,13 +181,14 @@ class Jobs:
             if job.released:
                 return
             job.released = True
+            job.future = None
             self.owners.discard(job.owner)
             self.capacity.release()
             recovery_ids = {item.id for item in self._recovery()}
             disposable = [
                 jid
                 for jid, item in self.jobs.items()
-                if item.status not in {"queued", "running"} and jid not in recovery_ids
+                if item.status not in ACTIVE_STATUSES and jid not in recovery_ids
             ]
             keep = max(0, self.retained - len(recovery_ids))
             for jid in disposable[:-keep] if keep else disposable:
@@ -188,6 +211,28 @@ class Jobs:
     def get(self, token, job_id):
         with self.lock:
             job = self._get(token, job_id)
+            return job.public()
+
+    def active(self, token):
+        self.auth.resolve(token)
+        with self.lock:
+            return [
+                job.public()
+                for job in self.jobs.values()
+                if job.token == token and job.status in ACTIVE_STATUSES
+            ]
+
+    def cancel(self, token, job_id):
+        with self.lock:
+            job = self._get(token, job_id)
+            if job.status not in ACTIVE_STATUSES:
+                return job.public()
+            job.cancel_requested = True
+            job.status = "cancelling"
+            # A running worker keeps its capacity until guard/cleanup finishes.
+            # A queued future invokes _cancelled synchronously under the RLock.
+            if job.future:
+                job.future.cancel()
             return job.public()
 
     def recovery(self, token):

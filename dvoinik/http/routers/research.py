@@ -75,6 +75,16 @@ def job(job_id: str, access=Depends(identity), runtime=Depends(get_runtime)):
     return runtime.jobs.get(access[0], job_id)
 
 
+@router.get("/api/runs")
+def active_runs(access=Depends(identity), runtime=Depends(get_runtime)):
+    return {"jobs": runtime.jobs.active(access[0])}
+
+
+@router.post("/api/runs/{job_id}/cancel")
+def cancel_run(job_id: str, access=Depends(identity), runtime=Depends(get_runtime)):
+    return runtime.jobs.cancel(access[0], job_id)
+
+
 @router.get("/api/recovery")
 def recovery(access=Depends(identity), runtime=Depends(get_runtime)):
     return {"jobs": runtime.jobs.recovery(access[0])}

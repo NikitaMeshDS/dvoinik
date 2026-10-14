@@ -111,7 +111,10 @@ def test_custom_demo_with_one_objection_does_not_crash():
 
 
 @pytest.mark.parametrize("blocked_call", [1, 2])
-def test_job_shutdown_stops_real_engine_before_next_provider_request(tmp_path, monkeypatch, blocked_call):
+@pytest.mark.parametrize("control", ["shutdown", "cancel"])
+def test_job_control_stops_real_engine_before_next_provider_request(
+    tmp_path, monkeypatch, blocked_call, control
+):
     import copy
     import threading
     import time
@@ -163,22 +166,33 @@ def test_job_shutdown_stops_real_engine_before_next_provider_request(tmp_path, m
     scenario["variants"].update({"D": "Предложение D", "E": "Предложение E"})
     submitted = jobs.submit(token, "student_card", scenario, RunSettings(n=1000, mock=False, concurrency=1))
     assert entered.wait(3)
-    closer = threading.Thread(target=lambda: (jobs.close(), stopped.set()))
+
+    def stop():
+        if control == "cancel":
+            assert jobs.cancel(token, submitted["id"])["status"] == "cancelling"
+            stopped.set()
+        else:
+            jobs.close()
+            stopped.set()
+
+    closer = threading.Thread(target=stop)
     closer.start()
     try:
         for _ in range(100):
-            if jobs.closed:
+            if jobs.closed or jobs.get(token, submitted["id"])["status"] == "cancelling":
                 break
             time.sleep(0.01)
-        assert jobs.closed
+        assert jobs.closed or jobs.get(token, submitted["id"])["status"] == "cancelling"
     finally:
         release.set()
         closer.join(5)
+        jobs.close()
     assert stopped.is_set()
     assert calls_after_close == []
     assert len(calls) == blocked_call
     result = jobs.get(token, submitted["id"])
-    assert result["status"] == "failed" and result["record"] is None and not result["saved"]
+    assert result["status"] == ("cancelled" if control == "cancel" else "failed")
+    assert result["record"] is None and not result["saved"]
     assert jobs.active_count == 0
     assert auth.workspace(token).list_records() == []
     assert auth.resolve(token).id == owner
