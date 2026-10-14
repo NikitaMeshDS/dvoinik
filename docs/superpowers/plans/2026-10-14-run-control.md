@@ -40,5 +40,7 @@ Interfaces: useJob(route,onFinished)->{job,active,error,refresh,accept}. One mon
 Files: README.md, docs/architecture.md and this plan.
 - [x] Run isolated browser QA for route/reload/control and mobile width; document behavior and process-restart limitation.
 - [x] Run full suites; obtain independent whole-branch review, address material findings with regression tests.
-- [ ] Back up real SQLite and compare archive/account manifests before/after fast-forward/build/restart.
-- [ ] Push main, observe exact-commit successful CI; mark plan complete.
+- [x] Back up real SQLite and compare archive/account manifests before/after fast-forward/build/restart.
+- [x] Push main, observe exact-commit successful CI; mark plan complete.
+
+Delivery evidence: local195 Python /25 frontend tests; strict TypeScript/build/format and Ruff passed. GitHub CI38533522330 passed all three jobs for547cea6. SQLite backup and exact four-snapshot/one-account comparison confirmed data and credentials unchanged.
