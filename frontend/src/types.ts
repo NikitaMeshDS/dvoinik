@@ -133,7 +133,8 @@ export type RunPayload = {
 };
 export type Job = {
   id: string;
-  status: "queued" | "running" | "completed" | "failed";
+  status:
+    "queued" | "running" | "cancelling" | "cancelled" | "completed" | "failed";
   done: number;
   total: number;
   record?: Experiment | null;

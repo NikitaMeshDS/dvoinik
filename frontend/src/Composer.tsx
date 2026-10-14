@@ -22,6 +22,7 @@ export default function Composer({
   onRun,
   demo,
   busy,
+  activeRun = false,
 }: {
   catalog: Catalog;
   draft: Draft;
@@ -30,6 +31,7 @@ export default function Composer({
   onRun: () => void;
   demo: boolean;
   busy: boolean;
+  activeRun?: boolean;
 }) {
   const [step, setStep] = useState(0),
     [error, setError] = useState(""),
@@ -375,10 +377,14 @@ export default function Composer({
               </span>
               <Button
                 kind="primary"
-                disabled={busy || loading || !!previewError}
-                onClick={start}
+                disabled={busy || (!activeRun && (loading || !!previewError))}
+                onClick={activeRun ? onRun : start}
               >
-                {busy ? "Запускаем…" : "Запустить исследование"}
+                {busy
+                  ? "Запускаем…"
+                  : activeRun
+                    ? "К текущему запуску"
+                    : "Запустить исследование"}
                 <ArrowRight size={18} />
               </Button>
             </div>

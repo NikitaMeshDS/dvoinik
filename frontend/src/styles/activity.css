@@ -107,3 +107,61 @@
   color: #fff;
   padding: 5px;
 }
+/* The active run is a single route link, keeping the catalogue focused on results. */
+.active-run {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  border-left: 3px solid var(--blue);
+  background: #eaf0ff;
+  color: var(--ink);
+  border-radius: 0 8px 8px 0;
+}
+.active-run:hover {
+  background: #e1eaff;
+}
+.active-run > span:nth-child(2) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.active-run strong {
+  font-size: 13px;
+}
+.active-run > span:nth-child(2) > span {
+  font-size: 12px;
+  color: #486184;
+  line-height: 1.5;
+}
+.active-run-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex-shrink: 0;
+}
+.active-run progress {
+  width: 110px;
+  height: 6px;
+  accent-color: var(--blue);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.run-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
+}
+@media (max-width: 560px) {
+  .active-run {
+    padding: 14px;
+    gap: 11px;
+  }
+  .active-run progress {
+    display: none;
+  }
+}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ApiError, ignored, message } from "../api";
 import { runPayload } from "../draft";
 import { comparisonOrder } from "../data";
@@ -32,6 +32,7 @@ export default function Workspace({
     drafts = useDrafts(catalog, session),
     report = useRecord(route);
   const { record } = report;
+  const [cancelBusy, setCancelBusy] = useState(false);
   const [runBusy, setRunBusy] = useState(false),
     [toast, setToast] = useState("");
   const [library, setLibrary] = useState<LibraryState>(INITIAL_LIBRARY);
@@ -41,11 +42,31 @@ export default function Workspace({
     if (!ignored(error) && !(error instanceof ApiError && error.authBlocked))
       setToast(message(error));
   };
-  const job = useJob(route, (value) => {
-    archive.recovered(value);
-    navigate("report/" + value.record!.id);
-    void archive.reload();
+  const runs = useJob(route, (value) => {
+    if (value.status === "completed" && value.record) {
+      archive.recovered(value);
+      void archive.reload();
+      if (!route.startsWith("job/"))
+        setToast("Исследование завершено. Результат доступен в архиве.");
+    } else if (!route.startsWith("job/"))
+      setToast(value.error ?? "Запуск завершён без результата.");
   });
+  useEffect(() => {
+    if (runs.job?.status === "completed" && runs.job.record)
+      navigate("report/" + runs.job.record.id);
+  }, [runs.job, navigate]);
+  const cancel = async () => {
+    if (!runs.job || cancelBusy) return;
+    setCancelBusy(true);
+    try {
+      await api.request<Job>("/runs/" + runs.job.id + "/cancel", "POST");
+      runs.refresh();
+    } catch (e) {
+      onError(e);
+    } finally {
+      setCancelBusy(false);
+    }
+  };
   const updated = (value: Experiment) => {
     report.updated(value);
     archive.updated(value);
@@ -57,6 +78,10 @@ export default function Workspace({
     }
   };
   const start = async () => {
+    if (runs.active) {
+      navigate("job/" + runs.active.id);
+      return;
+    }
     if (!drafts.draft || runBusy) return;
     setRunBusy(true);
     setToast("");
@@ -118,6 +143,38 @@ export default function Workspace({
         toast={toast}
         onDismiss={() => setToast("")}
       >
+        {!route.startsWith("job/") && runs.active && (
+          <a className="active-run" href={"#/job/" + runs.active.id}>
+            <span className="active-run-dot" aria-hidden="true" />
+            <span>
+              <strong>
+                {runs.active.status === "cancelling"
+                  ? "Останавливаем исследование"
+                  : runs.active.status === "queued"
+                    ? "Исследование в очереди"
+                    : "Исследование выполняется"}
+              </strong>
+              <span>
+                {runs.active.done.toLocaleString("ru-RU")} из{" "}
+                {runs.active.total.toLocaleString("ru-RU")} оценок · Открыть
+                запуск
+              </span>
+            </span>
+            <progress
+              max={Math.max(1, runs.active.total)}
+              value={runs.active.done}
+              aria-label="Прогресс активного исследования"
+            />
+          </a>
+        )}
+        {!route.startsWith("job/") && runs.error && (
+          <Notice kind="error">
+            Не удалось обновить состояние запуска. {runs.error}{" "}
+            <button className="text-link" onClick={runs.refresh}>
+              Повторить
+            </button>
+          </Notice>
+        )}
         {!catalog ? (
           catalogData.error ? (
             <Notice kind="error">
@@ -142,6 +199,7 @@ export default function Workspace({
             onRun={start}
             demo={session.user.role === "demo"}
             busy={runBusy}
+            activeRun={Boolean(runs.active)}
           />
         ) : route.startsWith("report/") ? (
           record ? (
@@ -178,7 +236,15 @@ export default function Workspace({
             </p>
           )
         ) : route.startsWith("job/") ? (
-          <JobView job={job} onBack={() => navigate("create")} />
+          <JobView
+            job={runs.job}
+            error={runs.error}
+            onRetry={runs.refresh}
+            onCancel={cancel}
+            cancelBusy={cancelBusy}
+            onBackground={() => navigate("archive")}
+            onBack={() => navigate("create")}
+          />
         ) : route === "methodology" ? (
           <Methodology />
         ) : route === "admin" ? (

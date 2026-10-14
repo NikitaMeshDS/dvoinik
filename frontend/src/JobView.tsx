@@ -1,29 +1,56 @@
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Users, Square } from "lucide-react";
 import { Button, Heading, Notice } from "./components";
 import type { Job } from "./types";
 export default function JobView({
   job,
+  error,
+  onRetry,
+  onCancel,
+  cancelBusy,
   onBack,
+  onBackground,
 }: {
   job: Job | null;
+  error: string;
+  onRetry: () => void;
+  onCancel: () => void;
+  cancelBusy: boolean;
   onBack: () => void;
+  onBackground: () => void;
 }) {
   const done = job?.done ?? 0,
     total = job?.total ?? 1,
-    failed = job?.status === "failed";
+    failed = job?.status === "failed",
+    cancelled = job?.status === "cancelled",
+    cancelling = job?.status === "cancelling",
+    terminal = failed || cancelled;
   return (
     <>
       <Heading
         title={
-          failed
-            ? "Исследование не завершено"
-            : "Двойники знакомятся с предложениями"
+          cancelled
+            ? "Исследование остановлено"
+            : failed
+              ? "Исследование не завершено"
+              : "Двойники знакомятся с предложениями"
         }
-        description="Прогресс отражает реальные оценки движка."
+        description={
+          cancelled
+            ? "Частичный результат не сохранён. Можно настроить и запустить новое исследование."
+            : "Можно продолжать работу: запуск выполняется на сервере."
+        }
       />
+      {error && (
+        <Notice kind="error">
+          {error}{" "}
+          <button className="text-link" onClick={onRetry}>
+            Повторить обновление
+          </button>
+        </Notice>
+      )}
       <section className="run-stage">
         <div
-          className={"run-orbit " + (failed ? "paused" : "")}
+          className={"run-orbit " + (terminal || cancelling ? "paused" : "")}
           aria-hidden="true"
         >
           <Users size={36} />
@@ -31,9 +58,9 @@ export default function JobView({
           <i />
           <i />
         </div>
-        {failed ? (
+        {terminal ? (
           <>
-            <Notice kind="error">
+            <Notice kind={failed ? "error" : ""}>
               {job?.error || "Не удалось выполнить исследование."}
             </Notice>
             <Button onClick={onBack}>
@@ -46,9 +73,11 @@ export default function JobView({
             <h2>
               {!job
                 ? "Загружаем состояние запуска…"
-                : job.status === "queued"
-                  ? "Ждём свободный слот"
-                  : "Исследование выполняется"}
+                : cancelling
+                  ? "Останавливаем исследование"
+                  : job.status === "queued"
+                    ? "Ждём свободный слот"
+                    : "Исследование выполняется"}
             </h2>
             {job && (
               <p>
@@ -62,9 +91,19 @@ export default function JobView({
               aria-label="Прогресс симуляции"
             />
             <p className="help">
-              Результат откроется после завершения. Скорость зависит от модели и
-              размера аудитории.
+              {cancelling
+                ? "Ждём завершения уже отправленного запроса к модели. Новые оценки не запускаются."
+                : "Результат сохранится в архиве. Скорость зависит от модели и размера аудитории."}
             </p>
+            <div className="run-actions">
+              <Button onClick={onBackground}>Продолжить работу</Button>
+              {job && (
+                <Button onClick={onCancel} disabled={cancelBusy || cancelling}>
+                  <Square size={14} />
+                  {cancelBusy || cancelling ? "Останавливаем…" : "Остановить"}
+                </Button>
+              )}
+            </div>
           </>
         )}
       </section>
