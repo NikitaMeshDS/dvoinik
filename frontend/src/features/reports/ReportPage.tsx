@@ -99,6 +99,7 @@ export default function ReportPage({
         <div hidden={tab !== "validation"}>
           <ValidationPanel
             record={record}
+            catalog={catalog}
             onUpdated={onUpdated}
             onExport={exportFile}
           />

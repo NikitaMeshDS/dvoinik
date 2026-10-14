@@ -18,6 +18,7 @@ from .population import SEGMENTS
 from .presentation import COLORS, escape, markup, section
 from .reporting import export_csv, export_json, summarize
 from .storage import KEEP_VALIDATION
+from .survey_materials import comparable_cells, survey_template
 from .validate import load_survey
 from .workspace import Workspace
 
@@ -371,17 +372,17 @@ def validation_view(record):
     st.caption(
         "Для сравнения используются те же сегменты и их доли, что в загруженном опросе. Ошибка взвешивается по числу ответов. Для содержательного ранжирования опрашивайте сопоставимые аудитории по всем вариантам."
     )
-    example = "segment,variant,decision\n" + "".join(
-        f"{sid},{vid},0\n" for vid in record["report"] for sid in record["scenario"]["population"]
-    )
-    download(
-        "Скачать шаблон опроса",
-        example,
-        "survey-template.csv",
-        "text/csv",
-        key=f"survey_template_{record['id']}",
-    )
-    st.caption("Нули в шаблоне — примеры формата. Замените их реальными ответами.")
+    if comparable_cells(record):
+        download(
+            "Скачать шаблон опроса",
+            survey_template(record),
+            "survey-template.csv",
+            "text/csv",
+            key=f"survey_template_{record['id']}",
+        )
+        st.caption("В шаблоне решения пустые. Запишите настоящие ответы и удалите незаполненные строки.")
+    else:
+        st.info("Нет валидных ответов симуляции для сопоставления. Повторите исследование.")
     uploaded = st.file_uploader(
         "CSV живого опроса", type=["csv"], max_upload_size=5, key=f"survey_{record['id']}"
     )

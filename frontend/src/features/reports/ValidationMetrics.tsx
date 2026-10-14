@@ -35,7 +35,8 @@ export default function ValidationMetrics({
       </div>
       <p className="help">
         {result.survey_n} ответов опроса · {result.matched_cells} пар «вариант —
-        сегмент». Подлинность опроса приложение не проверяет.
+        сегмент». Это оценки предложений, а не число уникальных людей.
+        Подлинность опроса приложение не проверяет.
       </p>
       <div className="table-scroll">
         <table className="data-table">

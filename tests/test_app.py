@@ -1,4 +1,5 @@
 import copy
+import csv
 import io
 import re
 from pathlib import Path
@@ -35,6 +36,23 @@ def test_startup_shows_explicit_demo_without_adding_to_history(monkeypatch):
     assert app.session_state["active_record"]["sample"] is True
     assert app.session_state["history"] == []
     assert len(download_keys(app)) >= 2
+
+
+def test_fallback_survey_template_does_not_fabricate_rejections(monkeypatch):
+    original = ui.download
+    templates = []
+
+    def capture(label, data, file_name, mime, **kwargs):
+        if file_name == "survey-template.csv":
+            templates.append(data)
+        return original(label, data, file_name, mime, **kwargs)
+
+    monkeypatch.setattr(ui, "download", capture)
+    app = launch(monkeypatch)
+    assert not app.exception
+    assert templates
+    rows = list(csv.DictReader(io.StringIO(templates[-1])))
+    assert rows and {row["decision"] for row in rows} == {""}
 
 
 def test_run_keeps_snapshot_and_warns_after_offer_is_edited(monkeypatch):

@@ -262,7 +262,7 @@ class AuthStore:
             data = data.encode("utf-8")
         if not isinstance(data, bytes) or len(data) > 10 * 1024 * 1024:
             raise AuthError("Максимальный размер скачивания — 10 МБ.")
-        if mime not in {"application/json", "text/csv"} or not re.fullmatch(
+        if mime not in {"application/json", "text/csv", "application/zip"} or not re.fullmatch(
             r"[A-Za-z0-9_.-]{1,180}", filename
         ):
             raise AuthError("Недопустимый формат или имя файла.")

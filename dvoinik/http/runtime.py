@@ -19,6 +19,7 @@ from ..reporting import export_csv, export_json
 from ..runs import RunSettings, run_experiment
 from ..scenarios import SCENARIOS
 from ..storage import StorageError
+from ..survey_materials import survey_kit, survey_template
 from ..validate import load_survey
 
 
@@ -139,14 +140,17 @@ class Runtime:
         return record
 
     def issue(self, token, record, options):
-        if options.format not in {"json", "csv"} or options.kind not in {
-            "record",
-            "validation",
-            "survey-template",
-            "preview",
-        }:
+        formats = {
+            "record": {"json", "csv"},
+            "validation": {"json", "csv"},
+            "survey-template": {"csv"},
+            "survey-kit": {"zip"},
+            "preview": {"json"},
+        }
+        if options.format not in formats.get(options.kind, set()):
             raise ValueError(
-                "Выберите формат json/csv и вид выгрузки record/validation/survey-template/preview."
+                "Выберите JSON/CSV для отчёта или проверки, CSV для шаблона, "
+                "ZIP для комплекта опроса или JSON для предпросмотра."
             )
         if options.kind == "preview":
             if options.format != "json":
@@ -155,15 +159,9 @@ class Runtime:
         elif options.kind == "record":
             data = export_json(record) if options.format == "json" else export_csv(record)
         elif options.kind == "survey-template":
-            if options.format != "csv":
-                raise ValueError("Шаблон опроса доступен в CSV.")
-            stream = io.StringIO()
-            writer = csv.writer(stream)
-            writer.writerow(["segment", "variant", "decision"])
-            for vid in record["report"]:
-                for sid in record["scenario"]["population"]:
-                    writer.writerow([sid, vid, 0])
-            data = stream.getvalue()
+            data = survey_template(record)
+        elif options.kind == "survey-kit":
+            data = survey_kit(record)
         else:
             validation_record = (
                 self.cached_preview(token, record["id"], options.preview_id)
@@ -187,7 +185,7 @@ class Runtime:
         handle = self.auth.issue_export(
             token,
             data,
-            "application/json" if options.format == "json" else "text/csv",
+            {"json": "application/json", "csv": "text/csv", "zip": "application/zip"}[options.format],
             f"dvoinik-{record['id']}-{options.kind}.{options.format}",
         )
         return {"url": f"/download/{handle}"}
