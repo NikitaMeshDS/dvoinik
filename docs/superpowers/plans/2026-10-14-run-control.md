@@ -23,22 +23,22 @@ Node 24.15+, Python 3.11+. No new runtime dependencies. Preserve account, passwo
 
 Files: dvoinik/jobs.py, dvoinik/http/routers/research.py, dvoinik/http/security.py; tests/test_api.py, tests/test_engine.py.
 Interfaces: active(token)->list[dict]; cancel(token,job_id)->dict; GET /api/runs->{jobs}; POST /api/runs/{id}/cancel->Job. New statuses cancelling/cancelled.
-- [ ] Write cancellation, discovery, session/CSRF and TTL regressions; run pytest to observe RED.
-- [ ] Add Future/cancel flag, guard interruption and original-session active discovery. Guard save and cancellation under existing lock; include cancelling in active retention.
-- [ ] Verify all Python tests/Ruff; commit backend changes and tests.
+- [x] Write cancellation, discovery, session/CSRF and TTL regressions; run pytest to observe RED.
+- [x] Add Future/cancel flag, guard interruption and original-session active discovery. Guard save and cancellation under existing lock; include cancelling in active retention.
+- [x] Verify all Python tests/Ruff; commit backend changes and tests.
 
 ## Task2: Workspace monitoring and controls
 
-Files: frontend/src/app/{useActiveRun,useJob,Workspace}.ts/tsx, frontend/src/JobView.tsx, frontend/src/Composer.tsx, frontend/src/types.ts, frontend/src/styles/activity.css.
-Interfaces: useActiveRun(onFinished)->{job,error,refresh}; useJob(route,onCompleted)->{job,error,refresh}. Completion callback does not dictate navigation.
-- [ ] Write actual React hook regressions for discovery, completion, transient error and unmount; observe Vitest RED.
-- [ ] Monitor original-session active run globally with guarded requests and bounded timers; show compact route link, cancellation action and truthful terminal/error states.
-- [ ] Verify complete frontend suite, TypeScript/build/Prettier; commit frontend change.
+Files: frontend/src/app/{useJob,Workspace}.ts/tsx, frontend/src/JobView.tsx, frontend/src/Composer.tsx, frontend/src/types.ts, frontend/src/styles/activity.css.
+Interfaces: useJob(route,onFinished)->{job,active,error,refresh,accept}. One monitor handles discovery and terminal events; Workspace owns navigation. accept(Job) applies a confirmed mutation before re-reading.
+- [x] Write actual React hook regressions for discovery, completion, transient error and unmount; observe Vitest RED.
+- [x] Monitor original-session active run globally with guarded requests and bounded timers; show compact route link, cancellation action and truthful terminal/error states.
+- [x] Verify complete frontend suite, TypeScript/build/Prettier; commit frontend change.
 
 ## Task3: Review and delivery
 
 Files: README.md, docs/architecture.md and this plan.
-- [ ] Run isolated browser QA for route/reload/control and mobile width; document behavior and process-restart limitation.
-- [ ] Run full suites; obtain independent whole-branch review, address material findings with regression tests.
+- [x] Run isolated browser QA for route/reload/control and mobile width; document behavior and process-restart limitation.
+- [x] Run full suites; obtain independent whole-branch review, address material findings with regression tests.
 - [ ] Back up real SQLite and compare archive/account manifests before/after fast-forward/build/restart.
 - [ ] Push main, observe exact-commit successful CI; mark plan complete.

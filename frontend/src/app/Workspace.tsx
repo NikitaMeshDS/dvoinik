@@ -46,9 +46,9 @@ export default function Workspace({
     if (value.status === "completed" && value.record) {
       archive.recovered(value);
       void archive.reload();
-      if (!route.startsWith("job/"))
+      if (route !== "job/" + value.id)
         setToast("Исследование завершено. Результат доступен в архиве.");
-    } else if (!route.startsWith("job/"))
+    } else if (route !== "job/" + value.id)
       setToast(value.error ?? "Запуск завершён без результата.");
   });
   useEffect(() => {
@@ -59,8 +59,11 @@ export default function Workspace({
     if (!runs.job || cancelBusy) return;
     setCancelBusy(true);
     try {
-      await api.request<Job>("/runs/" + runs.job.id + "/cancel", "POST");
-      runs.refresh();
+      const value = await api.request<Job>(
+        "/runs/" + runs.job.id + "/cancel",
+        "POST",
+      );
+      runs.accept(value);
     } catch (e) {
       onError(e);
     } finally {

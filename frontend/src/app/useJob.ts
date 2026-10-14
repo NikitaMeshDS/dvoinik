@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from "react";
-import { api, ignored, message } from "../api";
+import { api, ApiError, ignored, message } from "../api";
 import type { Job } from "../types";
 import { RequestScope } from "../shared/requests";
 export function activeJob(job: Job) {
@@ -11,14 +11,44 @@ export function useJob(route: string, onFinished: (job: Job) => void) {
     [active, setActive] = useState<Job | null>(null),
     [error, setError] = useState("");
   const [revision, refresh] = useReducer((value: number) => value + 1, 0);
-  const previous = useRef<Job | null>(null),
+  const observed = useRef(new Set<string>()),
     delivered = useRef(new Set<string>()),
-    finish = useRef(onFinished);
+    finish = useRef(onFinished),
+    currentRoute = useRef(route),
+    currentScope = useRef<RequestScope | null>(null);
   finish.current = onFinished;
+  currentRoute.current = route;
+  const publish = (value: Job) => {
+    if (currentRoute.current === "job/" + value.id) setJob(value);
+    if (!activeJob(value)) {
+      observed.current.delete(value.id);
+      if (!delivered.current.has(value.id)) {
+        delivered.current.add(value.id);
+        finish.current(value);
+      }
+    }
+  };
+  const publishRef = useRef(publish);
+  publishRef.current = publish;
+  const accept = (value: Job) => {
+    // A confirmed mutation invalidates older progress reads before UI commit.
+    currentScope.current?.cancel();
+    if (activeJob(value)) observed.current.add(value.id);
+    setActive((previous) =>
+      previous && previous.id !== value.id
+        ? previous
+        : activeJob(value)
+          ? value
+          : null,
+    );
+    publishRef.current(value);
+    refresh();
+  };
   useEffect(() => {
     setError("");
     const requested = route.startsWith("job/") ? route.slice(4) : null,
       scope = new RequestScope();
+    currentScope.current = scope;
     let alive = true,
       timer = 0;
     const poll = async () => {
@@ -31,32 +61,49 @@ export function useJob(route: string, onFinished: (job: Job) => void) {
               undefined,
               signal,
             );
-            const current = jobs[0] ?? null;
-            const id = requested ?? previous.current?.id;
-            const value = id
-              ? (jobs.find((candidate) => candidate.id === id) ??
-                (await api.request<Job>(
-                  "/runs/" + encodeURIComponent(id),
-                  "GET",
-                  undefined,
-                  signal,
-                )))
-              : null;
-            return { current, value };
+            const ids = new Set(observed.current);
+            if (requested) ids.add(requested);
+            const details = await Promise.all(
+              [...ids].map(async (id) => {
+                try {
+                  const value =
+                    jobs.find((candidate) => candidate.id === id) ??
+                    (await api.request<Job>(
+                      "/runs/" + encodeURIComponent(id),
+                      "GET",
+                      undefined,
+                      signal,
+                    ));
+                  return { id, value, error: null };
+                } catch (e) {
+                  if (ignored(e) || (e instanceof ApiError && e.authBlocked))
+                    throw e;
+                  return { id, value: null, error: e };
+                }
+              }),
+            );
+            return { current: jobs[0] ?? null, details };
           },
-          ({ current, value }) => {
-            previous.current = current;
+          ({ current, details }) => {
+            // Successful discovery is authoritative even if a historical detail
+            // is gone after restart or temporarily unavailable.
             setActive(current);
-            setError("");
-            if (requested) setJob(value);
-            if (
-              value &&
-              !activeJob(value) &&
-              !delivered.current.has(value.id)
-            ) {
-              delivered.current.add(value.id);
-              finish.current(value);
+            if (current) observed.current.add(current.id);
+            const errors: string[] = [];
+            for (const detail of details) {
+              if (detail.value) publishRef.current(detail.value);
+              else {
+                errors.push(message(detail.error));
+                if (
+                  detail.error instanceof ApiError &&
+                  detail.error.status === 404
+                ) {
+                  observed.current.delete(detail.id);
+                  if (requested === detail.id) setJob(null);
+                }
+              }
             }
+            setError(errors.join(" "));
           },
           (e) => {
             if (!ignored(e)) setError(message(e));
@@ -73,6 +120,7 @@ export function useJob(route: string, onFinished: (job: Job) => void) {
       alive = false;
       window.clearTimeout(timer);
       scope.cancel();
+      if (currentScope.current === scope) currentScope.current = null;
     };
   }, [route, revision]);
   return {
@@ -80,5 +128,6 @@ export function useJob(route: string, onFinished: (job: Job) => void) {
     active,
     error,
     refresh,
+    accept,
   };
 }
