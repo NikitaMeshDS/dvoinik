@@ -1,9 +1,11 @@
 import { percent } from "../../components";
-import type { ValidationResult } from "../../types";
+import type { Catalog, ValidationResult } from "../../types";
 export default function ValidationMetrics({
   result,
+  segments,
 }: {
   result: ValidationResult;
+  segments: Catalog["segments"];
 }) {
   return (
     <>
@@ -34,9 +36,9 @@ export default function ValidationMetrics({
         </div>
       </div>
       <p className="help">
-        {result.survey_n} ответов опроса · {result.matched_cells} пар «вариант —
-        сегмент». Это оценки предложений, а не число уникальных людей.
-        Подлинность опроса приложение не проверяет.
+        Оценок: {result.survey_n} · Пар «вариант — сегмент»:{" "}
+        {result.matched_cells}. Это оценки предложений, а не число уникальных
+        людей. Подлинность опроса приложение не проверяет.
       </p>
       <div className="table-scroll">
         <table className="data-table">
@@ -44,7 +46,7 @@ export default function ValidationMetrics({
             <tr>
               <th>Вариант</th>
               <th>Сегмент</th>
-              <th>Ответов</th>
+              <th>Оценок</th>
               <th>Опрос</th>
               <th>Симуляция</th>
               <th>Ошибка</th>
@@ -54,7 +56,10 @@ export default function ValidationMetrics({
             {result.cells.map((c) => (
               <tr key={c.variant + c.segment}>
                 <td>{c.variant}</td>
-                <td>{c.segment}</td>
+                <td className="validation-segment">
+                  {segments[c.segment]?.name ?? c.segment}
+                  {segments[c.segment] && <small>{c.segment}</small>}
+                </td>
                 <td>{c.survey_n}</td>
                 <td>{percent(c.actual)}</td>
                 <td>{percent(c.predicted)}</td>

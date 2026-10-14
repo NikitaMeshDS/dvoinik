@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Download, FileJson, ClipboardCheck } from "lucide-react";
 import { api, ignored, message } from "../../api";
 import { Button, Menu, Notice, date } from "../../components";
@@ -17,6 +17,7 @@ export default function ValidationPanel({
   onUpdated: (r: Experiment) => void;
   onExport: ExportAction;
 }) {
+  const uploadId = useId();
   const [csv, setCsv] = useState(""),
     [filename, setFilename] = useState(""),
     [preview, setPreview] = useState<{
@@ -24,10 +25,11 @@ export default function ValidationPanel({
       base_validation: Validation | null;
       preview_id: string;
     } | null>(null),
-    [busy, setBusy] = useState(false),
+    [phase, setPhase] = useState<"read" | "preview" | "save" | null>(null),
     [error, setError] = useState("");
+  const busy = phase !== null;
   const inspect = async (content: string) => {
-    setBusy(true);
+    setPhase("preview");
     setError("");
     try {
       setPreview(
@@ -40,12 +42,12 @@ export default function ValidationPanel({
     } catch (e) {
       if (!ignored(e)) setError(message(e));
     } finally {
-      setBusy(false);
+      setPhase(null);
     }
   };
   const save = async () => {
     if (!preview) return;
-    setBusy(true);
+    setPhase("save");
     setError("");
     try {
       const result = await api.request<Experiment>(
@@ -58,7 +60,7 @@ export default function ValidationPanel({
     } catch (e) {
       if (!ignored(e)) setError(message(e));
     } finally {
-      setBusy(false);
+      setPhase(null);
     }
   };
   return (
@@ -103,32 +105,48 @@ export default function ValidationPanel({
         </p>
         <label className="upload-area">
           <ClipboardCheck size={24} />
-          <strong>{filename || "Выберите CSV опроса"}</strong>
-          <span>UTF-8 · до 5 МБ</span>
+          <strong id={uploadId + "-name"}>
+            {filename || "Выберите CSV опроса"}
+          </strong>
+          <span id={uploadId + "-hint"}>UTF-8 · до 5 МБ</span>
           <input
             type="file"
             accept=".csv,text/csv"
             aria-label="CSV живого опроса"
+            aria-describedby={uploadId + "-name " + uploadId + "-hint"}
             disabled={busy}
             onChange={async (e) => {
               const file = e.target.files?.[0];
-              if (!file) return;
+              if (!file || busy) return;
+              e.currentTarget.value = "";
               setPreview(null);
               setError("");
+              setCsv("");
+              setFilename(file.name);
               if (file.size > 5 * 1024 * 1024) {
                 setError("Максимальный размер CSV — 5 МБ.");
                 return;
               }
-              const content = await file.text();
-              setCsv(content);
-              setFilename(file.name);
-              await inspect(content);
+              setPhase("read");
+              try {
+                const content = await file.text();
+                setCsv(content);
+                await inspect(content);
+              } catch {
+                setError("Не удалось прочитать CSV. Выберите файл ещё раз.");
+              } finally {
+                setPhase(null);
+              }
             }}
           />
         </label>
         {busy && (
           <p className="help" role="status">
-            Сопоставляем ответы…
+            {phase === "read"
+              ? "Читаем CSV…"
+              : phase === "save"
+                ? "Сохраняем проверку…"
+                : "Сопоставляем ответы…"}
           </p>
         )}
         {error && (
@@ -156,10 +174,13 @@ export default function ValidationPanel({
             <div className="selection-bar">
               <span>Предпросмотр · ещё не сохранён</span>
               <Button kind="primary" disabled={busy} onClick={save}>
-                Сохранить проверку
+                {phase === "save" ? "Сохраняем…" : "Сохранить проверку"}
               </Button>
             </div>
-            <ValidationMetrics result={preview.record.validation!.result} />
+            <ValidationMetrics
+              result={preview.record.validation!.result}
+              segments={catalog.segments}
+            />
           </>
         ) : record.validation ? (
           <>
@@ -167,7 +188,10 @@ export default function ValidationPanel({
               Сохранено {date(record.validation.created_at)} · ответы
               предоставлены пользователем.
             </p>
-            <ValidationMetrics result={record.validation.result} />
+            <ValidationMetrics
+              result={record.validation.result}
+              segments={catalog.segments}
+            />
           </>
         ) : (
           <Notice>

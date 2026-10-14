@@ -418,6 +418,9 @@
 }
 .upload-area strong {
   font-size: 14px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 .upload-area > span {
   font-size: 11px;
@@ -426,8 +429,38 @@
 .upload-area input {
   border: 0;
   padding: 10px 0 0;
-  max-width: 320px;
+  width: 100%;
+  max-width: 180px;
   background: none;
+  color: transparent;
+  font-size: 0;
+}
+.upload-area input::file-selector-button {
+  width: 100%;
+  margin-right: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--blue);
+  background: var(--paper);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.upload-area input:disabled::file-selector-button {
+  opacity: 0.6;
+  cursor: wait;
+}
+.upload-area:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+.validation-segment small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
 }
 .selection-bar {
   display: flex;
