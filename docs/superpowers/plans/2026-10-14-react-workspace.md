@@ -1,6 +1,6 @@
 # React Workspace Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace the main Streamlit experience with React while retaining the verified Python MVP behavior.
 
@@ -34,13 +34,13 @@
 
 **Interfaces:** Produces `create_app(path=None, mode=None, static_dir=None) -> FastAPI`, matching the complete route table in the spec. Consumes `AuthStore.workspace`, `RunSettings`, `run_experiment`, `attach_validation`, `load_experiment`, `compare_runs` and existing export methods.
 
-- [ ] Write tests using `TestClient(create_app(tmp_path / 'app.sqlite3', mode='local'))`; an unauthenticated `GET /api/experiments` returns 401.
-- [ ] Exercise separate admin/analyst cookies: another owner's record and job return 404; admin can manage users but cannot read their records.
-- [ ] Send mutating requests with a foreign Origin or missing CSRF header and assert rejection. Verify demo API forces mock and a status poll does not extend idle lifetime.
-- [ ] Run `python -m pytest -q tests/test_api.py` and record the initial failure before writing endpoints.
-- [ ] Implement session dependencies and response errors, bounded jobs, owner-scoped records/import/comparison, survey preview/CAS, and protected exports according to the spec.
-- [ ] Pin and test run revocation, bounded queue, failed storage/export/retry and concurrent validation conflicts.
-- [ ] Run API tests and existing auth/storage/run/download tests; commit the focused backend changes.
+- [x] Write tests using `TestClient(create_app(tmp_path / 'app.sqlite3', mode='local'))`; an unauthenticated `GET /api/experiments` returns 401.
+- [x] Exercise separate admin/analyst cookies: another owner's record and job return 404; admin can manage users but cannot read their records.
+- [x] Send mutating requests with a foreign Origin or missing CSRF header and assert rejection. Verify demo API forces mock and a status poll does not extend idle lifetime.
+- [x] Run `python -m pytest -q tests/test_api.py` and record the initial failure before writing endpoints.
+- [x] Implement session dependencies and response errors, bounded jobs, owner-scoped records/import/comparison, survey preview/CAS, and protected exports according to the spec.
+- [x] Pin and test run revocation, bounded queue, failed storage/export/retry and concurrent validation conflicts.
+- [x] Run API tests and existing auth/storage/run/download tests; commit the focused backend changes.
 
 ## Task 2: React workspace
 
@@ -48,13 +48,13 @@
 
 **Interfaces:** Consumes the spec HTTP contracts; API requests use the same origin and in-memory CSRF token. Session/record/run data are typed. UI exports request a protected server URL instead of materializing private payloads into static media.
 
-- [ ] Define the API types and client; HTTP 401 clears workspace state, and failed logout remains visibly blocked until server revocation succeeds.
-- [ ] Implement login, archive search/filter/page, owner-bound transient drafts, two-step editor with hidden D/E retention and server audience preview.
-- [ ] Implement actual run progress, guarded recovery/export, matrix and selected segment report, profiles, voices and survey preview/save/conflict.
-- [ ] Implement comparison, sample/import/reuse, methodology and admin activation controls. Export actions live in accessible menus.
-- [ ] Build with `npm ci` and `npm run build`; TypeScript must pass without weakening strict checks.
-- [ ] Verify browser paths against a separate mock API: default sample, edited run, archive/reuse, compare, CSV/import/download, 390 px and keyboard menus.
-- [ ] Save real screenshots and commit the frontend.
+- [x] Define the API types and client; HTTP 401 clears workspace state, and failed logout remains visibly blocked until server revocation succeeds.
+- [x] Implement login, archive search/filter/page, owner-bound transient drafts, two-step editor with hidden D/E retention and server audience preview.
+- [x] Implement actual run progress, guarded recovery/export, matrix and selected segment report, profiles, voices and survey preview/save/conflict.
+- [x] Implement comparison, sample/import/reuse, methodology and admin activation controls. Export actions live in accessible menus.
+- [x] Build with `npm ci` and `npm run build`; TypeScript must pass without weakening strict checks.
+- [x] Verify browser paths against a separate mock API: default sample, edited run, archive/reuse, compare, CSV/import/download, 390 px and keyboard menus.
+- [x] Save real screenshots and commit the frontend.
 
 ## Task 3: Integration and release
 

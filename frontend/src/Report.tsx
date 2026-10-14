@@ -67,8 +67,17 @@ export default function Report({
     [focus, setFocus] = useState<Insights | null>(null),
     [variant, setVariant] = useState(Object.keys(record.report)[0]),
     [decision, setDecision] = useState("all");
-  const exportFile = (format: "json" | "csv", kind: ExportKind = "record") =>
-    download("/export", { record_id: record.id, format, kind }).catch(onError);
+  const exportFile = (
+    format: "json" | "csv",
+    kind: ExportKind = "record",
+    preview_id?: string,
+  ) =>
+    download("/export", {
+      record_id: record.id,
+      format,
+      kind,
+      ...(preview_id ? { preview_id } : {}),
+    }).catch(onError);
   useEffect(() => {
     let alive = true;
     setBase(null);
@@ -832,7 +841,11 @@ function ValidationPanel({
 }: {
   record: Experiment;
   onUpdated: (r: Experiment) => void;
-  onExport: (format: "json" | "csv", kind: ExportKind) => void;
+  onExport: (
+    format: "json" | "csv",
+    kind: ExportKind,
+    preview_id?: string,
+  ) => void;
   onError: (e: unknown) => void;
 }) {
   const [csv, setCsv] = useState(""),
@@ -840,6 +853,7 @@ function ValidationPanel({
     [preview, setPreview] = useState<{
       record: Experiment;
       base_validation: Validation | null;
+      preview_id: string;
     } | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -894,7 +908,9 @@ function ValidationPanel({
             </button>
           )}
           {preview && (
-            <button onClick={() => onExport("json", "preview")}>
+            <button
+              onClick={() => onExport("json", "preview", preview.preview_id)}
+            >
               <FileJson size={17} />
               Предпросмотр JSON
             </button>
@@ -942,7 +958,7 @@ function ValidationPanel({
             <div className="inline-actions">
               <button
                 className="text-link"
-                onClick={() => onExport("json", "preview")}
+                onClick={() => onExport("json", "preview", preview.preview_id)}
               >
                 Скачать полный предпросмотр
               </button>

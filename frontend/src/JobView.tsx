@@ -44,14 +44,18 @@ export default function JobView({
         ) : (
           <>
             <h2>
-              {job?.status === "queued"
-                ? "Ждём свободный слот"
-                : "Исследование выполняется"}
+              {!job
+                ? "Загружаем состояние запуска…"
+                : job.status === "queued"
+                  ? "Ждём свободный слот"
+                  : "Исследование выполняется"}
             </h2>
-            <p>
-              {done.toLocaleString("ru-RU")} из {total.toLocaleString("ru-RU")}{" "}
-              оценок
-            </p>
+            {job && (
+              <p>
+                {done.toLocaleString("ru-RU")} из{" "}
+                {total.toLocaleString("ru-RU")} оценок
+              </p>
+            )}
             <progress
               max={Math.max(1, total)}
               value={done}

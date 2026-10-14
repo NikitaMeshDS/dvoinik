@@ -42,9 +42,10 @@
 | POST `/api/runs/{id}/retry` | повторное сохранение готового снимка при прежнем действующем доступе |
 | POST `/api/insights` | `{record_id,segment}` → `{report,summary,quality}`; сегментные интервалы и статус считает Python |
 | POST `/api/compare` | `{left_id,right_id}` → `{left,right,comparison}`; оба снимка проверяются по владельцу |
-| POST `/api/experiments/{id}/validation/preview` | `{csv}` → `{record,base_validation}` без записи |
+| POST `/api/experiments/{id}/validation/preview` | `{csv}` → `{record,base_validation,preview_id}` без записи; ID фиксирует точный предпросмотр вкладки |
 | PUT `/api/experiments/{id}/validation` | `{csv,base_validation}` → сохранённый снимок; CAS сравнивает предыдущую проверку, конфликт → 409 |
-| POST `/api/export` | `{record_id,format,kind}` → `{url}`; format `json`/`csv`, kind `record`/`validation`/`survey-template`/`preview`; только доступный серверный снимок |
+| POST `/api/export` | `{record_id,format,kind,preview_id?}` → `{url}`; format `json`/`csv`, kind `record`/`validation`/`survey-template`/`preview`; для preview обязателен его ID, только доступный серверный снимок |
+| GET `/api/recovery` | `{jobs}` — готовые несохранённые результаты только создавшей cookie-сессии; восстановление после обновления страницы |
 | POST `/api/runs/{id}/export` | экспорт готового, в том числе несохранённого, результата принадлежащего сессии |
 | POST `/api/compare/export` | `{left_id,right_id}` → одноразовая ссылка на JSON сравнения |
 | GET `/api/users` | `{users}` только администратору, без хешей паролей |

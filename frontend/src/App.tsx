@@ -45,6 +45,8 @@ export default function App() {
     [toast, setToast] = useState(""),
     [logoutBlocked, setLogoutBlocked] = useState("");
   const authChannel = useRef<BroadcastChannel | null>(null);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
   const navigate = (path: string) => {
@@ -76,10 +78,15 @@ export default function App() {
   useEffect(() => {
     const changed = () => setRoute(initialRoute());
     window.addEventListener("hashchange", changed);
-    api.onUnauthorized = (detail) => {
+    api.onUnauthorized = (detail, status) => {
+      const hadSession = sessionRef.current !== null;
       clear();
       setBooting(false);
-      setLoginError(detail ?? "Сессия завершена. Войдите снова.");
+      setLoginError(
+        status === 401 && !hadSession
+          ? ""
+          : (detail ?? "Сессия завершена. Войдите снова."),
+      );
     };
     let alive = true,
       authLoad = 0;
@@ -127,6 +134,21 @@ export default function App() {
     };
   }, []);
   const loadRecords = async () => {
+    const recovery = await api.request<{ jobs: Job[] }>("/recovery");
+    setPending(
+      Object.fromEntries(
+        recovery.jobs
+          .filter((j) => j.record)
+          .map((j) => [
+            j.record!.id,
+            {
+              record: j.record!,
+              job: j.id,
+              error: j.error ?? "Попробуйте сохранить результат ещё раз.",
+            },
+          ]),
+      ),
+    );
     const value = await api.request<{ records: Experiment[] }>("/experiments");
     setRecords(value.records);
     setPending((previous) =>

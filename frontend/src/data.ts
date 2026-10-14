@@ -1,4 +1,14 @@
 import type { Experiment } from "./types";
+const russianPlural = new Intl.PluralRules("ru-RU");
+export function plural(
+  n: number,
+  one: string,
+  few: string,
+  many: string,
+): string {
+  const rule = russianPlural.select(n);
+  return rule === "one" ? one : rule === "few" ? few : many;
+}
 export function date(value: string): string {
   const parsed = new Date(value);
   if (!Number.isFinite(parsed.getTime())) return "Дата из файла: " + value;

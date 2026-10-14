@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Button, Heading, Empty, Menu, date, percent } from "./components";
 import { type Experiment } from "./types";
-import { chronological } from "./data";
+import { chronological, plural } from "./data";
 export type LibraryState = {
   search: string;
   mode: string;
@@ -120,15 +120,38 @@ export default function Library({
           <div className="library-overview">
             <div>
               <strong>{records.length}</strong>
-              <span>исследований</span>
+              <span>
+                {plural(
+                  records.length,
+                  "исследование",
+                  "исследования",
+                  "исследований",
+                )}
+              </span>
             </div>
             <div>
               <strong>{records.filter((r) => !r.mock).length}</strong>
-              <span>запусков LLM</span>
+              <span>
+                {plural(
+                  records.filter((r) => !r.mock).length,
+                  "запуск",
+                  "запуска",
+                  "запусков",
+                )}{" "}
+                LLM
+              </span>
             </div>
             <div>
               <strong>{records.filter((r) => r.validation).length}</strong>
-              <span>сопоставлений с опросом</span>
+              <span>
+                {plural(
+                  records.filter((r) => r.validation).length,
+                  "сопоставление",
+                  "сопоставления",
+                  "сопоставлений",
+                )}{" "}
+                с опросом
+              </span>
             </div>
           </div>
           <div className="filter-bar">
@@ -226,7 +249,8 @@ export default function Library({
                         <strong>{r.scenario.title}</strong>
                         <small>
                           {date(r.created_at)} · {r.n.toLocaleString("ru-RU")}{" "}
-                          профилей · {r.model}
+                          {plural(r.n, "профиль", "профиля", "профилей")} ·{" "}
+                          {r.model}
                         </small>
                         <span className="study-tags">
                           <i className={r.mock ? "demo" : "llm"}>
@@ -260,7 +284,14 @@ export default function Library({
           )}
           <div className="pagination">
             <span>
-              {filtered.length} исследований · страница {page + 1} из {pages}
+              {filtered.length}{" "}
+              {plural(
+                filtered.length,
+                "исследование",
+                "исследования",
+                "исследований",
+              )}{" "}
+              · страница {page + 1} из {pages}
             </span>
             <div>
               <Button

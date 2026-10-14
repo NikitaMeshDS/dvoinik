@@ -16,7 +16,7 @@ export class StaleResponse extends Error {
 class Api {
   private csrf = "";
   private epoch = 0;
-  onUnauthorized: (detail?: string) => void = () => {};
+  onUnauthorized: (detail?: string, status?: number) => void = () => {};
   reset() {
     this.csrf = "";
     this.epoch++;
@@ -70,7 +70,7 @@ class Api {
         (data.code === "access_unavailable" && path !== "/logout");
       if (authBlocked) {
         this.reset();
-        this.onUnauthorized(detail);
+        this.onUnauthorized(detail, response.status);
       }
       throw new ApiError(detail, response.status, authBlocked);
     }
