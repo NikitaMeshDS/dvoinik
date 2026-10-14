@@ -757,3 +757,56 @@ def test_close_cancels_queued_job_and_interrupts_running_guard(app, monkeypatch)
     jobs.capacity.release()
     with pytest.raises(JobBusy):
         jobs.submit(alice_token, KEY, SCENARIOS[KEY], RunSettings(n=10))
+
+
+def test_app_factories_keep_session_caches_secrets_and_job_owners_independent(app, monkeypatch):
+    import dvoinik.jobs as jobs
+
+    # Sharing a database intentionally shares accounts, never ephemeral HTTP state.
+    other_app = create_app(app.state.auth.path, mode="local")
+    client = login(app)
+    other = TestClient(other_app, base_url="http://127.0.0.1")
+    other.cookies.update(client.cookies)
+    other.headers["X-CSRF-Token"] = client.headers["X-CSRF-Token"]
+    release = threading.Event()
+    original = jobs.run_experiment
+
+    def blocked(*args, **kwargs):
+        assert release.wait(3)
+        return original(*args, **kwargs)
+
+    try:
+        assert other.get("/api/catalog").status_code == 401
+        other.headers["X-CSRF-Token"] = other.get("/api/session").json()["csrf_token"]
+        sample = client.get(f"/api/sample/{KEY}").json()
+        assert other.get(f"/api/experiments/{sample['id']}").status_code == 404
+        own_sample = other.get(f"/api/sample/{KEY}").json()
+        assert own_sample["id"] != sample["id"]
+        record = client.post("/api/import", json={"content": json.dumps(sample)}).json()
+        assert other.get(f"/api/experiments/{record['id']}").status_code == 200
+        preview = client.post(
+            f"/api/experiments/{record['id']}/validation/preview", json={"csv": csv_for(record)}
+        ).json()
+        assert (
+            other.post(
+                "/api/export",
+                json={
+                    "record_id": record["id"],
+                    "kind": "preview",
+                    "preview_id": preview["preview_id"],
+                },
+            ).status_code
+            == 422
+        )
+        monkeypatch.setattr(jobs, "run_experiment", blocked)
+        first = start(client)
+        assert first.status_code == 202
+        assert other.get(f"/api/runs/{first.json()['id']}").status_code == 404
+        second = start(other)
+        assert second.status_code == 202
+        release.set()
+        assert completed(client, first.json()["id"])["saved"]
+        assert completed(other, second.json()["id"])["saved"]
+    finally:
+        release.set()
+        other_app.state.jobs.close()
