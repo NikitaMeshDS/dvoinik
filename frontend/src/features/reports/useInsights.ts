@@ -15,18 +15,20 @@ export function useInsights(record: Experiment, segment: string) {
     setBase(null);
     setBaseError("");
     baseScope.current
-      .run((signal) =>
-        api.request<Insights>(
-          "/insights",
-          "POST",
-          { record_id: record.id, segment: "all" },
-          signal,
-        ),
+      .run(
+        (signal) =>
+          api.request<Insights>(
+            "/insights",
+            "POST",
+            { record_id: record.id, segment: "all" },
+            signal,
+          ),
+        setBase,
+        (e) => {
+          if (!ignored(e)) setBaseError(message(e));
+        },
       )
-      .then(setBase)
-      .catch((e) => {
-        if (!ignored(e)) setBaseError(message(e));
-      });
+      .catch(() => {});
     return () => baseScope.current.cancel();
   }, [record, attempt]);
   useEffect(() => {
@@ -37,18 +39,20 @@ export function useInsights(record: Experiment, segment: string) {
       return;
     }
     focusScope.current
-      .run((signal) =>
-        api.request<Insights>(
-          "/insights",
-          "POST",
-          { record_id: record.id, segment },
-          signal,
-        ),
+      .run(
+        (signal) =>
+          api.request<Insights>(
+            "/insights",
+            "POST",
+            { record_id: record.id, segment },
+            signal,
+          ),
+        setFocus,
+        (e) => {
+          if (!ignored(e)) setFocusError(message(e));
+        },
       )
-      .then(setFocus)
-      .catch((e) => {
-        if (!ignored(e)) setFocusError(message(e));
-      });
+      .catch(() => {});
     return () => focusScope.current.cancel();
   }, [segment, base, record.id, attempt]);
   return {

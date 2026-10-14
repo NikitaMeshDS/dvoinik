@@ -10,13 +10,14 @@ export function useCatalog() {
   useEffect(() => {
     setError("");
     scope.current
-      .run((signal) =>
-        api.request<Catalog>("/catalog", "GET", undefined, signal),
+      .run(
+        (signal) => api.request<Catalog>("/catalog", "GET", undefined, signal),
+        setCatalog,
+        (e) => {
+          if (!ignored(e)) setError(message(e));
+        },
       )
-      .then(setCatalog)
-      .catch((e) => {
-        if (!ignored(e)) setError(message(e));
-      });
+      .catch(() => {});
     return () => scope.current.cancel();
   }, [attempt]);
   return { catalog, error, retry: () => setAttempt((p) => p + 1) };

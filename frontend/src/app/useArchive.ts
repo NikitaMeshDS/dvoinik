@@ -14,8 +14,8 @@ export function useArchive() {
     setError("");
     try {
       // Recovery remains readable when the SQLite archive cannot be read.
-      await scope.current
-        .run(async (signal) => {
+      await scope.current.run(
+        async (signal) => {
           const recovered = await api.request<{ jobs: Job[] }>(
             "/recovery",
             "GET",
@@ -44,8 +44,8 @@ export function useArchive() {
             signal,
           );
           return archive.records;
-        })
-        .then((value) => {
+        },
+        (value) => {
           if (!value) return;
           setRecords(value);
           setPending((p) =>
@@ -56,12 +56,17 @@ export function useArchive() {
             ),
           );
           setLoading(false);
-        });
-    } catch (e) {
-      if (!ignored(e)) {
-        setError(message(e));
-        setLoading(false);
-      }
+        },
+        (e) => {
+          if (!ignored(e)) {
+            setError(message(e));
+            setLoading(false);
+          }
+        },
+      );
+    } catch {
+      // Current errors are published by the guarded failure callback above.
+      // Disposed or superseded loads have no remaining UI effects.
     }
   }, []);
   useEffect(() => {
@@ -69,14 +74,15 @@ export function useArchive() {
     return () => scope.current.cancel();
   }, [reload]);
   const updated = (record: Experiment) => {
-    scope.current.cancel();
-    setLoading(false);
     setRecords((p) => [...p.filter((r) => r.id !== record.id), record]);
     setPending((p) => {
       const next = { ...p };
       delete next[record.id];
       return next;
     });
+    // A successful write must not replace an unfinished full archive with a
+    // partial local list. Start a fresh read after the persisted write.
+    void reload();
   };
   const recovered = (job: Job) => {
     if (!job.record || job.saved) return;

@@ -6,6 +6,8 @@ export function useRecord(route: string) {
   const [record, setRecord] = useState<Experiment | null>(null),
     [error, setError] = useState("");
   const scope = useRef(new RequestScope());
+  const currentRoute = useRef(route);
+  currentRoute.current = route;
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!route.startsWith("report/")) {
@@ -15,21 +17,24 @@ export function useRecord(route: string) {
     setRecord(null);
     setError("");
     scope.current
-      .run((signal) =>
-        api.request<Experiment>(
-          "/experiments/" + encodeURIComponent(route.slice(7)),
-          "GET",
-          undefined,
-          signal,
-        ),
+      .run(
+        (signal) =>
+          api.request<Experiment>(
+            "/experiments/" + encodeURIComponent(route.slice(7)),
+            "GET",
+            undefined,
+            signal,
+          ),
+        setRecord,
+        (e) => {
+          if (!ignored(e)) setError(message(e));
+        },
       )
-      .then(setRecord)
-      .catch((e) => {
-        if (!ignored(e)) setError(message(e));
-      });
+      .catch(() => {});
     return () => scope.current.cancel();
   }, [route, attempt]);
   const updated = (value: Experiment) => {
+    if (currentRoute.current !== "report/" + value.id) return;
     scope.current.cancel();
     setRecord(value);
     setError("");
