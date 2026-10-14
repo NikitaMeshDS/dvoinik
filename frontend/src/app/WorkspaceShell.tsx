@@ -76,11 +76,6 @@ export default function WorkspaceShell({
           })}
         </nav>
         <div className="nav-bottom">
-          <p>
-            Вопросы к продукту.
-            <br />
-            До запуска.
-          </p>
           <a
             href="https://github.com/NikitaMeshDS/dvoinik"
             target="_blank"
