@@ -178,6 +178,11 @@
 /* One journal entry exposes the question, audience and each saved alternative. */
 .study-main {
   display: grid;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
   grid-template-columns: 45px minmax(0, 1fr) minmax(160px, 230px) 85px 19px;
   padding: 24px 12px;
   gap: 20px;

@@ -170,6 +170,8 @@ npm run format --prefix frontend
 ```
 
 GitHub Actions проверяет Python 3.11/3.12 и frontend на Node24. Реальная LLM для тестов не нужна.
+Тесты React-хуков используют jsdom и Testing Library только как зависимости разработки. Они проверяют смену отчёта во время сохранения, поздние ответы и восстановление полного каталога.
+
 Frontend dev server: `npm run dev --prefix frontend`; Python API должен работать на 8501,
 запросы `/api` и `/download` проходят через локальный Vite proxy.
 
