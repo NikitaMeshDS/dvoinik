@@ -2,14 +2,14 @@ import {
   useEffect,
   useRef,
   type ReactNode,
-  type ButtonHTMLAttributes,
+  type ComponentPropsWithRef,
 } from "react";
 import { MoreHorizontal, X, ArrowRight, ChevronLeft } from "lucide-react";
 export function Button({
   children,
   kind = "",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { kind?: string }) {
+}: ComponentPropsWithRef<"button"> & { kind?: string }) {
   return (
     <button
       {...props}

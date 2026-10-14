@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import {
   FlaskConical,
   Plus,
@@ -32,6 +32,11 @@ export default function WorkspaceShell({
   onDismiss: () => void;
   children: ReactNode;
 }) {
+  const main = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    main.current?.focus({ preventScroll: true });
+  }, [route]);
   const section = route.startsWith("report/")
     ? "Отчёт"
     : route.startsWith("job/")
@@ -86,7 +91,7 @@ export default function WorkspaceShell({
           </a>
         </div>
       </aside>
-      <main className="workspace">
+      <main className="workspace" ref={main} tabIndex={-1}>
         <div className="workspace-top">
           <span>
             Рабочее пространство <i>/</i> <strong>{section}</strong>

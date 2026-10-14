@@ -1,14 +1,16 @@
 :root {
   font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
   color: #192d40;
-  background: #f3f5f9;
+  background: #f1f4f9;
   font-synthesis: none;
-  --blue: #2457d6;
+  --blue: #315cf3;
   --ink: #192d40;
   --muted: #60758c;
   --line: #dce4ee;
   --paper: #fff;
-  --mint: #137d76;
+  --nav: #142943;
+  --surface-radius: 16px;
+  --mint: #0f7b73;
 }
 * {
   box-sizing: border-box;
@@ -53,11 +55,11 @@ p {
   margin-top: 0;
 }
 h1 {
-  font-size: clamp(30px, 3.2vw, 44px);
-  letter-spacing: -1.5px;
+  font-size: clamp(29px, 3vw, 38px);
+  letter-spacing: -1.2px;
   line-height: 1.18;
   font-weight: 750;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 h2 {
   font-size: 21px;

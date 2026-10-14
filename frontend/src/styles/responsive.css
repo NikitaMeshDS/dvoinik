@@ -108,7 +108,7 @@
     height: 32px;
   }
   .workspace-content {
-    padding-top: 10px;
+    padding-top: 24px;
   }
   .page-heading {
     margin-bottom: 25px;
@@ -142,16 +142,14 @@
     justify-content: space-between;
   }
   .library-overview div {
-    display: block;
-    flex: 1;
+    display: flex;
+    flex: initial;
   }
   .library-overview strong {
-    display: block;
-    font-size: 26px;
-    margin-bottom: 4px;
+    font-size: 13px;
   }
   .library-overview span {
-    font-size: 10px;
+    font-size: 11px;
   }
   .filter-bar {
     gap: 8px;
@@ -337,11 +335,12 @@
     font-size: 10px;
   }
   .report-tabs {
-    gap: 19px;
-    margin: 25px 0;
+    gap: 4px;
+    margin: 22px 0;
   }
   .report-tabs > button {
     font-size: 12px;
+    padding: 11px 12px;
     gap: 6px;
   }
   .report-tabs svg {
@@ -532,12 +531,6 @@
   font-size: clamp(28px, 2.6vw, 36px);
   letter-spacing: -1px;
 }
-@media (max-width: 1100px) and (min-width: 761px) {
-  .study-main {
-    grid-template-columns: minmax(0, 1fr) minmax(150px, 210px) 76px 19px;
-    gap: 16px;
-  }
-}
 @media (max-width: 760px) {
   .study-main {
     grid-template-columns: minmax(0, 1fr) 64px;
@@ -562,5 +555,89 @@
   }
   .study-main .response-mini small {
     font-size: 11px;
+  }
+}
+
+@media (max-width: 1100px) and (min-width: 761px) {
+  .study-main,
+  .study-list-head {
+    grid-template-columns: minmax(0, 1fr) minmax(140px, 180px) 70px 15px;
+    gap: 15px;
+  }
+  .study-list-head > span:first-child {
+    grid-column: auto;
+  }
+  .response-mini > span:first-child {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    margin-bottom: 7px;
+  }
+}
+@media (max-width: 760px) {
+  .app-nav nav a {
+    color: #536a82;
+    min-height: 0;
+  }
+  .app-nav nav a:hover {
+    color: var(--blue);
+    background: #f3f6fb;
+  }
+  .workspace-top {
+    height: auto;
+    min-height: 70px;
+  }
+  .library-surface {
+    padding: 18px;
+    border-radius: 12px;
+  }
+  .library-overview {
+    gap: 10px 17px;
+    padding-bottom: 16px;
+    justify-content: flex-start;
+  }
+  .library-overview .no-survey,
+  .library-overview .has-survey {
+    margin-left: 0;
+  }
+  .filter-bar .search {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+  .filter-bar {
+    margin: 16px 0;
+  }
+  .filter-panel {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+  .study-list-head {
+    display: none;
+  }
+  .library-surface .study-list {
+    margin-inline: -18px;
+    border-top: 1px solid var(--line);
+  }
+  .study-main {
+    padding: 20px 18px;
+  }
+  .composer-step {
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+  .report-summary {
+    padding: 20px 18px;
+    border-radius: 12px;
+  }
+  .analysis-grid {
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+  .report-tabs {
+    width: 100%;
+  }
+  .report-tabs > button {
+    flex: 1;
+    justify-content: center;
   }
 }

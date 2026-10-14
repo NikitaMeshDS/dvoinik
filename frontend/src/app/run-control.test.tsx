@@ -152,6 +152,7 @@ it("a missing run after server restart clears the phantom active task", async ()
   expect(result.current.active).toBeNull();
 });
 it("workspace retains a successful cancellation acknowledgement when the following poll fails", async () => {
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   window.location.hash = "/job/run-one";
   let stopped = false;
   vi.spyOn(api, "request").mockImplementation(<T,>(path: string) => {

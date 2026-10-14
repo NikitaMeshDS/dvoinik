@@ -4,7 +4,7 @@
   grid-template-columns: 1fr 1fr;
 }
 .login-story {
-  background: #204acc;
+  background: var(--nav);
   color: #fff;
   padding: 44px 60px;
   display: flex;

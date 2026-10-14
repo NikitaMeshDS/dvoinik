@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   ArrowLeft,
@@ -38,6 +38,11 @@ export default function Composer({
     [preview, setPreview] = useState<Preview | null>(null),
     [previewError, setPreviewError] = useState(""),
     [loading, setLoading] = useState(false);
+  const stage = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    stage.current?.focus({ preventScroll: true });
+  }, [step]);
   const patch = (value: Partial<Draft>) => {
     onChange({ ...draft, ...value });
     setError("");
@@ -118,7 +123,12 @@ export default function Composer({
       </div>
       {error && <Notice kind="error">{error}</Notice>}
       {step === 0 ? (
-        <section className="composer-step">
+        <section
+          className="composer-step"
+          ref={stage}
+          tabIndex={-1}
+          aria-label="Предложения исследования"
+        >
           <div className="research-intro">
             <label className="field">
               <span>Сценарий</span>
@@ -232,7 +242,12 @@ export default function Composer({
           </div>
         </section>
       ) : (
-        <section className="composer-step">
+        <section
+          className="composer-step"
+          ref={stage}
+          tabIndex={-1}
+          aria-label="Аудитория исследования"
+        >
           <div className="audience-intro">
             <div>
               <span className="mini-label">Размер исследования</span>

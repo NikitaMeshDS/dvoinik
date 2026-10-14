@@ -308,9 +308,11 @@
   display: flex;
   align-items: flex-start;
   gap: 11px;
-  padding: 16px 0 23px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 26px;
+  padding: 14px 18px;
+  border: 1px solid #d9e3f6;
+  border-radius: 10px;
+  background: #edf2fc;
+  margin-bottom: 20px;
 }
 .quality-note > span {
   width: 7px;
@@ -335,4 +337,29 @@
   color: var(--muted);
   max-width: 90ch;
   margin: 4px 0 0;
+}
+
+.composer-step {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--surface-radius);
+  padding: 28px;
+}
+.research-intro {
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.offer-input:focus-within {
+  border-color: #9bb3ef;
+}
+.offer-input textarea:focus-visible {
+  outline: 2px solid #80a7f0;
+  outline-offset: -5px;
+}
+.composer .step-actions {
+  box-shadow: 0 5px 20px #1429430b;
+}
+
+.composer-step:focus {
+  outline: none;
 }

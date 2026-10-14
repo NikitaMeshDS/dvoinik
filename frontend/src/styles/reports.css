@@ -1,8 +1,10 @@
 .report-summary {
   display: grid;
   grid-template-columns: 1.2fr 1fr 0.9fr 1.2fr;
-  border-bottom: 1px solid var(--line);
-  padding: 0 0 28px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--surface-radius);
+  padding: 24px;
   gap: 20px;
 }
 .report-summary > div {
@@ -45,9 +47,14 @@
 }
 .report-tabs {
   display: flex;
-  gap: 27px;
-  margin: 30px 0;
-  border-bottom: 1px solid #d6e0ed;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px;
+  margin: 28px 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
   overflow-x: auto;
 }
 .report-tabs > button {
@@ -56,18 +63,16 @@
   align-items: center;
   background: none;
   border: 0;
-  padding: 12px 0 16px;
+  border-radius: 8px;
+  padding: 12px 17px;
   white-space: nowrap;
   font-size: 13px;
-  font-weight: 550;
-  color: #6a7f97;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  font-weight: 600;
+  color: #586f88;
 }
 .report-tabs > button[aria-selected="true"] {
-  border-color: var(--blue);
-  color: var(--blue);
-  font-weight: 650;
+  background: var(--blue);
+  color: #fff;
 }
 .matrix-scroll,
 .table-scroll {
@@ -176,8 +181,10 @@
   display: grid;
   grid-template-columns: 1.6fr 1fr;
   gap: 28px;
-  padding: 12px 0 20px;
-  border-bottom: 1px solid var(--line);
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--surface-radius);
+  background: var(--paper);
 }
 .analysis-chart .section-heading {
   margin: 0 0 12px;

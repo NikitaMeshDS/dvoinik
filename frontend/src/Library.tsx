@@ -1,5 +1,5 @@
+import { useRef } from "react";
 import {
-  Search,
   Plus,
   ArrowUpRight,
   Upload,
@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  FlaskConical,
 } from "lucide-react";
 import {
   Button,
@@ -21,10 +22,10 @@ import {
 import { type Experiment } from "./types";
 import { chronological, plural } from "./data";
 import ResponsePreview from "./features/research/ResponsePreview";
-export type LibraryState = {
-  search: string;
-  mode: string;
-  survey: string;
+import ResearchFilters, {
+  type ResearchFilterState,
+} from "./features/research/ResearchFilters";
+export type LibraryState = ResearchFilterState & {
   page: number;
   compare: boolean;
   selected: string[];
@@ -34,6 +35,7 @@ export const INITIAL_LIBRARY: LibraryState = {
   mode: "all",
   survey: "all",
   page: 0,
+  filtersOpen: false,
   compare: false,
   selected: [],
 };
@@ -64,7 +66,10 @@ export default function Library({
   error?: string;
   onReload?: () => void;
 }) {
+  const searchRef = useRef<HTMLInputElement>(null);
   const patch = (p: Partial<LibraryState>) => onState({ ...state, ...p });
+  const llmCount = records.filter((r) => !r.mock).length;
+  const surveyCount = records.filter((r) => r.validation).length;
   const filtered = chronological(records).filter((r) => {
     const text = [
       r.scenario.title,
@@ -155,208 +160,226 @@ export default function Library({
         </Empty>
       ) : records.length > 0 ? (
         <>
-          <div className="library-overview">
-            <div>
-              <strong>{records.length}</strong>
+          <section className="library-surface" aria-label="Архив исследований">
+            <div className="library-overview">
+              <div>
+                <strong>{records.length}</strong>
+                <span>
+                  {plural(
+                    records.length,
+                    "исследование",
+                    "исследования",
+                    "исследований",
+                  )}
+                </span>
+              </div>
+              {llmCount > 0 && (
+                <div>
+                  <strong>{llmCount}</strong>
+                  <span>
+                    {plural(llmCount, "запуск", "запуска", "запусков")} LLM
+                  </span>
+                </div>
+              )}
+              <div className={surveyCount ? "has-survey" : "no-survey"}>
+                {surveyCount > 0 ? (
+                  <>
+                    <Check size={14} />
+                    <span>
+                      {surveyCount}{" "}
+                      {plural(
+                        surveyCount,
+                        "сопоставление",
+                        "сопоставления",
+                        "сопоставлений",
+                      )}{" "}
+                      с опросом
+                    </span>
+                  </>
+                ) : (
+                  <span>Опросы ещё не загружены</span>
+                )}
+              </div>
+            </div>
+            <ResearchFilters
+              searchRef={searchRef}
+              state={state}
+              onChange={(changes) =>
+                patch({
+                  ...changes,
+                  page: changes.filtersOpen === undefined ? 0 : state.page,
+                })
+              }
+            />
+            {loading && (
+              <p className="refresh-status" role="status">
+                Обновляем исследования…
+              </p>
+            )}
+            {state.compare && (
+              <div className="selection-bar">
+                <span>
+                  Выберите два исследования: {state.selected.length} / 2
+                </span>
+                <Button
+                  kind="primary"
+                  disabled={state.selected.length !== 2}
+                  onClick={() => onCompare(state.selected)}
+                >
+                  <GitCompare size={17} />
+                  Сравнить
+                </Button>
+                <button
+                  className="text-link"
+                  onClick={() => patch({ compare: false, selected: [] })}
+                >
+                  Отмена
+                </button>
+              </div>
+            )}
+            {filtered.length === 0 ? (
+              <Empty
+                title="Совпадений нет"
+                action={
+                  <Button
+                    onClick={() => {
+                      searchRef.current?.focus();
+                      patch({
+                        search: "",
+                        mode: "all",
+                        survey: "all",
+                        page: 0,
+                      });
+                    }}
+                  >
+                    Сбросить поиск и фильтры
+                  </Button>
+                }
+              >
+                Измените запрос или фильтры, чтобы увидеть другие исследования.
+              </Empty>
+            ) : (
+              <div className="study-list">
+                <div className="study-list-head" aria-hidden="true">
+                  <span>Исследование</span>
+                  <span>Согласия по предложениям</span>
+                  <span>Лидер</span>
+                </div>
+                {filtered.slice(page * 8, page * 8 + 8).map((r) => {
+                  const valid = Object.entries(r.report).filter(
+                      ([, v]) => v.n > 0,
+                    ),
+                    best = valid.length
+                      ? Math.max(...valid.map(([, v]) => v.conversion!))
+                      : null,
+                    leaders = valid
+                      .filter(([, v]) => Math.abs(v.conversion! - best!) < 1e-9)
+                      .map(([v]) => v);
+                  return (
+                    <div className="study-row" key={r.id}>
+                      {state.compare && (
+                        <input
+                          type="checkbox"
+                          aria-label={
+                            "Выбрать " +
+                            r.scenario.title +
+                            ", " +
+                            date(r.created_at) +
+                            ", " +
+                            r.id
+                          }
+                          checked={state.selected.includes(r.id)}
+                          disabled={
+                            !state.selected.includes(r.id) &&
+                            state.selected.length === 2
+                          }
+                          onChange={() => toggle(r.id)}
+                        />
+                      )}
+                      <button
+                        className="study-main"
+                        onClick={() => onOpen(r.id)}
+                      >
+                        <span className="study-icon" aria-hidden="true">
+                          <FlaskConical size={21} />
+                        </span>
+                        <span className="study-context">
+                          <strong>{r.scenario.title}</strong>
+                          <span className="study-question">
+                            {r.scenario.question}
+                          </span>
+                          <small>
+                            {date(r.created_at)} · {r.n.toLocaleString("ru-RU")}{" "}
+                            {plural(r.n, "профиль", "профиля", "профилей")} ·{" "}
+                            {r.model}
+                          </small>
+                          <span className="study-tags">
+                            <i className={r.mock ? "demo" : "llm"}>
+                              {r.mock ? "Демо" : "LLM"}
+                            </i>
+                            {r.validation && (
+                              <i>
+                                <Check size={12} />
+                                Опрос загружен
+                              </i>
+                            )}
+                            {pending.has(r.id) && (
+                              <i className="warning">Ожидает записи</i>
+                            )}
+                          </span>
+                        </span>
+                        <ResponsePreview report={r.report} />
+                        <span className="study-result">
+                          <b>{percent(best, 0)}</b>
+                          <small>
+                            {leaders.length
+                              ? "Вариант " + leaders.join(" / ")
+                              : "Нет ответов"}
+                          </small>
+                        </span>
+                        <ArrowUpRight size={19} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="pagination">
               <span>
+                {filtered.length}{" "}
                 {plural(
-                  records.length,
+                  filtered.length,
                   "исследование",
                   "исследования",
                   "исследований",
+                )}{" "}
+                {pages > 1 && (
+                  <>
+                    {" "}
+                    · страница {page + 1} из {pages}
+                  </>
                 )}
               </span>
+              {pages > 1 && (
+                <div>
+                  <Button
+                    aria-label="Предыдущая страница"
+                    disabled={page === 0}
+                    onClick={() => patch({ page: page - 1 })}
+                  >
+                    <ChevronLeft size={17} />
+                  </Button>
+                  <Button
+                    aria-label="Следующая страница"
+                    disabled={page === pages - 1}
+                    onClick={() => patch({ page: page + 1 })}
+                  >
+                    <ChevronRight size={17} />
+                  </Button>
+                </div>
+              )}
             </div>
-            <div>
-              <strong>{records.filter((r) => !r.mock).length}</strong>
-              <span>
-                {plural(
-                  records.filter((r) => !r.mock).length,
-                  "запуск",
-                  "запуска",
-                  "запусков",
-                )}{" "}
-                LLM
-              </span>
-            </div>
-            <div>
-              <strong>{records.filter((r) => r.validation).length}</strong>
-              <span>
-                {plural(
-                  records.filter((r) => r.validation).length,
-                  "сопоставление",
-                  "сопоставления",
-                  "сопоставлений",
-                )}{" "}
-                с опросом
-              </span>
-            </div>
-          </div>
-          <div className="filter-bar">
-            <label className="search">
-              <Search size={18} />
-              <input
-                aria-label="Поиск исследований"
-                placeholder="Найти исследование, предложение или модель"
-                value={state.search}
-                onChange={(e) => patch({ search: e.target.value, page: 0 })}
-              />
-            </label>
-            <select
-              aria-label="Режим исследований"
-              value={state.mode}
-              onChange={(e) => patch({ mode: e.target.value, page: 0 })}
-            >
-              <option value="all">Все модели</option>
-              <option value="demo">Демо</option>
-              <option value="llm">LLM</option>
-            </select>
-            <select
-              aria-label="Наличие опроса"
-              value={state.survey}
-              onChange={(e) => patch({ survey: e.target.value, page: 0 })}
-            >
-              <option value="all">Все проверки</option>
-              <option value="yes">С опросом</option>
-              <option value="no">Без опроса</option>
-            </select>
-          </div>
-          {loading && (
-            <p className="refresh-status" role="status">
-              Обновляем исследования…
-            </p>
-          )}
-          {state.compare && (
-            <div className="selection-bar">
-              <span>
-                Выберите два исследования: {state.selected.length} / 2
-              </span>
-              <Button
-                kind="primary"
-                disabled={state.selected.length !== 2}
-                onClick={() => onCompare(state.selected)}
-              >
-                <GitCompare size={17} />
-                Сравнить
-              </Button>
-              <button
-                className="text-link"
-                onClick={() => patch({ compare: false, selected: [] })}
-              >
-                Отмена
-              </button>
-            </div>
-          )}
-          {filtered.length === 0 ? (
-            <Empty title="Совпадений нет">
-              Измените запрос или фильтры, чтобы увидеть другие исследования.
-            </Empty>
-          ) : (
-            <div className="study-list">
-              {filtered.slice(page * 8, page * 8 + 8).map((r) => {
-                const valid = Object.entries(r.report).filter(
-                    ([, v]) => v.n > 0,
-                  ),
-                  best = valid.length
-                    ? Math.max(...valid.map(([, v]) => v.conversion!))
-                    : null,
-                  leaders = valid
-                    .filter(([, v]) => Math.abs(v.conversion! - best!) < 1e-9)
-                    .map(([v]) => v);
-                return (
-                  <div className="study-row" key={r.id}>
-                    {state.compare && (
-                      <input
-                        type="checkbox"
-                        aria-label={
-                          "Выбрать " +
-                          r.scenario.title +
-                          ", " +
-                          date(r.created_at) +
-                          ", " +
-                          r.id
-                        }
-                        checked={state.selected.includes(r.id)}
-                        disabled={
-                          !state.selected.includes(r.id) &&
-                          state.selected.length === 2
-                        }
-                        onChange={() => toggle(r.id)}
-                      />
-                    )}
-                    <button className="study-main" onClick={() => onOpen(r.id)}>
-                      <span className="study-icon" aria-hidden="true">
-                        {r.scenario.title[0]}
-                      </span>
-                      <span className="study-context">
-                        <strong>{r.scenario.title}</strong>
-                        <span className="study-question">
-                          {r.scenario.question}
-                        </span>
-                        <small>
-                          {date(r.created_at)} · {r.n.toLocaleString("ru-RU")}{" "}
-                          {plural(r.n, "профиль", "профиля", "профилей")} ·{" "}
-                          {r.model}
-                        </small>
-                        <span className="study-tags">
-                          <i className={r.mock ? "demo" : "llm"}>
-                            {r.mock ? "Демо" : "LLM"}
-                          </i>
-                          {r.validation && (
-                            <i>
-                              <Check size={12} />
-                              Опрос загружен
-                            </i>
-                          )}
-                          {pending.has(r.id) && (
-                            <i className="warning">Ожидает записи</i>
-                          )}
-                        </span>
-                      </span>
-                      <ResponsePreview report={r.report} />
-                      <span className="study-result">
-                        <b>{percent(best, 0)}</b>
-                        <small>
-                          {leaders.length
-                            ? "Вариант " + leaders.join(" / ")
-                            : "Нет ответов"}
-                        </small>
-                      </span>
-                      <ArrowUpRight size={19} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <div className="pagination">
-            <span>
-              {filtered.length}{" "}
-              {plural(
-                filtered.length,
-                "исследование",
-                "исследования",
-                "исследований",
-              )}{" "}
-              · страница {page + 1} из {pages}
-            </span>
-            <div>
-              <Button
-                aria-label="Предыдущая страница"
-                disabled={page === 0}
-                onClick={() => patch({ page: page - 1 })}
-              >
-                <ChevronLeft size={17} />
-              </Button>
-              <Button
-                aria-label="Следующая страница"
-                disabled={page === pages - 1}
-                onClick={() => patch({ page: page + 1 })}
-              >
-                <ChevronRight size={17} />
-              </Button>
-            </div>
-          </div>
+          </section>
         </>
       ) : null}
     </>
