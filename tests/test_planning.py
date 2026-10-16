@@ -192,3 +192,19 @@ def test_seed_robustness_counts_leaders_across_neighbouring_seeds():
     assert [r["seed"] for r in robust["runs"]] == [5, 6, 7]
     with pytest.raises(ValueError):
         seed_robustness("senior_deposit", SCENARIOS["senior_deposit"], RunSettings(), 1)
+
+
+def test_segment_objections_sum_to_segment_refusals_and_are_validated():
+    record = run_experiment("student_card", SCENARIOS["student_card"], RunSettings(n=120, seed=3))
+    for result in record["report"].values():
+        total = {}
+        for segment in result["segments"].values():
+            assert sum(segment["objections"].values()) == segment["n"] - segment["yes"]
+            for reason, count in segment["objections"].items():
+                total[reason] = total.get(reason, 0) + count
+        assert total == result["objections"]
+    broken = json.loads(export_json(record))
+    sid = next(iter(broken["report"]["A"]["segments"]))
+    broken["report"]["A"]["segments"][sid]["objections"] = {"плата и условия": 10_000}
+    with pytest.raises(ValueError):
+        load_experiment(json.dumps(broken))

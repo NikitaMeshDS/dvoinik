@@ -373,7 +373,10 @@ def test_insights_use_server_segment_metrics_and_owner_access(app):
     data = response.json()
     assert data["report"] == segment_report(record, sid)
     assert data["quality"]["kind"] == "demo"
-    assert all(not variant["objections"] for variant in data["report"].values())
+    assert all(
+        variant["objections"] == record["report"][vid]["segments"].get(sid, {}).get("objections", {})
+        for vid, variant in data["report"].items()
+    )
     assert (
         client.post("/api/insights", json={"record_id": record["id"], "segment": "all"}).json()["report"]
         == record["report"]

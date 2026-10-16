@@ -46,8 +46,8 @@ def segment_report(record: dict, sid: str) -> dict:
             "requested_n": requested,
             "failed_n": requested - n,
             "confidence_interval": _interval(yes, n),
-            # Снимок не содержит количественного распределения причин по сегментам.
-            "objections": {},
+            # Старые снимки не содержат распределения причин по сегментам.
+            "objections": copy.deepcopy(segment.get("objections", {})),
             "quotes": copy.deepcopy([q for q in result["quotes"] if q["segment_id"] == sid]),
         }
     return focused

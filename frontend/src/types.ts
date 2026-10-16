@@ -43,6 +43,7 @@ export type Cell = {
   yes: number;
   conversion: number | null;
   name?: string;
+  objections?: Record<string, number>;
 };
 export type ReportItem = {
   n: number;

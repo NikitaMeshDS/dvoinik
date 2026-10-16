@@ -398,6 +398,7 @@ def aggregate(rows) -> dict:
     rows = list(rows)
     by_seg = defaultdict(lambda: [0, 0])
     objections, quote_groups, failures, probabilities = Counter(), defaultdict(list), [], []
+    seg_objections = defaultdict(Counter)
     for tw, out in rows:
         if out.get("error") or type(out.get("decision")) is not bool:
             failures.append(out.get("error", "Некорректный ответ модели."))
@@ -410,6 +411,7 @@ def aggregate(rows) -> dict:
         by_seg[tw.segment][1] += int(out["decision"])
         if not out["decision"] and out.get("objection"):
             objections[out["objection"]] += 1
+            seg_objections[tw.segment][out["objection"]] += 1
         if out.get("quote"):
             quote_groups[(tw.segment, out["decision"])].append(
                 {
@@ -445,6 +447,7 @@ def aggregate(rows) -> dict:
                 "yes": v[1],
                 "conversion": v[1] / v[0],
                 "confidence_interval": _interval(v[1], v[0]),
+                "objections": dict(seg_objections[s].most_common()),
             }
             for s, v in by_seg.items()
         },

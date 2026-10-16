@@ -30,6 +30,13 @@ export default function Overview({
 }) {
   const variants = Object.keys(record.report),
     segments = Object.keys(record.scenario.population);
+  const hasSegmentReasons =
+    segment !== "all" &&
+    record.report[variant]?.segments[segment]?.objections !== undefined;
+  const reasons: Record<string, number> =
+    segment === "all"
+      ? record.report[variant].objections
+      : (record.report[variant]?.segments[segment]?.objections ?? {});
   const leaders = focus?.summary.leaders ?? [],
     candidate = leaders[0],
     candidateResult = candidate ? focus?.report[candidate] : undefined,
@@ -245,7 +252,7 @@ export default function Overview({
       {segment === "all" && (
         <BaselineCard record={record} baseline={baseline} />
       )}
-      {segment === "all" ? (
+      {segment === "all" || hasSegmentReasons ? (
         <>
           <div className="section-heading">
             <h2>Причины отказа</h2>
@@ -263,7 +270,7 @@ export default function Overview({
             </label>
           </div>
           <div className="objections">
-            {Object.entries(record.report[variant].objections)
+            {Object.entries(reasons)
               .sort((a, b) => b[1] - a[1])
               .map(([name, n]) => (
                 <div key={name}>
@@ -272,14 +279,7 @@ export default function Overview({
                     <i
                       style={{
                         width:
-                          (n /
-                            Math.max(
-                              1,
-                              ...Object.values(
-                                record.report[variant].objections,
-                              ),
-                            )) *
-                            100 +
+                          (n / Math.max(1, ...Object.values(reasons))) * 100 +
                           "%",
                       }}
                     />
@@ -289,13 +289,26 @@ export default function Overview({
               ))}
           </div>
           <p className="help">
-            Количество ответов по всей аудитории для предложения {variant}.
+            {Object.keys(reasons).length
+              ? "Количество ответов «нет» " +
+                (segment === "all"
+                  ? "по всей аудитории"
+                  : "в сегменте «" +
+                    (catalog.segments[segment]?.name ?? segment) +
+                    "»") +
+                " для предложения " +
+                variant +
+                "."
+              : "Для предложения " +
+                variant +
+                " нет отказов в выбранной аудитории."}
           </p>
         </>
       ) : (
         <Notice>
-          Количество причин отказа сохранено только по всей аудитории. Для
-          сегмента смотрите примеры во вкладке «Голоса».
+          Снимок создан до сохранения причин по сегментам: количество причин
+          доступно только по всей аудитории. Для сегмента смотрите примеры во
+          вкладке «Голоса».
         </Notice>
       )}
       <SnapshotDetails record={record} />

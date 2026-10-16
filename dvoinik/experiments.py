@@ -133,6 +133,14 @@ def _check_result(result, population, objections, requested):
             raise ValueError("Конверсия сегмента не соответствует числу согласий.")
         segment["name"] = SEGMENTS[sid]["name"]
         segment["confidence_interval"] = _interval(syes, sn)
+        seg_reasons = segment.get("objections")
+        if seg_reasons is not None:
+            if not isinstance(seg_reasons, dict) or any(o not in objections for o in seg_reasons):
+                raise ValueError("В сегменте есть неизвестная категория отказа.")
+            for count in seg_reasons.values():
+                _integer(count, "Количество отказов в сегменте", maximum=sn)
+            if sum(seg_reasons.values()) != sn - syes:
+                raise ValueError("Причины отказа сегмента не соответствуют его ответам «нет».")
     if sum(s["n"] for s in segments.values()) != n or sum(s["yes"] for s in segments.values()) != yes:
         raise ValueError("Итоги сегментов не соответствуют итогам варианта.")
     reasons = result.get("objections")
