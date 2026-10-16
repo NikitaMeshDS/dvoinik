@@ -51,3 +51,22 @@ def segment_report(record: dict, sid: str) -> dict:
             "quotes": copy.deepcopy([q for q in result["quotes"] if q["segment_id"] == sid]),
         }
     return focused
+
+
+def insights_payload(record: dict, segment: str = "all") -> dict:
+    """Ответ /api/insights: отчёт выбранной аудитории, сводка и встроенные проверки."""
+    from .experiments import quality_status
+    from .planning import baseline_agreement, leader_stability, live_check_plan
+    from .reporting import summarize
+
+    report = record["report"] if segment == "all" else segment_report(record, segment)
+    result = {
+        "report": report,
+        "summary": summarize(report),
+        "quality": quality_status(record),
+        "stability": leader_stability(report),
+    }
+    if segment == "all":
+        result["plan"] = live_check_plan(record)
+        result["baseline"] = baseline_agreement(record)
+    return result

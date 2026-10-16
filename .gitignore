@@ -20,3 +20,5 @@ artifacts/
 node_modules/
 frontend/dist/
 frontend/coverage/
+frontend/dist-showcase/
+frontend/showcase-data.json
