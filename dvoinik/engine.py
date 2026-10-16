@@ -15,6 +15,7 @@ import random
 from collections import Counter, defaultdict
 from collections.abc import Callable
 
+from . import llm_cache
 from .population import SEGMENTS, Twin
 
 SYSTEM = (
@@ -84,19 +85,26 @@ async def _ask_llm(
         f"Вопрос: {scenario['question']}\n"
         f"Категории отказа: {', '.join(scenario['objections'])}"
     )
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
+    cache_key = llm_cache.key(model, messages, 0.8)
     async with sem:
         # Check after waiting for capacity and outside the provider-error handler.
         # Access revocation must abort the run, never become a simulated refusal.
         if guard:
             guard()
+        cached = llm_cache.get(cache_key)
+        if cached is not None:
+            return cached
         try:
             r = await client.chat.completions.create(
                 model=model,
                 temperature=0.8,
                 response_format={"type": "json_object"},
-                messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}],
+                messages=messages,
             )
-            return _parse_response(r.choices[0].message.content, scenario)
+            answer = _parse_response(r.choices[0].message.content, scenario)
+            llm_cache.put(cache_key, answer)
+            return answer
         except (ValueError, TypeError, IndexError, AttributeError):
             return {"error": "Модель вернула ответ, не соответствующий JSON-схеме."}
         except Exception as exc:

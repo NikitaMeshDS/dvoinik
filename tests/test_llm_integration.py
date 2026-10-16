@@ -88,3 +88,53 @@ def test_missing_model_fails_before_launching_whole_population(monkeypatch):
     with pytest.raises(ValueError, match="LLM"):
         engine.simulate(build_population(100, {"senior": 1}), scenario)
     assert len(requests) == 1
+
+
+def test_optional_cache_reuses_validated_answers(monkeypatch, tmp_path):
+    monkeypatch.setenv("DVOINIK_LLM_CACHE", "1")
+    monkeypatch.setenv("DVOINIK_LLM_CACHE_PATH", str(tmp_path / "cache.sqlite3"))
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        answer = {"decision": True, "probability": 0.7, "objection": None, "quote": "Да"}
+        return httpx.Response(
+            200,
+            json={
+                "id": "t",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": json.dumps(answer)},
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        engine,
+        "_client",
+        lambda: AsyncOpenAI(
+            api_key="k",
+            base_url="http://local-test/v1",
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+        ),
+    )
+    scenario = {
+        "description": "",
+        "question": "Да?",
+        "variants": {"A": "x", "B": "y"},
+        "objections": ["плата"],
+    }
+    twins = build_population(3, {"senior": 1})
+    first = engine.simulate(twins, scenario)
+    assert len(calls) == 6
+    second = engine.simulate(twins, scenario)
+    assert len(calls) == 6 and second["A"]["yes"] == first["A"]["yes"] == 3
+    changed = {**scenario, "variants": {"A": "x", "B": "новое"}}
+    engine.simulate(twins, changed)
+    assert len(calls) == 9

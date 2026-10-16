@@ -194,7 +194,8 @@ def run_estimate(scenario: dict, n: int, concurrency: int = 16, baseline: bool =
         "cost": round((input_tokens + output_tokens) / 1000 * price, 2) if price is not None else None,
         "currency": os.getenv("DVOINIK_PRICE_CURRENCY", "₽") if price is not None else None,
         "detail": f"≈ по {CHARS_PER_TOKEN:g} символа на токен и {latency:g} с на запрос при параллельности "
-        f"{concurrency}. Фактические значения зависят от модели и сервера.",
+        f"{concurrency}. Фактические значения зависят от модели и сервера."
+        + (" Кэш включён: повторные тексты не запрашиваются, это верхняя оценка." if _cache_on() else ""),
     }
 
 
@@ -233,3 +234,9 @@ def baseline_agreement(record: dict) -> dict | None:
         "baseline_leaders": base_leaders,
         "spearman": _correlation(_rank(twins), _rank(base)),
     }
+
+
+def _cache_on() -> bool:
+    from .llm_cache import enabled
+
+    return enabled()
