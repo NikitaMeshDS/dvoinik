@@ -810,3 +810,25 @@ def test_app_factories_keep_session_caches_secrets_and_job_owners_independent(ap
     finally:
         release.set()
         other_app.state.jobs.close()
+
+
+def test_insights_include_plan_stability_and_baseline_agreement(app):
+    client = login(app)
+    record = run(client)["record"]
+    data = client.post("/api/insights", json={"record_id": record["id"], "segment": "all"}).json()
+    assert data["plan"]["questions"] and data["plan"]["exploratory_n"] == 30
+    assert data["stability"]["leader"] in record["report"]
+    assert data["baseline"]["method"] == "demo_rule"
+    sid = next(iter(record["scenario"]["population"]))
+    focused = client.post("/api/insights", json={"record_id": record["id"], "segment": sid}).json()
+    assert "plan" not in focused and "stability" in focused
+
+
+def test_estimate_validates_scenario_and_counts_requests(app):
+    client = login(app)
+    response = client.post("/api/estimate", json={"scenario": SCENARIOS[KEY], "n": 100, "concurrency": 8})
+    assert response.status_code == 200, response.text
+    assert response.json()["requests"] == 100 * len(SCENARIOS[KEY]["variants"]) + 1
+    bad = client.post("/api/estimate", json={"scenario": {"title": ""}, "n": 100})
+    assert bad.status_code == 422
+    assert client.post("/api/estimate", json={"scenario": SCENARIOS[KEY], "n": 0}).status_code == 422

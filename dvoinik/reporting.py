@@ -71,12 +71,15 @@ def signature(scenario, n, mock, seed, model=None):
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
-def make_record(key, scenario, n, mock, seed, report, twins, elapsed=0, sample=False):
-    seen, profiles = set(), []
+PROFILES_PER_SEGMENT = 3
+
+
+def make_record(key, scenario, n, mock, seed, report, twins, elapsed=0, sample=False, baseline=None):
+    seen, profiles = Counter(), []
     for twin in twins:
-        if twin.segment not in seen:
+        if seen[twin.segment] < PROFILES_PER_SEGMENT:
             profiles.append(twin.to_dict())
-            seen.add(twin.segment)
+            seen[twin.segment] += 1
     model, config_model = model_identity(mock)
     return {
         "schema_version": 2,
@@ -94,4 +97,4 @@ def make_record(key, scenario, n, mock, seed, report, twins, elapsed=0, sample=F
         "population_counts": dict(Counter(t.segment for t in twins)),
         "population_sample": profiles,
         "signature": signature(scenario, n, mock, seed, config_model),
-    }
+    } | ({"baseline": copy.deepcopy(baseline)} if baseline is not None else {})

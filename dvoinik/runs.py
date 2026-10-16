@@ -6,7 +6,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from .engine import simulate
+from .engine import baseline_estimate, simulate
 from .experiments import normalize_scenario
 from .population import build_population
 from .reporting import make_record
@@ -61,6 +61,16 @@ def run_experiment(
         guard=check_access,
     )
     check_access()
+    baseline = baseline_estimate(checked, mock=settings.mock)
+    check_access()
     return make_record(
-        key, checked, settings.n, settings.mock, settings.seed, report, twins, time.perf_counter() - started
+        key,
+        checked,
+        settings.n,
+        settings.mock,
+        settings.seed,
+        report,
+        twins,
+        time.perf_counter() - started,
+        baseline=baseline,
     )

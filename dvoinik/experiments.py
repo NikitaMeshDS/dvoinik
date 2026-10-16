@@ -15,9 +15,11 @@ from zoneinfo import ZoneInfo
 
 from .engine import _interval
 from .population import SEGMENTS
+from .reporting import PROFILES_PER_SEGMENT
 from .validate import SurveyRates, compare
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
+BASELINE_METHODS = {"single_prompt", "demo_rule"}
 CUSTOM_SCENARIO = {
     "title": "Новый эксперимент",
     "description": "Проверка собственной продуктовой гипотезы",
@@ -153,6 +155,14 @@ def _check_result(result, population, objections, requested):
         _text(quote.get("who"), "Профиль ответа", 500)
         _text(quote.get("quote"), "Реплика", 1000)
         quote["segment"] = SEGMENTS[quote["segment_id"]]["name"]
+    probability = result.get("probability")
+    if probability is not None:
+        if not isinstance(probability, dict):
+            raise ValueError("Сводка заявленной вероятности должна быть объектом.")
+        _number(probability.get("mean"), "Средняя вероятность")
+        _number(probability.get("sd"), "Разброс вероятности", maximum=0.5)
+        if _integer(probability.get("n"), "Ответов с вероятностью", maximum=n) != n:
+            raise ValueError("Сводка вероятности не соответствует числу ответов.")
     examples = result.get("failure_examples", [])
     if not isinstance(examples, list) or len(examples) > 3:
         raise ValueError("Некорректные сведения об ошибках модели.")
@@ -180,8 +190,28 @@ def _survey_from_cells(cells):
     return SurveyRates(rates, counts)
 
 
+def _baseline_rates(record):
+    baseline = record.get("baseline")
+    return baseline.get("rates") if isinstance(baseline, dict) else None
+
+
+def _check_baseline(baseline, variants):
+    if not isinstance(baseline, dict) or baseline.get("method") not in BASELINE_METHODS:
+        raise ValueError("Некорректная оценка простым подходом.")
+    if "rates" in baseline:
+        rates = baseline["rates"]
+        if not isinstance(rates, dict) or set(rates) != set(variants):
+            raise ValueError("Оценка простым подходом не совпадает с предложениями.")
+        for value in rates.values():
+            _number(value, "Доля простого подхода")
+        if "error" in baseline:
+            raise ValueError("Оценка простым подходом не может одновременно содержать доли и ошибку.")
+    else:
+        _text(baseline.get("error"), "Ошибка простого подхода", 1000)
+
+
 def attach_validation(record, survey):
-    result = compare(record["report"], survey)
+    result = compare(record["report"], survey, baseline=_baseline_rates(record))
     counts = getattr(survey, "counts", None)
     if counts is None:
         raise ValueError("Для сохранения проверки нужны количества ответов опроса.")
@@ -282,7 +312,7 @@ def load_experiment(source):
             if any(s["n"] > counts.get(sid, 0) for sid, s in result["segments"].items()):
                 raise ValueError("В сегменте больше ответов, чем двойников.")
         profiles = record.get("population_sample")
-        if not isinstance(profiles, list) or len(profiles) > len(SEGMENTS):
+        if not isinstance(profiles, list) or len(profiles) > PROFILES_PER_SEGMENT * len(SEGMENTS):
             raise ValueError("Некорректная подборка профилей.")
         for profile in profiles:
             if not isinstance(profile, dict) or profile.get("segment") not in counts:
@@ -296,6 +326,9 @@ def load_experiment(source):
                 raise ValueError("Привычки профиля должны быть списком.")
             for habit in habits:
                 _text(habit, "Привычка", 500)
+        baseline = record.get("baseline")
+        if baseline is not None:
+            _check_baseline(baseline, scenario["variants"])
         validation = record.get("validation")
         if validation is not None:
             if not isinstance(validation, dict):
@@ -332,7 +365,7 @@ def load_experiment(source):
                 record["validation"] = validation
             _timestamp(validation.get("created_at"))
             survey = _survey_from_cells(validation.get("cells"))
-            validation["result"] = compare(report, survey)
+            validation["result"] = compare(report, survey, baseline=_baseline_rates(record))
             validation["source"] = "user_supplied_survey"
         return record
     except (KeyError, TypeError, UnicodeError, RecursionError, OverflowError) as exc:

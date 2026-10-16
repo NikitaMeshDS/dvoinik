@@ -7,6 +7,7 @@ LLM: любая OpenAI-совместимая модель (on-prem vLLM/Ollama,
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import math
 import os
@@ -22,6 +23,13 @@ SYSTEM = (
     "реальные клиенты часто отказываются, если не видят явной пользы.\n"
     'Ответь строго JSON: {"decision": true|false, "probability": 0..1, '
     '"objection": одна категория из списка или null, "quote": одна фраза от первого лица}'
+)
+
+
+BASELINE_SYSTEM = (
+    "Ты — продуктовый аналитик банка. Оцени, какая доля описанной аудитории ответит «да» "
+    "на вопрос по каждому предложению. Не моделируй отдельных людей: дай одну общую оценку.\n"
+    'Ответь строго JSON: {"rates": {"A": 0..1, "B": 0..1, ...}}'
 )
 
 
@@ -133,6 +141,57 @@ BASE = {
 }
 
 
+MOTIVES = {
+    "student_msk": [
+        "Если это подходит для моих ежедневных покупок, готов попробовать.",
+        "Звучит выгодно для того, как я трачу. Оформлю и посмотрю месяц.",
+        "Сравню с тем, что у меня уже есть, но предложение интересное.",
+    ],
+    "student_reg": [
+        "Для меня важно не тратить лишнее на обслуживание карты.",
+        "Если правда без скрытых платежей, переведу сюда стипендию.",
+        "Подходит, пока условия понятные и ничего не списывают.",
+    ],
+    "teen": [
+        "Обсужу с родителями, мне интересно попробовать.",
+        "Если друзья тоже будут пользоваться, попрошу маму оформить.",
+        "Хочу попробовать, но решать будут родители.",
+    ],
+    "young_family": [
+        "Если семье будет проще планировать расходы, подключу.",
+        "Обсудим дома: если сэкономит время на бюджете, оформим.",
+        "Для семьи это может быть удобно, попробуем.",
+    ],
+    "senior": [
+        "Сначала уточню условия у сотрудника банка.",
+        "Если помогут оформить и всё объяснят, открою.",
+        "Посоветуюсь с дочерью, но в целом подходит.",
+    ],
+    "self_employed": [
+        "Попробую, если это упростит расчёты с клиентами.",
+        "Если комиссии честные, перейду с текущего счёта.",
+        "Это может сэкономить мне время на отчётности.",
+    ],
+    "nonresident": [
+        "Мне важно понимать условия переводов и комиссии.",
+        "Если всё объяснено понятно, буду пользоваться.",
+        "Подойдёт для переводов домой, если комиссия честная.",
+    ],
+}
+REFUSALS = [
+    "Пока не подключу. Причина: {reason}.",
+    "Не вижу смысла менять что-то сейчас: {reason}.",
+    "Скорее нет. Главное для меня — {reason}.",
+    "Отложу решение: {reason}.",
+]
+
+
+def _pick(options: list[str], *keys) -> str:
+    """Детерминированный выбор формулировки без расхода генератора решений."""
+    digest = hashlib.sha256("|".join(map(str, keys)).encode()).digest()
+    return options[int.from_bytes(digest[:4], "big") % len(options)]
+
+
 def _ask_mock(rng: random.Random, twin: Twin, scenario: dict, variant_text: str):
     t = variant_text.lower()
     p = BASE[twin.segment] + sum(v.get(twin.segment, 0) for k, v in KEYWORDS.items() if k in t)
@@ -155,18 +214,9 @@ def _ask_mock(rng: random.Random, twin: Twin, scenario: dict, variant_text: str)
         weights.append(weight)
     obj = None if decision else rng.choices(objections, weights=weights if sum(weights) else None)[0]
     if decision:
-        motives = {
-            "student_msk": "Если это подходит для моих ежедневных покупок, готов попробовать.",
-            "student_reg": "Для меня важно не тратить лишнее на обслуживание карты.",
-            "teen": "Обсужу с родителями, мне интересно попробовать.",
-            "young_family": "Если семье будет проще планировать расходы, подключу.",
-            "senior": "Сначала уточню условия у сотрудника банка.",
-            "self_employed": "Попробую, если это упростит расчёты с клиентами.",
-            "nonresident": "Мне важно понимать условия переводов и комиссии.",
-        }
-        quote = motives[twin.segment]
+        quote = _pick(MOTIVES[twin.segment], twin.id, t)
     else:
-        quote = f"Пока не подключу. Причина: {obj}."
+        quote = _pick(REFUSALS, twin.id, t).format(reason=obj)
     return {"decision": decision, "probability": round(p, 2), "objection": obj, "quote": quote}
 
 
@@ -236,6 +286,71 @@ def simulate(
     return {vid: aggregate(rows) for vid, rows in results.items()}
 
 
+def _audience_text(scenario: dict) -> str:
+    return "; ".join(
+        f"{SEGMENTS[sid]['name']} — {share * 100:.0f}%" for sid, share in scenario["population"].items()
+    )
+
+
+def _parse_baseline(content, variants):
+    out = json.loads(content)
+    rates = out.get("rates") if isinstance(out, dict) else None
+    if not isinstance(rates, dict) or set(rates) != set(variants):
+        raise ValueError("rates должны содержать все варианты")
+    clean = {}
+    for vid in variants:
+        value = rates[vid]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError("доля должна быть числом")
+        if not 0 <= value <= 1:
+            raise ValueError("доля должна быть от 0 до 1")
+        clean[vid] = float(value)
+    return clean
+
+
+def _demo_baseline(scenario: dict) -> dict:
+    """Правило без профилей для демо: те же ключевые слова, усреднённые по всем сегментам."""
+    rates = {}
+    for vid, text in scenario["variants"].items():
+        t = text.lower()
+        effect = sum(sum(v.values()) / len(BASE) for k, v in KEYWORDS.items() if k in t)
+        rates[vid] = round(min(0.92, max(0.03, sum(BASE.values()) / len(BASE) + effect)), 4)
+    return {"method": "demo_rule", "rates": rates}
+
+
+def baseline_estimate(scenario: dict, mock: bool = False) -> dict:
+    """Простой подход для сравнения: одна оценка по описанию аудитории, без персонажей.
+
+    Ошибка модели не прерывает исследование: она сохраняется вместо долей.
+    """
+    if mock:
+        return _demo_baseline(scenario)
+    variants = scenario["variants"]
+    user = (
+        f"Аудитория: {_audience_text(scenario)}.\n"
+        f"Контекст: {scenario.get('description', '')}\n"
+        f"Вопрос: {scenario['question']}\n"
+        + "\n".join(f"Предложение {vid}: {text}" for vid, text in variants.items())
+    )
+
+    async def ask():
+        async with _client() as client:
+            r = await client.chat.completions.create(
+                model=os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
+                temperature=0,
+                response_format={"type": "json_object"},
+                messages=[{"role": "system", "content": BASELINE_SYSTEM}, {"role": "user", "content": user}],
+            )
+            return r.choices[0].message.content
+
+    try:
+        return {"method": "single_prompt", "rates": _parse_baseline(asyncio.run(ask()), variants)}
+    except (ValueError, TypeError, IndexError, AttributeError):
+        return {"method": "single_prompt", "error": "Модель вернула ответ, не соответствующий JSON-схеме."}
+    except Exception as exc:
+        return {"method": "single_prompt", "error": f"Запрос к модели не выполнен ({type(exc).__name__})."}
+
+
 def _interval(yes, n):
     """Wilson 95%: разброс ответов внутри симуляции, не точность прогноза людей."""
     if not n:
@@ -250,11 +365,15 @@ def _interval(yes, n):
 def aggregate(rows) -> dict:
     rows = list(rows)
     by_seg = defaultdict(lambda: [0, 0])
-    objections, quote_groups, failures = Counter(), defaultdict(list), []
+    objections, quote_groups, failures, probabilities = Counter(), defaultdict(list), [], []
     for tw, out in rows:
         if out.get("error") or type(out.get("decision")) is not bool:
             failures.append(out.get("error", "Некорректный ответ модели."))
             continue
+        probability = out.get("probability")
+        if isinstance(probability, (int, float)) and not isinstance(probability, bool):
+            if math.isfinite(probability) and 0 <= probability <= 1:
+                probabilities.append(float(probability))
         by_seg[tw.segment][0] += 1
         by_seg[tw.segment][1] += int(out["decision"])
         if not out["decision"] and out.get("objection"):
@@ -280,7 +399,7 @@ def aggregate(rows) -> dict:
                 break
     n = sum(v[0] for v in by_seg.values())
     yes = sum(v[1] for v in by_seg.values())
-    return {
+    result = {
         "n": n,
         "requested_n": len(rows),
         "failed_n": len(failures),
@@ -301,3 +420,13 @@ def aggregate(rows) -> dict:
         "quotes": quotes,
         "failure_examples": list(dict.fromkeys(failures))[:3],
     }
+    if probabilities and len(probabilities) == n:
+        result["probability"] = _probability_summary(probabilities)
+    return result
+
+
+def _probability_summary(values: list[float]) -> dict:
+    """Заявленная вероятность: средняя и разброс. Низкий разброс — признак однородных персонажей."""
+    mean = sum(values) / len(values)
+    sd = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values))
+    return {"mean": round(mean, 4), "sd": round(sd, 4), "n": len(values)}

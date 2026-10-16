@@ -14,11 +14,12 @@ from ...experiments import (
     quality_status,
 )
 from ...insights import segment_report
+from ...planning import baseline_agreement, leader_stability, live_check_plan, run_estimate
 from ...population import SEGMENTS, allocate_population
 from ...reporting import summarize
 from ...runs import RunSettings
 from ...scenarios import SCENARIOS
-from ..models import Compare, Import, Insights, Preview, Run
+from ..models import Compare, Estimate, Import, Insights, Preview, Run
 from ..runtime import get_runtime
 from ..security import identity
 
@@ -104,4 +105,20 @@ def compare(body: Compare, access=Depends(identity), runtime=Depends(get_runtime
 def insights(body: Insights, access=Depends(identity), runtime=Depends(get_runtime)):
     record = runtime.accessible(access[0], body.record_id)
     report = record["report"] if body.segment == "all" else segment_report(record, body.segment)
-    return {"report": report, "summary": summarize(report), "quality": quality_status(record)}
+    result = {
+        "report": report,
+        "summary": summarize(report),
+        "quality": quality_status(record),
+        "stability": leader_stability(report),
+    }
+    if body.segment == "all":
+        result["plan"] = live_check_plan(record)
+        result["baseline"] = baseline_agreement(record)
+    return result
+
+
+@router.post("/api/estimate")
+def estimate(body: Estimate, access=Depends(identity)):
+    settings = RunSettings(n=body.n, concurrency=body.concurrency)
+    scenario = normalize_scenario(body.scenario)
+    return run_estimate(scenario, settings.n, concurrency=settings.concurrency)

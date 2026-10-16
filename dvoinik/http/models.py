@@ -17,6 +17,12 @@ class Preview(Body):
     n: StrictInt
 
 
+class Estimate(Body):
+    scenario: dict
+    n: StrictInt
+    concurrency: StrictInt = 16
+
+
 class Run(Body):
     scenario_key: StrictStr
     scenario: dict

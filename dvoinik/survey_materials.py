@@ -11,6 +11,7 @@ import io
 from html import escape
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from .planning import live_check_plan
 from .population import SEGMENTS
 
 
@@ -76,6 +77,32 @@ main{margin:0;padding:0;max-width:none}.offer{break-inside:avoid}h1{font-size:22
     )
 
 
+def _pp(value):
+    return f"{value:.1f}".replace(".", ",")
+
+
+def _sample_guide(record):
+    plan = live_check_plan(record)
+    lines = ["", "Ориентир по размеру выборки (только для исследователя)"]
+    for item in plan["comparisons"]:
+        left, right = item["pair"]
+        if item["n_per_variant"] is None:
+            lines.append(f"{left} и {right}: разница в симуляции меньше 2 п.п., опросом её не различить.")
+        else:
+            lines.append(
+                f"{left} против {right} (разница в симуляции {_pp(item['gap_pp'])} п.п.): "
+                f"около {item['n_per_variant']} оценок на каждое предложение."
+            )
+    lines.append(
+        f"Разведка на {plan['exploratory_n']} оценках на предложение заметит только разницу "
+        f"от {_pp(plan['exploratory_detectable_pp'])} п.п."
+    )
+    lines.append(plan["assumptions"])
+    lines += ["", "Вопросы для проблемных интервью"]
+    lines += [f"- {q['text']}" for q in plan["questions"]]
+    return "\n".join(lines) + "\n"
+
+
 def survey_kit(record):
     template = survey_template(record)
     scenario = record["scenario"]
@@ -127,6 +154,7 @@ decision — строго 0 или 1. Разделитель — запятая,
 Совпадение лидера не доказывает точность прогноза. Заявленное намерение в анкете
 не равно реальному оформлению продукта. Подлинность ответов сервис не проверяет.
 """
+    guide += _sample_guide(record)
     if missing:
         guide += (
             "\nВ этих ячейках нет валидных ответов симуляции: " + ", ".join(missing) + ".\n"
