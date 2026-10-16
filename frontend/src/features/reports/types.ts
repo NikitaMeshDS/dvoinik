@@ -49,9 +49,9 @@ export type BaselineAgreement = {
   spearman?: number | null;
 };
 export type ExportKind =
-  "record" | "validation" | "survey-template" | "preview";
+  "record" | "validation" | "survey-template" | "preview" | "summary";
 export type ExportAction = (
-  format: "json" | "csv",
+  format: "json" | "csv" | "html",
   kind?: ExportKind,
   preview_id?: string,
 ) => void;

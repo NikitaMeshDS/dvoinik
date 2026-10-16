@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  FileText,
   FileJson,
   FileSpreadsheet,
   GitCompare,
@@ -58,6 +59,10 @@ export default function ReportHeader({
               <ArrowRight size={18} />
             </Button>
             <Menu label="Действия с отчётом">
+              <button onClick={() => exportFile("html", "summary")}>
+                <FileText size={17} />
+                Резюме для команды
+              </button>
               <button onClick={() => exportFile("json")}>
                 <FileJson size={17} />
                 Отчёт JSON
@@ -99,7 +104,7 @@ export default function ReportHeader({
           </div>
           <ul className="quality-checks" aria-label="Проверки качества">
             <li className={base.stability?.level ?? "muted"}>
-              Устойчивость лидера:{" "}
+              Лидер в повторных выборках:{" "}
               {base.stability
                 ? decimal(base.stability.share * 100, 0) + "%"
                 : "нужны два варианта"}

@@ -835,3 +835,16 @@ def test_estimate_validates_scenario_and_counts_requests(app):
     bad = client.post("/api/estimate", json={"scenario": {"title": ""}, "n": 100})
     assert bad.status_code == 422
     assert client.post("/api/estimate", json={"scenario": SCENARIOS[KEY], "n": 0}).status_code == 422
+
+
+def test_team_summary_export_is_html_attachment(app):
+    client = login(app)
+    record = run(client)["record"]
+    link = client.post("/api/export", json={"record_id": record["id"], "kind": "summary", "format": "html"})
+    assert link.status_code == 200, link.text
+    response = client.get(link.json()["url"])
+    assert response.headers["content-type"].startswith("text/html")
+    assert "attachment" in response.headers["content-disposition"]
+    assert record["scenario"]["title"] in response.text
+    bad = client.post("/api/export", json={"record_id": record["id"], "kind": "summary", "format": "json"})
+    assert bad.status_code == 422

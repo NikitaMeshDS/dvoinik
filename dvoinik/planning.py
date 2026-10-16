@@ -47,11 +47,11 @@ def leader_stability(report: dict, draws: int = STABILITY_DRAWS, seed: int = 0) 
             wins += 1
     share = wins / draws
     if share >= 0.95:
-        level, label = "stable", "Лидер устойчив"
+        level, label = "stable", "Лидер устойчив в этой выборке"
     elif share >= 0.8:
-        level, label = "moderate", "Лидер умеренно устойчив"
+        level, label = "moderate", "Лидер умеренно устойчив в этой выборке"
     else:
-        level, label = "unstable", "Лидер неустойчив"
+        level, label = "unstable", "Лидер неустойчив даже в этой выборке"
     return {
         "leader": leader,
         "runner_up": ordered[1],
