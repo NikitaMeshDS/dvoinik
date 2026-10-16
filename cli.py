@@ -8,7 +8,7 @@ from pathlib import Path
 from dvoinik.experiments import attach_validation
 from dvoinik.planning import live_check_plan
 from dvoinik.reporting import export_json
-from dvoinik.runs import RunSettings, run_experiment
+from dvoinik.runs import RunSettings, run_experiment, seed_robustness
 from dvoinik.scenarios import SCENARIOS
 from dvoinik.validate import load_survey
 
@@ -22,6 +22,7 @@ def main():
     parser.add_argument("--concurrency", type=int, default=16, help="параллельных запросов к LLM")
     parser.add_argument("--survey", help="CSV живого опроса: segment,variant,decision")
     parser.add_argument("--output", type=Path, help="сохранить настройки, отчёт и валидацию в JSON")
+    parser.add_argument("--repeats", type=int, help="проверить устойчивость лидера на N соседних seed (2–20)")
     args = parser.parse_args()
     try:
         settings = RunSettings(n=args.n, mock=args.mock, seed=args.seed, concurrency=args.concurrency)
@@ -56,6 +57,13 @@ def main():
             f"Живая проверка {item['pair'][0]} против {item['pair'][1]}: "
             + (f"≈ {needed} оценок на предложение" if needed else "разница меньше 2 п.п.")
         )
+    if args.repeats:
+        try:
+            robust = seed_robustness(args.scenario, SCENARIOS[args.scenario], settings, args.repeats)
+        except ValueError as exc:
+            parser.error(str(exc))
+        counts = ", ".join(f"{leader}: {n}/{robust['repeats']}" for leader, n in robust["leaders"].items())
+        print(f"Лидер на {robust['repeats']} seed: {counts}")
     if "validation" in record:
         print("\nВалидация:", export_json(record["validation"]))
     if args.output:

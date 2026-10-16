@@ -182,3 +182,13 @@ def test_demo_quotes_vary_without_changing_decisions():
     assert [report[v]["yes"] for v in "ABC"] == [9, 86, 111]
     quotes = {q["quote"] for r in report.values() for q in r["quotes"]}
     assert len(quotes) >= 4
+
+
+def test_seed_robustness_counts_leaders_across_neighbouring_seeds():
+    from dvoinik.runs import seed_robustness
+
+    robust = seed_robustness("senior_deposit", SCENARIOS["senior_deposit"], RunSettings(n=100, seed=5), 3)
+    assert sum(robust["leaders"].values()) == 3
+    assert [r["seed"] for r in robust["runs"]] == [5, 6, 7]
+    with pytest.raises(ValueError):
+        seed_robustness("senior_deposit", SCENARIOS["senior_deposit"], RunSettings(), 1)
