@@ -14,6 +14,7 @@ import os
 import time
 from pathlib import Path
 
+from dvoinik.engine import paraphrase_variants
 from dvoinik.planning import HOMOGENEOUS_SD, baseline_agreement, leader_stability
 from dvoinik.runs import RunSettings, run_experiment
 from dvoinik.scenarios import SCENARIOS
@@ -21,11 +22,33 @@ from dvoinik.scenarios import SCENARIOS
 MIN_COVERAGE = 0.9
 
 
-def check(key: str, n: int, concurrency: int, seed: int) -> dict:
+def _leaders(report: dict) -> list[str]:
+    rates = {v: r["conversion"] for v, r in report.items() if r["n"]}
+    best = max(rates.values()) if rates else None
+    return sorted(v for v, rate in rates.items() if rate == best)
+
+
+def paraphrase_check(key: str, record: dict, settings: RunSettings) -> dict:
+    """Тот же сценарий с перефразированными предложениями: меняется ли лидер и доли."""
+    scenario = {**SCENARIOS[key], "variants": paraphrase_variants(SCENARIOS[key])}
+    other = run_experiment(key, scenario, settings)
+    shifts = {
+        v: abs(other["report"][v]["conversion"] - r["conversion"]) * 100
+        for v, r in record["report"].items()
+        if r["n"] and other["report"][v]["n"]
+    }
+    return {
+        "variants": scenario["variants"],
+        "same_leader": _leaders(record["report"]) == _leaders(other["report"]),
+        "max_shift_pp": max(shifts.values()) if shifts else None,
+        "rates": {v: r["conversion"] for v, r in other["report"].items() if r["n"]},
+    }
+
+
+def check(key: str, n: int, concurrency: int, seed: int, paraphrase: bool = False) -> dict:
     started = time.perf_counter()
-    record = run_experiment(
-        key, SCENARIOS[key], RunSettings(n=n, mock=False, seed=seed, concurrency=concurrency)
-    )
+    settings = RunSettings(n=n, mock=False, seed=seed, concurrency=concurrency)
+    record = run_experiment(key, SCENARIOS[key], settings)
     report = record["report"]
     requested = sum(r["requested_n"] for r in report.values())
     valid = sum(r["n"] for r in report.values())
@@ -43,6 +66,7 @@ def check(key: str, n: int, concurrency: int, seed: int) -> dict:
         "baseline": agreement,
         "stability": stability,
         "failures": sorted({e for r in report.values() for e in r.get("failure_examples", [])}),
+        "paraphrase": paraphrase_check(key, record, settings) if paraphrase else None,
         "seconds": time.perf_counter() - started,
     }
 
@@ -64,6 +88,15 @@ def format_result(result: dict) -> str:
         lines.append(f"{result['stability']['label']}: {result['stability']['share']:.0%} повторных выборок")
     if result["narrow"]:
         lines.append(f"ВНИМАНИЕ: однородные ответы в предложениях {', '.join(result['narrow'])}")
+    para = result.get("paraphrase")
+    if para:
+        rates = ", ".join(f"{v} {rate:.0%}" for v, rate in para["rates"].items())
+        shift = "—" if para["max_shift_pp"] is None else f"{para['max_shift_pp']:.1f} п.п."
+        lines.append(
+            f"Перефразировка: {rates} · лидер {'тот же' if para['same_leader'] else 'ИЗМЕНИЛСЯ'} · "
+            f"наибольший сдвиг {shift}"
+        )
+        lines += [f"  {v}: {text}" for v, text in para["variants"].items()]
     for error in result["failures"]:
         lines.append(f"Ошибка модели: {error}")
     return "\n".join(lines)
@@ -78,6 +111,11 @@ def main(argv=None):
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", type=Path, help="сохранить сводку в Markdown")
+    parser.add_argument(
+        "--paraphrase",
+        action="store_true",
+        help="повторить с перефразированными предложениями (вдвое больше запросов)",
+    )
     args = parser.parse_args(argv)
     model = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
     header = f"# Проверка LLM: {model} · {os.getenv('LLM_BASE_URL', 'http://localhost:11434/v1')}"
@@ -85,7 +123,7 @@ def main(argv=None):
     blocks, failed = [header], False
     for key in args.scenario or list(SCENARIOS):
         try:
-            result = check(key, args.n, args.concurrency, args.seed)
+            result = check(key, args.n, args.concurrency, args.seed, paraphrase=args.paraphrase)
         except ValueError as exc:
             parser.exit(1, f"{key}: {exc}\n")
         block = format_result(result)

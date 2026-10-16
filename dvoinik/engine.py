@@ -383,6 +383,43 @@ def baseline_estimate(scenario: dict, mock: bool = False) -> dict:
         return {"method": "single_prompt", "error": f"Запрос к модели не выполнен ({type(exc).__name__})."}
 
 
+PARAPHRASE_SYSTEM = (
+    "Перефразируй каждое банковское предложение другими словами. Сохрани все условия, числа, "
+    "ограничения и смысл; не добавляй и не убирай выгоды. Длина — примерно та же.\n"
+    'Ответь строго JSON: {"variants": {"A": "...", "B": "...", ...}}'
+)
+
+
+def paraphrase_variants(scenario: dict) -> dict[str, str]:
+    """Перефразировки предложений той же моделью — для проверки чувствительности к формулировке.
+
+    Проверяется только формат; сохранение условий нужно просмотреть глазами.
+    """
+    variants = scenario["variants"]
+    user = "\n".join(f"{vid}: {text}" for vid, text in variants.items())
+
+    async def ask():
+        async with _client() as client:
+            r = await client.chat.completions.create(
+                model=os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
+                temperature=0.7,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": PARAPHRASE_SYSTEM},
+                    {"role": "user", "content": user},
+                ],
+            )
+            return r.choices[0].message.content
+
+    out = json.loads(asyncio.run(ask()))
+    texts = out.get("variants") if isinstance(out, dict) else None
+    if not isinstance(texts, dict) or set(texts) != set(variants):
+        raise ValueError("Модель не вернула перефразировки всех предложений.")
+    if any(not isinstance(t, str) or not t.strip() or len(t) > 3000 for t in texts.values()):
+        raise ValueError("Перефразировка должна быть непустым текстом до 3000 символов.")
+    return {vid: texts[vid].strip() for vid in variants}
+
+
 def _interval(yes, n):
     """Wilson 95%: разброс ответов внутри симуляции, не точность прогноза людей."""
     if not n:

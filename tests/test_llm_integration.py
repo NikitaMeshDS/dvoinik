@@ -145,7 +145,9 @@ def test_llm_check_reports_coverage_baseline_and_homogeneity(monkeypatch, tmp_pa
 
     def respond(request):
         payload = json.loads(request.content)
-        if "Не моделируй отдельных людей" in payload["messages"][0]["content"]:
+        if "Перефразируй" in payload["messages"][0]["content"]:
+            content = json.dumps({"variants": {v: "иначе " + v for v in "ABC"}})
+        elif "Не моделируй отдельных людей" in payload["messages"][0]["content"]:
             variants = [
                 line.split(":")[0].split()[-1] for line in payload["messages"][1]["content"].splitlines()
             ]
@@ -179,8 +181,9 @@ def test_llm_check_reports_coverage_baseline_and_homogeneity(monkeypatch, tmp_pa
         ),
     )
     report = tmp_path / "check.md"
-    llm_check.main(["--scenario", "senior_deposit", "--n", "5", "--output", str(report)])
+    llm_check.main(["--scenario", "senior_deposit", "--n", "5", "--paraphrase", "--output", str(report)])
     text = report.read_text(encoding="utf-8")
     assert "Покрытие: 100%" in text
     assert "однородные ответы" in text
     assert "Простой подход" in text
+    assert "Перефразировка" in text and "лидер тот же" in text and "иначе A" in text
