@@ -45,6 +45,30 @@ def _client():
     )
 
 
+def _clean(text: str) -> str:
+    return " ".join(text.strip().strip("«»\"'.!").lower().replace("ё", "е").split())
+
+
+def _match_objection(value, objections: list[str]) -> str | None:
+    """Сопоставляет ответ модели с категорией: регистр, кавычки, «ё» и однозначное вхождение.
+
+    Небольшие модели часто возвращают «Не доверяю.» вместо «не доверяю». Неоднозначные
+    и посторонние ответы не угадываются: такой ответ остаётся ошибкой формата.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    if value in objections:
+        return value
+    cleaned = _clean(value)
+    exact = [o for o in objections if _clean(o) == cleaned]
+    if len(exact) == 1:
+        return exact[0]
+    contained = [
+        o for o in objections if _clean(o) in cleaned or (len(cleaned) >= 5 and cleaned in _clean(o))
+    ]
+    return contained[0] if len(contained) == 1 else None
+
+
 def _parse_response(content, scenario):
     out = json.loads(content)
     if not isinstance(out, dict) or type(out.get("decision")) is not bool:
@@ -59,8 +83,8 @@ def _parse_response(content, scenario):
         raise ValueError("probability должна быть числом от 0 до 1")
     if not isinstance(out.get("quote"), str) or not out["quote"].strip():
         raise ValueError("quote должна содержать объяснение")
-    objection = out.get("objection")
-    if not out["decision"] and objection not in scenario["objections"]:
+    objection = _match_objection(out.get("objection"), scenario["objections"])
+    if not out["decision"] and objection is None:
         raise ValueError("objection должна быть категорией из сценария")
     return {
         "decision": out["decision"],

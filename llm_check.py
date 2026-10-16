@@ -1,0 +1,102 @@
+"""Проверка подключённой LLM перед демонстрацией: протокол, покрытие и признаки однородности.
+
+Запускает небольшие исследования через настроенную модель и печатает сводку:
+доля валидных ответов, доли по вариантам, разброс заявленной вероятности
+и совпадение лидера с простым подходом. Точность прогноза людей здесь не измеряется.
+
+    LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=qwen2.5:7b-instruct python llm_check.py --n 20
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import time
+from pathlib import Path
+
+from dvoinik.planning import HOMOGENEOUS_SD, baseline_agreement, leader_stability
+from dvoinik.runs import RunSettings, run_experiment
+from dvoinik.scenarios import SCENARIOS
+
+MIN_COVERAGE = 0.9
+
+
+def check(key: str, n: int, concurrency: int, seed: int) -> dict:
+    started = time.perf_counter()
+    record = run_experiment(
+        key, SCENARIOS[key], RunSettings(n=n, mock=False, seed=seed, concurrency=concurrency)
+    )
+    report = record["report"]
+    requested = sum(r["requested_n"] for r in report.values())
+    valid = sum(r["n"] for r in report.values())
+    narrow = [
+        v for v, r in report.items() if r.get("probability") and r["probability"]["sd"] < HOMOGENEOUS_SD
+    ]
+    agreement = baseline_agreement(record) or {}
+    stability = leader_stability(report)
+    return {
+        "key": key,
+        "coverage": valid / requested if requested else 0,
+        "rates": {v: r["conversion"] for v, r in report.items() if r["n"]},
+        "probability": {v: r.get("probability") for v, r in report.items()},
+        "narrow": narrow,
+        "baseline": agreement,
+        "stability": stability,
+        "failures": sorted({e for r in report.values() for e in r.get("failure_examples", [])}),
+        "seconds": time.perf_counter() - started,
+    }
+
+
+def format_result(result: dict) -> str:
+    lines = [f"## {result['key']}"]
+    lines.append(f"Покрытие: {result['coverage']:.0%} · {result['seconds']:.0f} с")
+    rates = ", ".join(f"{v} {rate:.0%}" for v, rate in result["rates"].items()) or "нет валидных ответов"
+    lines.append(f"Двойники: {rates}")
+    baseline = result["baseline"]
+    if baseline.get("rows"):
+        base = ", ".join(f"{row['variant']} {row['baseline']:.0%}" for row in baseline["rows"])
+        lines.append(
+            f"Простой подход: {base} · лидер {'совпадает' if baseline['same_leader'] else 'различается'}"
+        )
+    elif baseline.get("error"):
+        lines.append(f"Простой подход: ошибка — {baseline['error']}")
+    if result["stability"]:
+        lines.append(f"{result['stability']['label']}: {result['stability']['share']:.0%} повторных выборок")
+    if result["narrow"]:
+        lines.append(f"ВНИМАНИЕ: однородные ответы в предложениях {', '.join(result['narrow'])}")
+    for error in result["failures"]:
+        lines.append(f"Ошибка модели: {error}")
+    return "\n".join(lines)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Проверка подключённой LLM для Двойника")
+    parser.add_argument(
+        "--scenario", choices=list(SCENARIOS), action="append", help="по умолчанию все шаблоны"
+    )
+    parser.add_argument("--n", type=int, default=20, help="двойников на сценарий")
+    parser.add_argument("--concurrency", type=int, default=4)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--output", type=Path, help="сохранить сводку в Markdown")
+    args = parser.parse_args(argv)
+    model = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
+    header = f"# Проверка LLM: {model} · {os.getenv('LLM_BASE_URL', 'http://localhost:11434/v1')}"
+    print(header)
+    blocks, failed = [header], False
+    for key in args.scenario or list(SCENARIOS):
+        try:
+            result = check(key, args.n, args.concurrency, args.seed)
+        except ValueError as exc:
+            parser.exit(1, f"{key}: {exc}\n")
+        block = format_result(result)
+        print("\n" + block)
+        blocks.append(block)
+        failed = failed or result["coverage"] < MIN_COVERAGE
+    if args.output:
+        args.output.write_text("\n\n".join(blocks) + "\n", encoding="utf-8")
+    if failed:
+        parser.exit(1, f"\nПокрытие ниже {MIN_COVERAGE:.0%}: проверьте модель и формат JSON.\n")
+
+
+if __name__ == "__main__":
+    main()

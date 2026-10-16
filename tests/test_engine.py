@@ -226,3 +226,22 @@ def test_mock_access_guard_is_independent_of_ui_progress_throttle(monkeypatch):
             progress=lambda done, total: progress.append(done),
         )
     assert calls == [1] and progress == []
+
+
+@pytest.mark.parametrize(
+    "given,expected",
+    [
+        ("не доверяю", "не доверяю"),
+        ("Не доверяю.", "не доверяю"),
+        ("«Боюсь мошенников»", "боюсь мошенников"),
+        ("Главное — неудобный канал", "неудобный канал"),
+        ("ставка", "ставка недостаточная"),
+        ("что-то другое", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_objection_matching_is_forgiving_only_when_unambiguous(given, expected):
+    from dvoinik.engine import _match_objection
+
+    assert _match_objection(given, SCENARIOS["senior_deposit"]["objections"]) == expected

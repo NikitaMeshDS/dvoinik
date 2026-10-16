@@ -138,3 +138,49 @@ def test_optional_cache_reuses_validated_answers(monkeypatch, tmp_path):
     changed = {**scenario, "variants": {"A": "x", "B": "новое"}}
     engine.simulate(twins, changed)
     assert len(calls) == 9
+
+
+def test_llm_check_reports_coverage_baseline_and_homogeneity(monkeypatch, tmp_path, capsys):
+    import llm_check
+
+    def respond(request):
+        payload = json.loads(request.content)
+        if "Не моделируй отдельных людей" in payload["messages"][0]["content"]:
+            variants = [
+                line.split(":")[0].split()[-1] for line in payload["messages"][1]["content"].splitlines()
+            ]
+            content = json.dumps({"rates": {v: 0.5 for v in variants if len(v) == 1}})
+        else:
+            content = json.dumps({"decision": True, "probability": 0.6, "objection": None, "quote": "Да"})
+        return httpx.Response(
+            200,
+            json={
+                "id": "t",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": content},
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        engine,
+        "_client",
+        lambda: AsyncOpenAI(
+            api_key="k",
+            base_url="http://local-test/v1",
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+        ),
+    )
+    report = tmp_path / "check.md"
+    llm_check.main(["--scenario", "senior_deposit", "--n", "5", "--output", str(report)])
+    text = report.read_text(encoding="utf-8")
+    assert "Покрытие: 100%" in text
+    assert "однородные ответы" in text
+    assert "Простой подход" in text
