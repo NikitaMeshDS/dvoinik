@@ -10,7 +10,7 @@ export default function Audience({
     <>
       <div className="section-heading">
         <h2>Профили аудитории</h2>
-        <span>Один пример на сегмент</span>
+        <span>До трёх примеров на сегмент</span>
       </div>
       <p className="help">
         Синтетические характеристики основаны на экспертных предположениях.
@@ -18,7 +18,7 @@ export default function Audience({
       </p>
       <div className="profile-grid">
         {record.population_sample.map((p) => (
-          <article className="profile" key={p.segment}>
+          <article className="profile" key={p.segment + "-" + p.id}>
             <div>
               <span className="profile-avatar">{p.name[0]}</span>
               <div>

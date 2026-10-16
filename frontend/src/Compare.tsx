@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, ArrowRight } from "lucide-react";
 import { api, download, ignored, message } from "./api";
-import { Button, Modal, Notice, percent, date } from "./components";
+import { Button, Modal, Notice, decimal, percent, date } from "./components";
 import type { Comparison, Experiment } from "./types";
 export function ComparisonDialog({
   ids,
@@ -94,7 +94,7 @@ export function ComparisonDialog({
                     <td>
                       {r.delta_pp === null
                         ? "—"
-                        : (r.delta_pp > 0 ? "+" : "") + r.delta_pp.toFixed(1)}
+                        : (r.delta_pp > 0 ? "+" : "") + decimal(r.delta_pp)}
                     </td>
                     <td>
                       {r.left_n ?? "—"} / {r.right_n ?? "—"}
@@ -152,9 +152,7 @@ export function ComparisonDialog({
                       <td>{r.segment}</td>
                       <td>{percent(r.left)}</td>
                       <td>{percent(r.right)}</td>
-                      <td>
-                        {r.delta_pp === null ? "—" : r.delta_pp.toFixed(1)}
-                      </td>
+                      <td>{r.delta_pp === null ? "—" : decimal(r.delta_pp)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -83,7 +83,7 @@ export default function ConversionChart({
                   y={y + 5}
                   className="chart-value"
                 >
-                  {percent(rate, 0)}
+                  {percent(rate)}
                 </text>
               </>
             ) : (

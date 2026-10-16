@@ -55,6 +55,7 @@ export type ReportItem = {
   objections: Record<string, number>;
   quotes: Quote[];
   failure_examples?: string[];
+  probability?: { mean: number; sd: number; n: number };
 };
 export type Profile = {
   id: number;
@@ -83,6 +84,19 @@ export type ValidationResult = {
   cells: ValidationCell[];
   actual_winners: string[];
   predicted_winners: string[];
+  baseline?: {
+    twins_mae_variants: number;
+    baseline_mae_variants: number;
+    twins_spearman: number | null;
+    baseline_spearman: number | null;
+    baseline_winner_match: boolean | null;
+    variants: {
+      variant: string;
+      actual: number;
+      twins: number;
+      baseline: number;
+    }[];
+  };
 };
 export type Validation = {
   created_at: string;
@@ -108,6 +122,22 @@ export type Experiment = {
   signature: string;
   validation?: Validation;
   import_origin_id?: string;
+  baseline?: {
+    method: string;
+    rates?: Record<string, number>;
+    error?: string;
+  };
+};
+export type Estimate = {
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  minutes: number;
+  latency_s: number;
+  concurrency: number;
+  cost: number | null;
+  currency: string | null;
+  detail: string;
 };
 export type Draft = {
   key: string;

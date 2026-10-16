@@ -363,3 +363,26 @@
 .composer-step:focus {
   outline: none;
 }
+.run-estimate {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f7f9fd;
+  padding: 16px 18px;
+  margin: 20px 0 0;
+}
+.run-estimate > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.run-estimate strong {
+  color: var(--ink);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.run-estimate .help {
+  margin: 10px 0 0;
+}

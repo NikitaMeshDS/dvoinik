@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from dvoinik.experiments import attach_validation
+from dvoinik.planning import live_check_plan
 from dvoinik.reporting import export_json
 from dvoinik.runs import RunSettings, run_experiment
 from dvoinik.scenarios import SCENARIOS
@@ -42,6 +43,19 @@ def main():
         )
         for segment in result["segments"].values():
             print(f"  {segment['name']:<42} {segment['conversion']:>6.1%}  (n={segment['n']})")
+    baseline = record.get("baseline", {})
+    if "rates" in baseline:
+        rates = ", ".join(f"{vid} {rate:.1%}" for vid, rate in baseline["rates"].items())
+        print(f"\nПростой подход ({baseline['method']}): {rates}")
+    elif baseline.get("error"):
+        print(f"\nПростой подход не дал оценку: {baseline['error']}")
+    plan = live_check_plan(record)
+    for item in plan["comparisons"][:1]:
+        needed = item["n_per_variant"]
+        print(
+            f"Живая проверка {item['pair'][0]} против {item['pair'][1]}: "
+            + (f"≈ {needed} оценок на предложение" if needed else "разница меньше 2 п.п.")
+        )
     if "validation" in record:
         print("\nВалидация:", export_json(record["validation"]))
     if args.output:

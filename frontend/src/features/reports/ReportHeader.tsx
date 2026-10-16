@@ -12,6 +12,7 @@ import {
   Menu,
   Notice,
   date,
+  decimal,
   percent,
 } from "../../components";
 import type { Experiment } from "../../types";
@@ -108,7 +109,7 @@ export default function ReportHeader({
                 : "Доля согласий"}
           </span>
           <strong>
-            {summary?.leaders.length ? percent(summary.best, 0) : "—"}
+            {summary?.leaders.length ? percent(summary.best) : "—"}
           </strong>
           <small>
             {summary?.leaders.length
@@ -135,9 +136,19 @@ export default function ReportHeader({
         <div>
           <span>Отрыв от следующего</span>
           <strong>
-            {summary ? summary.gap_pp.toFixed(1) : "—"} <small>п.п.</small>
+            {summary ? decimal(summary.gap_pp) : "—"} <small>п.п.</small>
           </strong>
-          <small>Описательное сравнение</small>
+          {base?.stability ? (
+            <small
+              className={"stability " + base.stability.level}
+              title={base.stability.detail}
+            >
+              {base.stability.label} · {decimal(base.stability.share * 100, 0)}%
+              повторных выборок
+            </small>
+          ) : (
+            <small>Описательное сравнение</small>
+          )}
         </div>
       </div>
       {!!base?.summary.failed_n && (

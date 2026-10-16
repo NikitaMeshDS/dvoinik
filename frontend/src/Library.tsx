@@ -330,7 +330,7 @@ export default function Library({
                         </span>
                         <ResponsePreview report={r.report} />
                         <span className="study-result">
-                          <b>{percent(best, 0)}</b>
+                          <b>{percent(best)}</b>
                           <small>
                             {leaders.length
                               ? "Вариант " + leaders.join(" / ")

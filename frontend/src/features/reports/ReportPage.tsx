@@ -81,6 +81,9 @@ export default function ReportPage({
             setSegment={setSegment}
             variant={variant}
             setVariant={setVariant}
+            baseline={insights.base?.baseline}
+            plan={insights.base?.plan}
+            onPlan={() => setTab("validation")}
           />
         )}
         {tab === "people" && <Audience record={record} catalog={catalog} />}
@@ -102,6 +105,7 @@ export default function ReportPage({
             catalog={catalog}
             onUpdated={onUpdated}
             onExport={exportFile}
+            plan={insights.base?.plan}
           />
         </div>
       </section>

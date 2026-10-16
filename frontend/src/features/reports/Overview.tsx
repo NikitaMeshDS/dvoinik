@@ -1,8 +1,10 @@
-import { Notice, percent } from "../../components";
+import { ArrowRight } from "lucide-react";
+import { Notice, decimal, percent } from "../../components";
 import { COLORS, type Catalog, type Experiment } from "../../types";
-import type { Insights } from "./types";
+import type { BaselineAgreement, Insights, LivePlan } from "./types";
 import ConversionChart from "./ConversionChart";
 import SnapshotDetails from "./SnapshotDetails";
+import BaselineCard from "./BaselineCard";
 export default function Overview({
   record,
   catalog,
@@ -11,7 +13,13 @@ export default function Overview({
   setSegment,
   variant,
   setVariant,
+  baseline,
+  plan,
+  onPlan,
 }: {
+  baseline?: BaselineAgreement | null;
+  plan?: LivePlan;
+  onPlan?: () => void;
   record: Experiment;
   catalog: Catalog;
   focus: Insights | null;
@@ -154,17 +162,28 @@ export default function Overview({
             <>
               <h2>
                 {leaders.length === 1
-                  ? "Вариант " + candidate
+                  ? "Гипотеза: вариант " + candidate
                   : "Равный результат"}
               </h2>
               <p>
                 {leaders.length === 1
-                  ? percent(focus.summary.best) +
-                    " согласий в выбранной аудитории"
+                  ? "Лидер симуляции — " +
+                    percent(focus.summary.best) +
+                    " согласий в выбранной аудитории. Это повод проверить вариант на людях, а не вывод о спросе."
                   : "Варианты " +
                     leaders.join(", ") +
                     " получили одинаковую долю согласий."}
               </p>
+              {focus.stability && leaders.length === 1 && (
+                <p
+                  className={"stability-line " + focus.stability.level}
+                  title={focus.stability.detail}
+                >
+                  {focus.stability.label}: {focus.stability.leader} впереди{" "}
+                  {focus.stability.runner_up} в{" "}
+                  {decimal(focus.stability.share * 100, 0)}% повторных выборок
+                </p>
+              )}
               {segment !== "all" ? (
                 quote ? (
                   <blockquote>
@@ -181,27 +200,51 @@ export default function Overview({
                   </p>
                 )
               ) : (
-                <p className="barrier">
-                  {candidateResult &&
-                  Object.keys(candidateResult.objections).length
-                    ? "Основной барьер: " +
-                      Object.entries(candidateResult.objections).sort(
-                        (a, b) => b[1] - a[1],
-                      )[0][0] +
-                      "."
-                    : "В сохранённых ответах нет причин отказа."}
+                <>
+                  <p className="barrier">
+                    {candidateResult &&
+                    Object.keys(candidateResult.objections).length
+                      ? "Основной барьер: " +
+                        Object.entries(candidateResult.objections).sort(
+                          (a, b) => b[1] - a[1],
+                        )[0][0] +
+                        "."
+                      : "В сохранённых ответах нет причин отказа."}
+                  </p>
+                  {plan?.comparisons[0] && (
+                    <p className="plan-hint">
+                      Чтобы различить {plan.comparisons[0].pair.join(" и ")}{" "}
+                      опросом, нужно{" "}
+                      {plan.comparisons[0].n_per_variant === null
+                        ? "больше, чем разумная выборка: разница меньше 2 п.п."
+                        : "≈ " +
+                          plan.comparisons[0].n_per_variant.toLocaleString(
+                            "ru-RU",
+                          ) +
+                          " оценок на каждое предложение."}
+                    </p>
+                  )}
+                </>
+              )}
+              {onPlan && segment === "all" ? (
+                <button className="text-link with-icon" onClick={onPlan}>
+                  План живой проверки и вопросы для интервью
+                  <ArrowRight size={15} aria-hidden="true" />
+                </button>
+              ) : (
+                <p className="help">
+                  Реплика — синтетический пример, а не полное распределение
+                  причин. Проверьте причины решений в интервью на живой
+                  аудитории.
                 </p>
               )}
-              <p className="help">
-                {segment !== "all"
-                  ? "Реплика — синтетический пример, а не полное распределение причин. "
-                  : ""}
-                Проверьте причины решений в интервью на живой аудитории.
-              </p>
             </>
           )}
         </aside>
       </div>
+      {segment === "all" && (
+        <BaselineCard record={record} baseline={baseline} />
+      )}
       {segment === "all" ? (
         <>
           <div className="section-heading">
