@@ -114,6 +114,8 @@ def test_catalog_and_population_are_server_validated(app):
     client = login(app)
     catalog = client.get("/api/catalog").json()
     assert set(catalog["scenarios"]) == set(SCENARIOS) | {"custom"}
+    assert set(catalog["sources"]["segments"]) <= set(catalog["segments"])
+    assert catalog["sources"]["gaps"]
     preview = client.post("/api/preview", json={"n": 7, "population": {"student_msk": 1, "student_reg": 2}})
     assert sum(preview.json()["counts"].values()) == 7
     assert preview.json()["shares"]["student_reg"] == pytest.approx(2 / 3)

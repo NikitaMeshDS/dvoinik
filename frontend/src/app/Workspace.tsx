@@ -249,7 +249,7 @@ export default function Workspace({
             onBack={() => navigate("create")}
           />
         ) : route === "methodology" ? (
-          <Methodology />
+          <Methodology catalog={catalog} />
         ) : route === "admin" ? (
           session.user.role === "admin" ? (
             <Administration current={session.user} onError={onError} />

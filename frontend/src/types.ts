@@ -14,9 +14,18 @@ export type Segment = {
   habits: string[];
   attitude: string[];
 };
+export type SegmentSource = {
+  fact: string;
+  use: string;
+  status: string;
+  source: string;
+  date: string;
+  url: string;
+};
 export type Catalog = {
   scenarios: Record<string, Scenario>;
   segments: Record<string, Segment>;
+  sources?: { segments: Record<string, SegmentSource[]>; gaps: string };
 };
 export type User = {
   id: string;

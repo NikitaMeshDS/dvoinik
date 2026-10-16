@@ -1,6 +1,16 @@
 import { Users, Layers, ClipboardCheck } from "lucide-react";
 import { Heading } from "./components";
-export default function Methodology() {
+import type { Catalog } from "./types";
+
+const TONE: Record<string, string> = { согласуется: "ok", устарело: "old" };
+const STATUS: Record<string, string> = {
+  согласуется: "Согласуется",
+  ориентир: "Ориентир",
+  устарело: "Нужно обновить",
+};
+
+export default function Methodology({ catalog }: { catalog?: Catalog | null }) {
+  const sources = catalog?.sources;
   return (
     <>
       <Heading
@@ -13,8 +23,8 @@ export default function Methodology() {
           <h2>Профили</h2>
           <p>
             Популяция составлена из семи экспертных сегментов. Доли задаёт
-            исследователь; подтверждённой калибровки на открытой статистике пока
-            нет.
+            исследователь; часть атрибутов сверена с открытыми данными, но
+            калибровки выборки пока нет.
           </p>
         </div>
         <div>
@@ -75,6 +85,40 @@ export default function Methodology() {
           симуляции. Это ориентир: настоящие доли могут отличаться.
         </p>
       </section>
+      {sources ? (
+        <section className="method-section">
+          <h2>С чем сверены сегменты</h2>
+          <p>
+            Опорные открытые цифры показывают, на что опираются профили и что
+            остаётся допущением. Это не калибровка: доли аудитории по-прежнему
+            задаёт исследователь.
+          </p>
+          <div className="source-list">
+            {Object.entries(sources.segments).map(([sid, items]) => (
+              <div key={sid} className="source-group">
+                <h3>{catalog?.segments[sid]?.name ?? sid}</h3>
+                <ul>
+                  {items.map((item) => (
+                    <li key={item.fact}>
+                      <span
+                        className={`source-status ${TONE[item.status] ?? ""}`}
+                      >
+                        {STATUS[item.status] ?? item.status}
+                      </span>
+                      <strong>{item.fact}</strong>
+                      <span>{item.use}</span>
+                      <a href={item.url} target="_blank" rel="noreferrer">
+                        {item.source}, {item.date}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p className="help">{sources.gaps}</p>
+        </section>
+      ) : null}
       <section className="method-section">
         <h2>Как сопоставляется опрос</h2>
         <p>
@@ -91,10 +135,10 @@ export default function Methodology() {
       <section className="method-section">
         <h2>Следующий этап</h2>
         <p>
-          Интервью с продуктовыми командами, источники характеристик популяции,
-          независимый опрос и ретро-тест прошлых запусков. Корпоративный SSO,
-          сетевое on-prem-развёртывание и тестирование экранов остаются
-          отдельными этапами.
+          Интервью с продуктовыми командами, калибровка долей и атрибутов на
+          источниках из раздела выше, независимый опрос и ретро-тест прошлых
+          запусков. Корпоративный SSO, сетевое on-prem-развёртывание и
+          тестирование экранов остаются отдельными этапами.
         </p>
       </section>
     </>
