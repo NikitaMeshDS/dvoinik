@@ -845,7 +845,7 @@
 @media (max-width: 900px) {
   .baseline-grid,
   .live-plan-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 .profile-group {
@@ -884,6 +884,43 @@
 }
 @media (max-width: 900px) {
   .profile-group .profile-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
+}
+.quality-note {
+  flex-wrap: wrap;
+}
+.quality-note > div {
+  flex: 1 1 360px;
+  min-width: 0;
+}
+.quality-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  align-self: center;
+}
+.quality-checks li {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: #fff;
+  border: 1px solid #d9e3f6;
+  color: #536b82;
+}
+.quality-checks li.stable {
+  color: var(--mint);
+  border-color: #bfe0dc;
+}
+.quality-checks li.moderate {
+  color: #9a6a12;
+  border-color: #ecd3a6;
+}
+.quality-checks li.unstable {
+  color: #b2462e;
+  border-color: #efc5bb;
 }

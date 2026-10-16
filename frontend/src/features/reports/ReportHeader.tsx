@@ -97,6 +97,40 @@ export default function ReportHeader({
             <strong>{base.quality.title}</strong>
             <p>{base.quality.detail}</p>
           </div>
+          <ul className="quality-checks" aria-label="Проверки качества">
+            <li className={base.stability?.level ?? "muted"}>
+              Устойчивость лидера:{" "}
+              {base.stability
+                ? decimal(base.stability.share * 100, 0) + "%"
+                : "нужны два варианта"}
+            </li>
+            <li
+              className={
+                !base.baseline || base.baseline.error
+                  ? "muted"
+                  : base.baseline.same_leader
+                    ? "stable"
+                    : "moderate"
+              }
+            >
+              Простой подход:{" "}
+              {!base.baseline
+                ? "нет в снимке"
+                : base.baseline.error
+                  ? "ошибка запроса"
+                  : base.baseline.same_leader
+                    ? "лидер совпадает"
+                    : "лидеры различаются"}
+            </li>
+            <li className={record.validation ? "stable" : "muted"}>
+              Живой опрос:{" "}
+              {record.validation
+                ? "ошибка " +
+                  decimal(record.validation.result.mae_conversion * 100) +
+                  " п.п."
+                : "ещё не загружен"}
+            </li>
+          </ul>
         </div>
       )}
       <div className="report-summary">
@@ -138,17 +172,7 @@ export default function ReportHeader({
           <strong>
             {summary ? decimal(summary.gap_pp) : "—"} <small>п.п.</small>
           </strong>
-          {base?.stability ? (
-            <small
-              className={"stability " + base.stability.level}
-              title={base.stability.detail}
-            >
-              {base.stability.label} · {decimal(base.stability.share * 100, 0)}%
-              повторных выборок
-            </small>
-          ) : (
-            <small>Описательное сравнение</small>
-          )}
+          <small>Описательное сравнение</small>
         </div>
       </div>
       {!!base?.summary.failed_n && (
