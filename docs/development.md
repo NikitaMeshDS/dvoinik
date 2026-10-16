@@ -229,8 +229,9 @@ Node-сборка для этого режима не требуется. Пол
 
 ```bash
 python scripts/build_showcase.py frontend/showcase-data.json
-VITE_SHOWCASE=1 npx --prefix frontend vite build frontend
-cp frontend/showcase-data.json frontend/dist-showcase/
+cd frontend && VITE_SHOWCASE=1 npx vite build && cp showcase-data.json dist-showcase/
 ```
 
 Папку `frontend/dist-showcase` можно разместить на любом статическом хостинге.
+Для GitHub Pages включите Settings → Pages → Source: GitHub Actions и запустите вручную
+workflow «Online showcase»: витрина появится по адресу `https://nikitameshds.github.io/dvoinik/`.
