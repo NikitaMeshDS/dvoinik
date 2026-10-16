@@ -848,3 +848,42 @@
     grid-template-columns: 1fr;
   }
 }
+.profile-group {
+  margin: 28px 0 0;
+}
+.profile-group-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+.profile-group-heading h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.profile-group-heading span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.profile-group-heading strong {
+  color: var(--blue);
+  font-size: 18px;
+}
+.profile-group .profile-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 16px;
+}
+.profile h4 {
+  margin: 0;
+  font-size: 15px;
+}
+.profile > div:first-child {
+  margin-bottom: 14px;
+}
+@media (max-width: 900px) {
+  .profile-group .profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
