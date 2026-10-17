@@ -160,6 +160,41 @@ export default function Composer({
         </span>
       </div>
       {error && <Notice kind="error">{error}</Notice>}
+      {draft.origin && (
+        <div className="origin-note" role="status">
+          {draft.origin.kind === "hypothesis" ? (
+            <>
+              <div>
+                <strong>Проверка гипотезы «{draft.origin.lever}»</strong>
+                <p>
+                  Из исследования «{draft.origin.title}». A — текущий вариант{" "}
+                  {draft.origin.variant} без изменений, B — новый текст:{" "}
+                  {draft.origin.change?.toLowerCase()}. Текст B можно
+                  отредактировать, аудитория уже ограничена затронутыми
+                  сегментами.
+                </p>
+              </div>
+              <Button
+                kind="primary"
+                onClick={start}
+                disabled={busy || activeRun}
+              >
+                Запустить проверку
+                <ArrowRight size={17} />
+              </Button>
+            </>
+          ) : (
+            <div>
+              <strong>Следующая итерация</strong>
+              <p>
+                Основа — исследование «{draft.origin.title}». Измените
+                предложения или аудиторию: новый отчёт сохранит связь с исходным
+                и сравнит их в один клик.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
       {step === 0 ? (
         <section
           className="composer-step"

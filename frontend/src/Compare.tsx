@@ -38,30 +38,40 @@ export function ComparisonDialog({
       alive = false;
     };
   }, [left, right]);
+  // Исходное исследование может отсутствовать в архиве (например, демонстрационный пример).
+  const missing = [left, right].filter(
+    (id, i, all) =>
+      id && all.indexOf(id) === i && !records.some((r) => r.id === id),
+  );
+  const options = (
+    <>
+      <option value="">Выберите исследование</option>
+      {records.map((r) => (
+        <option value={r.id} key={r.id}>
+          {r.scenario.title} · {date(r.created_at)} · {r.id}
+        </option>
+      ))}
+      {missing.map((id) => (
+        <option value={id} key={id}>
+          Исходное исследование вне архива · {id}
+        </option>
+      ))}
+    </>
+  );
   return (
     <Modal title="Сравнение исследований" onClose={onClose}>
       <div className="compare-pickers">
         <label className="field">
           <span>Исходный запуск</span>
           <select value={left} onChange={(e) => setLeft(e.target.value)}>
-            <option value="">Выберите исследование</option>
-            {records.map((r) => (
-              <option value={r.id} key={r.id}>
-                {r.scenario.title} · {date(r.created_at)} · {r.id}
-              </option>
-            ))}
+            {options}
           </select>
         </label>
         <ArrowRight size={20} />
         <label className="field">
           <span>Следующая итерация</span>
           <select value={right} onChange={(e) => setRight(e.target.value)}>
-            <option value="">Выберите исследование</option>
-            {records.map((r) => (
-              <option value={r.id} key={r.id}>
-                {r.scenario.title} · {date(r.created_at)} · {r.id}
-              </option>
-            ))}
+            {options}
           </select>
         </label>
       </div>

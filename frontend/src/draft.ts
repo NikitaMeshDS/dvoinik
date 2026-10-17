@@ -30,6 +30,11 @@ export function draftFromScenario(
 export function draftFromRecord(record: Experiment, demo = false): Draft {
   return {
     ...draftFromScenario(record.scenario, "custom"),
+    origin: {
+      kind: "iteration",
+      record_id: record.id,
+      title: record.scenario.title,
+    },
     n: record.n,
     mock: demo ? true : record.mock,
     seed: record.seed,
@@ -54,6 +59,14 @@ export function draftFromHypothesis(
   );
   return {
     ...base,
+    origin: {
+      kind: "hypothesis",
+      record_id: record.id,
+      title: record.scenario.title,
+      lever: hypothesis.lever,
+      change: hypothesis.change.slice(0, 300),
+      variant: hypothesis.variant,
+    },
     title: (
       record.scenario.title +
       " · гипотеза «" +
@@ -97,6 +110,7 @@ export function runPayload(d: Draft): RunPayload {
         Object.entries(d.weights).filter(([, n]) => n > 0),
       ),
       objections: d.objections.map((s) => s.trim()).filter(Boolean),
+      ...(d.origin ? { origin: d.origin } : {}),
     },
     n: d.n,
     mock: d.mock,

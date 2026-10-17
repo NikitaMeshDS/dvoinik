@@ -162,6 +162,7 @@ export function createBackend(data: Data) {
     const id = "showcase-" + ++counter;
     const total = body.n * Object.keys(record.scenario.variants).length;
     const run = copy(record);
+    if (body.scenario.origin) run.scenario.origin = copy(body.scenario.origin);
     run.id = record.id + "-" + counter;
     run.created_at = new Date().toISOString().replace("Z", "+00:00");
     base.set(run.id, record.id);

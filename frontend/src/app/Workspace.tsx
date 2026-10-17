@@ -226,6 +226,9 @@ export default function Workspace({
               onBack={() => navigate("archive")}
               onReuse={reuse}
               onTestHypothesis={testHypothesis}
+              onOpenRecord={(id) => navigate("report/" + id)}
+              onCompareWith={(id) => compare([id, record.id])}
+              related={archive.records}
               onUpdated={updated}
               onCompare={() => compare([record.id, ""])}
               onError={onError}

@@ -5,6 +5,15 @@ export type Scenario = {
   variants: Record<string, string>;
   population: Record<string, number>;
   objections: string[];
+  origin?: Origin;
+};
+export type Origin = {
+  kind: "iteration" | "hypothesis";
+  record_id: string;
+  title: string;
+  lever?: string;
+  change?: string;
+  variant?: string;
 };
 export type Segment = {
   name: string;
@@ -150,6 +159,7 @@ export type Estimate = {
   detail: string;
 };
 export type Draft = {
+  origin?: Origin;
   key: string;
   title: string;
   description: string;

@@ -67,6 +67,8 @@ def export_csv(record):
 
 
 def signature(scenario, n, mock, seed, model=None):
+    # Источник (итерация, гипотеза) не меняет конфигурацию запуска и не входит в подпись.
+    scenario = {k: v for k, v in scenario.items() if k != "origin"}
     payload = {"scenario": scenario, "n": n, "mock": mock, "seed": seed, "model": model if not mock else None}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 

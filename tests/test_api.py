@@ -892,3 +892,39 @@ def test_insights_include_hypotheses_and_rewrite_requires_llm_record(app, monkey
     monkeypatch.setattr(research, "rewrite_offer", broken)
     failed = client.post("/api/hypotheses/rewrite", json={"record_id": rid, "hypothesis_id": "h1"})
     assert failed.status_code == 422 and "не выполнен" in failed.json()["detail"]
+
+
+def test_runs_keep_their_source_study_for_iterations_and_hypotheses(app):
+    from dvoinik.reporting import signature
+
+    client = login(app)
+    parent = run(client)["record"]
+    origin = {
+        "kind": "hypothesis",
+        "record_id": parent["id"],
+        "title": parent["scenario"]["title"],
+        "lever": "Цена",
+        "change": "Убрать абонентскую плату",
+        "variant": "A",
+    }
+    scenario = {**SCENARIOS[KEY], "origin": origin}
+    child = completed(client, start(client, scenario_key="custom", scenario=scenario).json()["id"])["record"]
+    assert child["scenario"]["origin"] == origin
+    assert child["signature"] == signature(SCENARIOS[KEY], 10, True, 42)
+    stored = client.get(f"/api/experiments/{child['id']}").json()
+    assert stored["scenario"]["origin"] == origin
+    reimported = client.post("/api/import", json={"content": json.dumps(stored)})
+    assert reimported.status_code == 200 and reimported.json()["scenario"]["origin"] == origin
+    for bad in [
+        {**origin, "kind": "copy"},
+        {**origin, "record_id": "../x"},
+        {**origin, "extra": 1},
+        {"kind": "hypothesis", "record_id": "abc", "title": "t"},
+        "abc",
+    ]:
+        response = start(client, scenario_key="custom", scenario={**SCENARIOS[KEY], "origin": bad})
+        assert response.status_code == 422, bad
+    iteration = {"kind": "iteration", "record_id": parent["id"], "title": "Исходное"}
+    ok = start(client, scenario_key="custom", scenario={**SCENARIOS[KEY], "origin": iteration})
+    assert ok.status_code == 202
+    completed(client, ok.json()["id"])

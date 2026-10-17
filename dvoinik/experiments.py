@@ -78,7 +78,38 @@ def normalize_scenario(scenario):
     if len(set(result["objections"])) != len(objections):
         raise ValueError("Категории отказа не должны повторяться.")
     result["population"] = normalize_population(result.get("population"))
+    if "origin" in result:
+        result["origin"] = _origin(result["origin"])
     return result
+
+
+ORIGIN_KINDS = {"iteration", "hypothesis"}
+
+
+def _origin(value):
+    """Откуда исследование: следующая итерация или проверка гипотезы другого снимка."""
+    if not isinstance(value, dict) or value.get("kind") not in ORIGIN_KINDS:
+        raise ValueError("Источник исследования: укажите тип iteration или hypothesis.")
+    record_id = _text(value.get("record_id"), "Исходное исследование", 64)
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", record_id):
+        raise ValueError("Исходное исследование: некорректный идентификатор.")
+    allowed = {"kind", "record_id", "title"}
+    origin = {
+        "kind": value["kind"],
+        "record_id": record_id,
+        "title": _text(value.get("title"), "Название исходного исследования", 200),
+    }
+    if value["kind"] == "hypothesis":
+        allowed |= {"lever", "change", "variant"}
+        origin["lever"] = _text(value.get("lever"), "Рычаг гипотезы", 80)
+        origin["change"] = _text(value.get("change"), "Изменение гипотезы", 300)
+        variant = value.get("variant")
+        if variant not in set("ABCDE"):
+            raise ValueError("Гипотеза: исходный вариант должен быть A–E.")
+        origin["variant"] = variant
+    if set(value) - allowed:
+        raise ValueError("Источник исследования содержит лишние поля.")
+    return origin
 
 
 def normalize_population(weights):

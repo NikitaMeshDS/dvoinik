@@ -11,12 +11,23 @@ import Audience from "./Audience";
 import Voices from "./Voices";
 import ValidationPanel from "./ValidationPanel";
 import Hypotheses from "./Hypotheses";
+import OriginBanner from "./OriginBanner";
+function leaderOf(record: Experiment) {
+  const entries = Object.entries(record.report).filter(([, r]) => r.n);
+  if (!entries.length) return Object.keys(record.report)[0];
+  return entries.reduce((best, item) =>
+    (item[1].conversion ?? 0) > (best[1].conversion ?? 0) ? item : best,
+  )[0];
+}
 export default function ReportPage({
   record,
   catalog,
   onBack,
   onReuse,
   onTestHypothesis,
+  onOpenRecord,
+  onCompareWith,
+  related = [],
   onUpdated,
   onCompare,
   onError,
@@ -28,6 +39,9 @@ export default function ReportPage({
   onBack: () => void;
   onReuse: () => void;
   onTestHypothesis?: (hypothesis: Hypothesis, proposal: string) => void;
+  onOpenRecord?: (id: string) => void;
+  onCompareWith?: (id: string) => void;
+  related?: Experiment[];
   onUpdated: (record: Experiment) => void;
   onCompare: () => void;
   onError: (error: unknown) => void;
@@ -36,7 +50,7 @@ export default function ReportPage({
 }) {
   const [tab, setTab] = useState<ReportTab>("overview"),
     [segment, setSegment] = useState("all"),
-    [variant, setVariant] = useState(Object.keys(record.report)[0]),
+    [variant, setVariant] = useState(() => leaderOf(record)),
     [decision, setDecision] = useState("all");
   const insights = useInsights(record, segment);
   const exportFile: ExportAction = (format, kind = "record", preview_id) => {
@@ -69,6 +83,13 @@ export default function ReportPage({
           </div>
         </Notice>
       )}
+      <OriginBanner
+        record={record}
+        stability={insights.base?.stability}
+        plan={insights.base?.plan}
+        onOpen={onOpenRecord}
+        onCompare={onCompareWith}
+      />
       <ReportTabs tab={tab} setTab={setTab} />
       <section
         role="tabpanel"
@@ -109,6 +130,10 @@ export default function ReportPage({
             record={record}
             data={insights.base?.hypotheses}
             onTest={onTestHypothesis}
+            checks={related.filter(
+              (r) => r.scenario.origin?.record_id === record.id,
+            )}
+            onOpen={onOpenRecord}
           />
         )}
         <div hidden={tab !== "validation"}>

@@ -126,3 +126,41 @@ it("runs a precomputed hypothesis test in the online showcase", async () => {
   const rewrite = await api("POST", "/hypotheses/rewrite", {});
   expect(rewrite.status).toBe(422);
 });
+it("marks hypotheses that were already checked and links to the check", () => {
+  const onOpen = vi.fn();
+  const cell = (yes: number) => ({
+    ...record.report.A,
+    n: 100,
+    yes,
+    conversion: yes / 100,
+  });
+  const check: Experiment = {
+    ...record,
+    id: "check-1",
+    scenario: {
+      ...record.scenario,
+      origin: {
+        kind: "hypothesis",
+        record_id: record.id,
+        title: record.scenario.title,
+        lever: "Цена",
+        change: "Убрать абонентскую плату",
+        variant: "C",
+      },
+    },
+    report: { A: cell(40), B: cell(30) },
+  };
+  render(
+    <Hypotheses
+      record={record}
+      data={{ leader: "C", items: [hypothesis] }}
+      checks={[check]}
+      onOpen={onOpen}
+    />,
+  );
+  expect(screen.getByText(/Уже проверено/).textContent).toContain(
+    "не подтвердилась",
+  );
+  fireEvent.click(screen.getByText("Открыть проверку"));
+  expect(onOpen).toHaveBeenCalledWith("check-1");
+});

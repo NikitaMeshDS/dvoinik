@@ -4,6 +4,13 @@ import { api } from "../../api";
 import { Button, Notice, decimal, percent } from "../../components";
 import type { Experiment } from "../../types";
 import type { Hypotheses as Data, Hypothesis } from "./types";
+import { hypothesisVerdict } from "./OriginBanner";
+
+const VERDICT = {
+  better: "подтвердилась",
+  same: "без разницы",
+  worse: "не подтвердилась",
+};
 
 const EVIDENCE_SHOWN = 3;
 
@@ -11,10 +18,14 @@ export default function Hypotheses({
   record,
   data,
   onTest,
+  checks = [],
+  onOpen,
 }: {
   record: Experiment;
   data?: Data;
   onTest?: (hypothesis: Hypothesis, proposal: string) => void;
+  checks?: Experiment[];
+  onOpen?: (id: string) => void;
 }) {
   const [rewritten, setRewritten] = useState<Record<string, string>>({}),
     [busy, setBusy] = useState(""),
@@ -137,6 +148,29 @@ export default function Hypotheses({
                     </dd>
                   </div>
                 </dl>
+                {(() => {
+                  const done = checks.find(
+                    (c) =>
+                      c.scenario.origin?.kind === "hypothesis" &&
+                      c.scenario.origin.lever === h.lever,
+                  );
+                  const verdict = done && hypothesisVerdict(done);
+                  if (!done || !verdict) return null;
+                  return (
+                    <p className={"hypothesis-status " + verdict.kind}>
+                      Уже проверено: B — {percent(verdict.b)}, A —{" "}
+                      {percent(verdict.a)}, {VERDICT[verdict.kind]}.
+                      {onOpen && (
+                        <button
+                          className="text-link"
+                          onClick={() => onOpen(done.id)}
+                        >
+                          Открыть проверку
+                        </button>
+                      )}
+                    </p>
+                  );
+                })()}
                 <div className="hypothesis-actions">
                   {onTest && (
                     <Button kind="primary" onClick={() => onTest(h, proposal)}>
