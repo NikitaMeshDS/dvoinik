@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import time
 import urllib.request
 from datetime import datetime
@@ -150,6 +151,9 @@ def main(argv=None):
     parser.add_argument("--concurrency", type=int, default=2)
     parser.add_argument("--out", type=Path, default=Path(__file__).with_name("proof") / "latest")
     args = parser.parse_args(argv)
+    # При выводе в tee Python копит вывод блоками; построчно видно, что прогон идёт.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
 
     base, chat, embed = discover()
     os.environ.update(
