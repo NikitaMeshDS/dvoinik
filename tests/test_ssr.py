@@ -153,6 +153,9 @@ def test_ssr_reports_bad_answers_and_embedding_failures_as_model_errors(monkeypa
     fake_llm(monkeypatch, lambda user: {"reaction": "", "objection": "плата"})
     report = engine.simulate(build_population(3, {"senior": 1}), SCENARIO)
     assert report["A"]["n"] == 0 and report["A"]["failed_n"] == 3
+    assert report["A"]["failure_examples"] == [
+        "Модель вернула ответ, не соответствующий JSON-схеме: reaction должна содержать ответ клиента."
+    ]
     fake_llm(monkeypatch, reaction, bad_embeddings=True)
     report = engine.simulate(build_population(3, {"senior": 1}), SCENARIO)
     assert report["A"]["failed_n"] == 3 and "likert" not in report["A"]

@@ -107,3 +107,21 @@ async def embed(client, model: str, texts: list[str]) -> list[list[float]]:
     if len(vectors) != len(texts) or any(not v for v in vectors):
         raise ValueError("Модель эмбеддингов вернула неполный ответ.")
     return vectors
+
+
+# Проверочные фразы, которых нет среди эталонов: по ним видно, различает ли модель эмбеддингов «да» и «нет».
+PROBE_YES = ["Конечно, мне это подходит, подключу сегодня же.", "Да, я этим пользуюсь постоянно."]
+PROBE_NO = ["Нет, ни за что, мне это совсем неинтересно.", "Нет, никогда этим не пользовался."]
+
+
+async def separation(client, model: str, sets: list[list[str]] | None = None) -> float:
+    """Разница доли «скорее да/да» между явным «да» и явным «нет».
+
+    Около 0,5 и выше — шкала работает. Около 0 — модель эмбеддингов не различает ответы
+    (например, англоязычная модель на русском тексте), и оценки SSR сжимаются к середине.
+    """
+    refs = await References(sets).get(client, model)
+    vectors = await embed(client, model, PROBE_YES + PROBE_NO)
+    rates = [top_two(pmf(v, refs)) for v in vectors]
+    yes, no = rates[: len(PROBE_YES)], rates[len(PROBE_YES) :]
+    return sum(yes) / len(yes) - sum(no) / len(no)

@@ -150,14 +150,23 @@ async def _ask_llm(
                 answer = await _rate_ssr(client, content, scenario, twin, variant_text, references)
             llm_cache.put(cache_key, answer)
             return answer
-        except (ValueError, TypeError, IndexError, AttributeError):
-            return {"error": "Модель вернула ответ, не соответствующий JSON-схеме."}
+        except (ValueError, TypeError, IndexError, AttributeError) as exc:
+            return {"error": f"Модель вернула ответ, не соответствующий JSON-схеме: {_schema_reason(exc)}."}
         except Exception as exc:
             # Не включаем тело HTTP-ответа, URL или ключ в экспортируемые отчёты.
             return {
                 "error": f"Запрос к модели не выполнен ({type(exc).__name__}).",
                 "error_kind": type(exc).__name__,
             }
+
+
+def _schema_reason(exc: Exception) -> str:
+    """Причина отказа без текста ответа модели: какое поле не прошло проверку."""
+    if isinstance(exc, json.JSONDecodeError):
+        return "ответ не является JSON"
+    if isinstance(exc, ValueError) and str(exc):
+        return str(exc).rstrip(".")[:120]
+    return type(exc).__name__
 
 
 async def _rate_ssr(client, content, scenario, twin, variant_text, references):

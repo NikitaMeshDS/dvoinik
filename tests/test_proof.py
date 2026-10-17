@@ -30,6 +30,14 @@ def content_for(system: str, user: str) -> dict:
     return {"decision": True, "probability": 0.7, "objection": None, "quote": "Да."}
 
 
+def meaning(text: str) -> list[float]:
+    """Игрушечный эмбеддинг, который различает «да» и «нет», как многоязычная модель."""
+    words = text.lower().replace(",", " ").replace(".", " ").split()
+    no = sum(w in {"нет", "не", "вряд", "никогда", "ни"} for w in words)
+    yes = sum(w in {"да", "конечно", "обязательно", "точно", "подходит", "постоянно"} for w in words)
+    return [1.0 + 3 * yes, 1.0 + 3 * no, 1.0]
+
+
 @pytest.fixture
 def server(monkeypatch):
     llm_json.reset()
@@ -38,7 +46,7 @@ def server(monkeypatch):
         payload = json.loads(request.content)
         if request.url.path.endswith("/embeddings"):
             data = [
-                {"object": "embedding", "index": i, "embedding": [1.0, float(len(t) % 3), 0.5]}
+                {"object": "embedding", "index": i, "embedding": meaning(t)}
                 for i, t in enumerate(payload["input"])
             ]
             return httpx.Response(
@@ -121,3 +129,31 @@ def test_quick_run_writes_all_reports(monkeypatch, tmp_path, server):
     bench = summary["steps"][0]["summary"]
     assert bench["coverage"] == 1 and bench["baseline_mae"] is not None
     assert "Покрытие: 100%" in (out / "llm_check.md").read_text(encoding="utf-8")
+    assert min(summary["embed_separation"].values()) >= proof.SSR_MIN_SEPARATION
+
+
+def test_weak_embeddings_skip_ssr_steps(monkeypatch, tmp_path, server):
+    from dvoinik import ssr
+
+    async def flat(client, model, sets=None):
+        return 0.02
+
+    monkeypatch.setattr(ssr, "separation", flat)
+    monkeypatch.setattr(
+        proof, "_models", lambda url: ["qwen2.5-7b-instruct", "text-embedding-nomic-embed-text-v1.5"]
+    )
+    out = tmp_path / "latest"
+    proof.main(["--quick", "--out", str(out)])
+    assert {p.name for p in out.iterdir()} == {"benchmark.md", "llm_check.md", "summary.json"}
+    summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+    assert summary["embed_model"] == "text-embedding-nomic-embed-text-v1.5"
+    assert summary["embed_separation"] == {"offers": 0.02, "survey": 0.02}
+
+
+def test_discover_prefers_multilingual_embeddings(monkeypatch):
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("LLM_EMBED_MODEL", raising=False)
+    ids = ["text-embedding-nomic-embed-text-v1.5", "qwen/qwen3.5-9b", "text-embedding-bge-m3"]
+    monkeypatch.setattr(proof, "_models", lambda url: ids)
+    assert proof.discover()[2] == "text-embedding-bge-m3"

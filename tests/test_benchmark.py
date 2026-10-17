@@ -9,7 +9,7 @@ import benchmark
 from dvoinik import engine
 
 
-def fake(monkeypatch, broken=False):
+def fake(monkeypatch, broken=False, stated=False):
     def respond(request):
         payload = json.loads(request.content)
         system, user = payload["messages"][0]["content"], payload["messages"][1]["content"]
@@ -19,7 +19,10 @@ def fake(monkeypatch, broken=False):
             content = json.dumps({"share": 0.5})
         else:
             age = int(re.search(r", (\d+) лет", user).group(1))
-            content = json.dumps({"answer": age < 60})
+            out = {"answer": age < 60}
+            if stated:
+                out["probability"] = 0.3 if age < 60 else 0.1
+            content = json.dumps(out)
         return httpx.Response(
             200,
             json={
@@ -176,3 +179,17 @@ def test_benchmark_ssr_mode_uses_embeddings(monkeypatch, tmp_path):
     rows = [line for line in text.splitlines() if line.startswith("| [")]
     truth, twins, base = [c.strip() for c in rows[0].split("|")[2:5]]
     assert truth == "24%" and base == "50%" and int(twins.rstrip("%")) <= 5
+
+
+def test_benchmark_reports_stated_probability_next_to_yes_no(monkeypatch, tmp_path):
+    fake(monkeypatch, stated=True)
+    out = tmp_path / "prob.md"
+    benchmark.main(["--n", "5", "--output", str(out)])
+    text = out.read_text(encoding="utf-8")
+    assert "| Двойники, да/нет | Двойники, вероятность |" in text
+    row = next(line for line in text.splitlines() if line.startswith("| [") and "интернетом" in line)
+    cells = [c.strip() for c in row.split("|")[2:6]]
+    assert cells[2] == "10%" and "по вероятности" in text
+    header = next(line for line in text.splitlines() if line.startswith("| Факт"))
+    separator = text.splitlines()[text.splitlines().index(header) + 1]
+    assert separator.count("---") == header.count("|") - 1

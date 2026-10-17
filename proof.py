@@ -22,6 +22,8 @@ from pathlib import Path
 
 CANDIDATES = ["http://localhost:1234/v1", "http://localhost:11434/v1"]
 EMBED_HINTS = ("embed", "bge", "e5", "gte", "nomic", "minilm")
+MULTILINGUAL_HINTS = ("bge-m3", "multilingual", "labse", "qwen3-embedding", "gte-multilingual")
+SSR_MIN_SEPARATION = 0.3
 
 
 def _models(base: str) -> list[str] | None:
@@ -40,6 +42,8 @@ def discover() -> tuple[str, str, str | None]:
         if ids is None:
             continue
         embeds = [i for i in ids if any(h in i.lower() for h in EMBED_HINTS)]
+        # Многоязычные модели понимают русский; англоязычные (nomic, minilm) — плохо.
+        embeds.sort(key=lambda i: not any(h in i.lower() for h in MULTILINGUAL_HINTS))
         chats = [i for i in ids if i not in embeds]
         chat = os.getenv("LLM_MODEL") or (chats[0] if chats else None)
         embed = os.getenv("LLM_EMBED_MODEL") or (embeds[0] if embeds else None)
@@ -213,6 +217,32 @@ def main(argv=None):
         llm_check.main(argv)
         return {"report": target.name}
 
+    separation, embed_name = None, embed
+    if embed:
+        from dvoinik import engine, ssr
+
+        async def _separation():
+            async with engine._client() as client:
+                return {
+                    "offers": await ssr.separation(client, embed),
+                    "survey": await ssr.separation(client, embed, benchmark.FACT_REFERENCES),
+                }
+
+        try:
+            separation = asyncio.run(_separation())
+        except Exception as exc:
+            print(f"Проверка эмбеддингов не удалась ({type(exc).__name__}); шаги SSR пропускаю.")
+            embed = None
+    if separation:
+        low = min(separation.values())
+        print(f"Различение «да»/«нет» моделью эмбеддингов: {low:.2f} (норма — от {SSR_MIN_SEPARATION}).")
+        if low < SSR_MIN_SEPARATION:
+            print(
+                "Модель эмбеддингов почти не различает русские ответы, оценки SSR сожмутся к середине. "
+                "Загрузите многоязычную модель (bge-m3 или multilingual-e5) и повторите; шаги SSR пропускаю."
+            )
+            embed = None
+
     _step("Бенчмарк на открытых данных", lambda: bench(False), log)
     if embed:
         _step("Бенчмарк в режиме SSR", lambda: bench(True), log)
@@ -224,7 +254,8 @@ def main(argv=None):
         "when": datetime.now().isoformat(timespec="seconds"),
         "base_url": base,
         "model": chat,
-        "embed_model": embed,
+        "embed_model": embed_name,
+        "embed_separation": separation,
         "json_mode": "text" if llm_json._STATE["text"] else llm_json.mode(),
         "extra_body": os.getenv("LLM_EXTRA_BODY"),
         "latency_s": round(latency, 2),
