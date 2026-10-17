@@ -253,3 +253,11 @@ DVOINIK_ELICITATION=ssr LLM_EMBED_MODEL=bge-m3 python llm_check.py --scenario se
 Нужна модель эмбеддингов с OpenAI-совместимым `/embeddings` на том же `LLM_BASE_URL`
 (в Ollama: `ollama pull bge-m3`). В снимке модель подписывается как «… · SSR», а у каждого
 предложения сохраняется распределение `likert`.
+
+## Замеры на своей модели одной командой
+
+`python proof.py` находит сервер модели (LM Studio на `:1234` или Ollama на `:11434`),
+берёт загруженную чат-модель и, если есть, модель эмбеддингов, и складывает в `proof/latest`:
+бенчмарк на открытых данных (обычный и SSR), проверку протокола с перефразировкой и `summary.json`.
+`--quick` — короткий прогон. LM Studio не принимает `response_format: json_object`; сервис сам
+переходит на текстовый JSON (`LLM_JSON_MODE=auto`) и убирает блоки рассуждений `<think>`.

@@ -15,7 +15,7 @@ import random
 from collections import Counter, defaultdict
 from collections.abc import Callable
 
-from . import llm_cache, ssr
+from . import llm_cache, llm_json, ssr
 from .population import SEGMENTS, Twin
 
 SYSTEM = (
@@ -143,18 +143,11 @@ async def _ask_llm(
         if cached is not None:
             return cached
         try:
-            r = await client.chat.completions.create(
-                model=model,
-                temperature=0.8,
-                response_format={"type": "json_object"},
-                messages=messages,
-            )
+            content = await llm_json.chat_json(client, model, messages, 0.8)
             if references is None:
-                answer = _parse_response(r.choices[0].message.content, scenario)
+                answer = _parse_response(content, scenario)
             else:
-                answer = await _rate_ssr(
-                    client, r.choices[0].message.content, scenario, twin, variant_text, references
-                )
+                answer = await _rate_ssr(client, content, scenario, twin, variant_text, references)
             llm_cache.put(cache_key, answer)
             return answer
         except (ValueError, TypeError, IndexError, AttributeError):
@@ -416,13 +409,12 @@ def baseline_estimate(scenario: dict, mock: bool = False) -> dict:
 
     async def ask():
         async with _client() as client:
-            r = await client.chat.completions.create(
-                model=os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
-                temperature=0,
-                response_format={"type": "json_object"},
-                messages=[{"role": "system", "content": BASELINE_SYSTEM}, {"role": "user", "content": user}],
+            return await llm_json.chat_json(
+                client,
+                os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
+                [{"role": "system", "content": BASELINE_SYSTEM}, {"role": "user", "content": user}],
+                0,
             )
-            return r.choices[0].message.content
 
     try:
         return {"method": "single_prompt", "rates": _parse_baseline(asyncio.run(ask()), variants)}
@@ -449,16 +441,15 @@ def paraphrase_variants(scenario: dict) -> dict[str, str]:
 
     async def ask():
         async with _client() as client:
-            r = await client.chat.completions.create(
-                model=os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
-                temperature=0.7,
-                response_format={"type": "json_object"},
-                messages=[
+            return await llm_json.chat_json(
+                client,
+                os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
+                [
                     {"role": "system", "content": PARAPHRASE_SYSTEM},
                     {"role": "user", "content": user},
                 ],
+                0.7,
             )
-            return r.choices[0].message.content
 
     out = json.loads(asyncio.run(ask()))
     texts = out.get("variants") if isinstance(out, dict) else None
@@ -492,13 +483,12 @@ def rewrite_offer(scenario: dict, hypothesis: dict) -> str:
 
     async def ask():
         async with _client() as client:
-            r = await client.chat.completions.create(
-                model=os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
-                temperature=0.4,
-                response_format={"type": "json_object"},
-                messages=[{"role": "system", "content": REWRITE_SYSTEM}, {"role": "user", "content": user}],
+            return await llm_json.chat_json(
+                client,
+                os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
+                [{"role": "system", "content": REWRITE_SYSTEM}, {"role": "user", "content": user}],
+                0.4,
             )
-            return r.choices[0].message.content
 
     out = json.loads(asyncio.run(ask()))
     text = out.get("proposal") if isinstance(out, dict) else None

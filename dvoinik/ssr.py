@@ -89,12 +89,13 @@ def draw(probability: float, *keys) -> bool:
 class References:
     """Эмбеддинги эталонных ответов: считаются один раз на запуск."""
 
-    def __init__(self):
+    def __init__(self, sets: list[list[str]] | None = None):
+        self.sets = sets or REFERENCE_SETS
         self.value: list[list[list[float]]] | None = None
 
     async def get(self, client, model: str) -> list[list[list[float]]]:
         if self.value is None:
-            flat = [text for reference in REFERENCE_SETS for text in reference]
+            flat = [text for reference in self.sets for text in reference]
             vectors = await embed(client, model, flat)
             self.value = [vectors[i : i + POINTS] for i in range(0, len(vectors), POINTS)]
         return self.value

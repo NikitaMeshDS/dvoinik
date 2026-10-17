@@ -109,3 +109,70 @@ def test_invalid_fact_file(tmp_path):
     )
     with pytest.raises(ValueError):
         benchmark.load_facts(bad)
+
+
+def test_benchmark_ssr_mode_uses_embeddings(monkeypatch, tmp_path):
+    refs = {t: i for ref in benchmark.FACT_REFERENCES for i, t in enumerate(ref)}
+
+    def respond(request):
+        payload = json.loads(request.content)
+        if request.url.path.endswith("/embeddings"):
+            data = [
+                {
+                    "object": "embedding",
+                    "index": i,
+                    "embedding": [1.0 if j == refs.get(t, 4 if "Да" in t else 0) else 0.0 for j in range(5)],
+                }
+                for i, t in enumerate(payload["input"])
+            ]
+            return httpx.Response(
+                200,
+                json={
+                    "object": "list",
+                    "data": data,
+                    "model": "e",
+                    "usage": {"prompt_tokens": 1, "total_tokens": 1},
+                },
+            )
+        system, user = payload["messages"][0]["content"], payload["messages"][1]["content"]
+        if "Оцени, какая доля" in system:
+            content = json.dumps({"share": 0.5})
+        else:
+            age = int(re.search(r", (\d+) лет", user).group(1))
+            content = json.dumps(
+                {"reply": "Да, у меня есть." if age < 60 else "Нет, у меня нет."}, ensure_ascii=False
+            )
+        return httpx.Response(
+            200,
+            json={
+                "id": "t",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": content},
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        engine,
+        "_client",
+        lambda: AsyncOpenAI(
+            api_key="k",
+            base_url="http://local-test/v1",
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+        ),
+    )
+    monkeypatch.setenv("LLM_EMBED_MODEL", "bge-m3")
+    out = tmp_path / "ssr.md"
+    benchmark.main(["--n", "5", "--ssr", "--output", str(out)])
+    text = out.read_text(encoding="utf-8")
+    assert "· SSR (bge-m3)" in text and "Покрытие ответов: 100%" in text
+    rows = [line for line in text.splitlines() if line.startswith("| [")]
+    truth, twins, base = [c.strip() for c in rows[0].split("|")[2:5]]
+    assert truth == "24%" and base == "50%" and int(twins.rstrip("%")) <= 5

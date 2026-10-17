@@ -20,7 +20,7 @@ import os
 import time
 from pathlib import Path
 
-from dvoinik import engine
+from dvoinik import engine, llm_json, ssr
 from dvoinik.population import SEGMENTS, build_population
 
 FACTS = Path(__file__).with_name("benchmarks") / "open_facts.json"
@@ -30,6 +30,22 @@ FACT_SYSTEM = (
     "учитывая возраст, доход, привычки и отношение к банкам.\n"
     'Ответь строго JSON: {"answer": true|false}'
 )
+FACT_SSR_SYSTEM = (
+    "Ты — конкретный человек, описанный ниже. Ответь на вопрос анкеты одной короткой фразой "
+    "от первого лица, как ответил бы он, без чисел и оценок.\n"
+    'Ответь строго JSON: {"reply": "одна фраза"}'
+)
+# Эталоны шкалы «нет — да» для вопросов анкеты (режим SSR).
+FACT_REFERENCES = [
+    ["Нет, точно нет.", "Скорее нет.", "Не знаю, затрудняюсь ответить.", "Скорее да.", "Да, конечно."],
+    [
+        "Нет, у меня такого нет.",
+        "Почти нет, очень редко.",
+        "Иногда, сложно сказать.",
+        "В основном да.",
+        "Да, именно так.",
+    ],
+]
 SHARE_SYSTEM = (
     "Ты — аналитик. Оцени, какая доля описанной аудитории ответит «да» на вопрос анкеты. "
     "Не моделируй отдельных людей: дай одну общую оценку.\n"
@@ -54,22 +70,34 @@ def _audience(segments: dict[str, float]) -> str:
 
 async def _chat(client, sem, system: str, user: str, temperature: float):
     async with sem:
-        r = await client.chat.completions.create(
-            model=os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
-            temperature=temperature,
-            response_format={"type": "json_object"},
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        content = await llm_json.chat_json(
+            client,
+            os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
+            [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            temperature,
         )
-        return json.loads(r.choices[0].message.content)
+        return json.loads(content)
 
 
-async def _twin_answer(client, sem, twin, question: str) -> bool | None:
+async def _twin_answer(client, sem, twin, question: str, references=None) -> float | None:
+    """Вероятность ответа «да»: 1 или 0 при прямом ответе, доля «скорее да/да» в режиме SSR."""
+    user = f"Ты: {twin.profile()}\n\nВопрос анкеты: {question}"
     try:
-        out = await _chat(client, sem, FACT_SYSTEM, f"Ты: {twin.profile()}\n\nВопрос анкеты: {question}", 0.8)
+        if references is None:
+            out = await _chat(client, sem, FACT_SYSTEM, user, 0.8)
+            answer = out.get("answer") if isinstance(out, dict) else None
+            return float(answer) if isinstance(answer, bool) else None
+        out = await _chat(client, sem, FACT_SSR_SYSTEM, user, 0.8)
+        reply = out.get("reply") if isinstance(out, dict) else None
+        if not isinstance(reply, str) or not reply.strip():
+            return None
+        model = ssr.embed_model()
+        refs = await references.get(client, model)
+        async with sem:
+            (vector,) = await ssr.embed(client, model, [reply.strip()])
+        return ssr.top_two(ssr.pmf(vector, refs))
     except Exception:
         return None
-    answer = out.get("answer") if isinstance(out, dict) else None
-    return answer if isinstance(answer, bool) else None
 
 
 async def _baseline(client, sem, fact: dict) -> float | None:
@@ -83,13 +111,16 @@ async def _baseline(client, sem, fact: dict) -> float | None:
     return float(share) if ok else None
 
 
-async def _run(facts: list[dict], n: int, concurrency: int, seed: int) -> list[dict]:
+async def _run(facts: list[dict], n: int, concurrency: int, seed: int, use_ssr: bool = False) -> list[dict]:
     sem = asyncio.Semaphore(concurrency)
+    references = ssr.References(FACT_REFERENCES) if use_ssr else None
     rows = []
     async with engine._client() as client:
         for fact in facts:
             twins = build_population(n, fact["segments"], seed=seed)
-            answers = await asyncio.gather(*(_twin_answer(client, sem, t, fact["question"]) for t in twins))
+            answers = await asyncio.gather(
+                *(_twin_answer(client, sem, t, fact["question"], references) for t in twins)
+            )
             valid = [a for a in answers if a is not None]
             baseline = await _baseline(client, sem, fact)
             twins_share = sum(valid) / len(valid) if valid else None
@@ -173,13 +204,19 @@ def main(argv=None):
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--facts", type=Path, default=FACTS)
     parser.add_argument("--output", type=Path, help="сохранить отчёт в Markdown")
+    parser.add_argument(
+        "--ssr", action="store_true", help="ответ фразой и оценка по эмбеддингам (LLM_EMBED_MODEL)"
+    )
     args = parser.parse_args(argv)
     if args.n < 5:
         parser.exit(2, "Нужно хотя бы 5 двойников на факт.\n")
     started = time.perf_counter()
-    rows = asyncio.run(_run(load_facts(args.facts), args.n, args.concurrency, args.seed))
+    rows = asyncio.run(_run(load_facts(args.facts), args.n, args.concurrency, args.seed, args.ssr))
     summary = summarize(rows)
-    report = format_report(rows, summary, os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"))
+    model = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct") + (
+        f" · SSR ({ssr.embed_model()})" if args.ssr else ""
+    )
+    report = format_report(rows, summary, model)
     print(report)
     print(f"\n{time.perf_counter() - started:.0f} с")
     if args.output:
