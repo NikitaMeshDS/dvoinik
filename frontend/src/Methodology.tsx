@@ -80,6 +80,14 @@ export default function Methodology({ catalog }: { catalog?: Catalog | null }) {
           отвечает одинаково независимо от профиля.
         </p>
         <p>
+          <strong>Режим SSR.</strong> Если задать DVOINIK_ELICITATION=ssr,
+          двойник отвечает фразой без чисел, а готовность считается по смысловой
+          близости ответа к пяти эталонным ответам шкалы 1–5. В исследовании
+          PyMC Labs и Colgate на 57 опросах такой способ дал распределения
+          намного ближе к человеческим, чем прямой вопрос с оценкой: модели
+          перестают сбиваться к середине шкалы.
+        </p>
+        <p>
           <strong>Гипотезы изменений.</strong> Частые причины отказа от лидера
           группируются по рычагу: цена, канал, доверие, понятность и другие. Для
           рычага правило готовит черновик нового текста, в LLM-режиме его можно
@@ -125,6 +133,21 @@ export default function Methodology({ catalog }: { catalog?: Catalog | null }) {
             ))}
           </div>
           <p className="help">{sources.gaps}</p>
+          {catalog?.risks && (
+            <p>
+              <strong>Риск искажений.</strong> В мегаисследовании Columbia
+              двойники точнее описывали людей с высоким доходом и образованием.
+              Сегменты с низким доходом —{" "}
+              {Object.keys(catalog.risks.segments)
+                .map((sid) => catalog.segments[sid]?.name ?? sid)
+                .join(", ")}{" "}
+              — отмечены в отчёте и в паспорте исследования: их стоит проверять
+              на людях в первую очередь.{" "}
+              <a href={catalog.risks.source} target="_blank" rel="noreferrer">
+                Источник
+              </a>
+            </p>
+          )}
         </section>
       ) : null}
       <section className="method-section">

@@ -16,7 +16,14 @@ from ...experiments import (
 from ...hypotheses import suggest
 from ...insights import insights_payload
 from ...planning import run_estimate
-from ...population import SEGMENT_SOURCES, SEGMENTS, SOURCE_GAPS, allocate_population
+from ...population import (
+    DISTORTION_RISK,
+    RISK_SOURCE,
+    SEGMENT_SOURCES,
+    SEGMENTS,
+    SOURCE_GAPS,
+    allocate_population,
+)
 from ...runs import RunSettings
 from ...scenarios import SCENARIOS
 from ..models import Compare, Estimate, Import, Insights, Preview, Rewrite, Run
@@ -32,6 +39,7 @@ def catalog(access=Depends(identity)):
         "scenarios": {**SCENARIOS, "custom": CUSTOM_SCENARIO},
         "segments": SEGMENTS,
         "sources": {"segments": SEGMENT_SOURCES, "gaps": SOURCE_GAPS},
+        "risks": {"segments": DISTORTION_RISK, "source": RISK_SOURCE},
     }
 
 

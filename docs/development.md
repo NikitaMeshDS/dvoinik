@@ -237,3 +237,19 @@ cd frontend && VITE_SHOWCASE=1 npx vite build && cp showcase-data.json dist-show
 Папку `frontend/dist-showcase` можно разместить на любом статическом хостинге.
 Для GitHub Pages включите Settings → Pages → Source: GitHub Actions и запустите вручную
 workflow «Online showcase»: витрина появится по адресу `https://nikitameshds.github.io/dvoinik/`.
+
+## Режим SSR
+
+По умолчанию модель называет решение и вероятность. В режиме SSR двойник отвечает одной-двумя
+фразами без чисел, а готовность считается по эмбеддингам: сходство ответа с пятью эталонными
+ответами шкалы 1–5 превращается в распределение, доля «скорее да» и «точно да» — в вероятность,
+решение выбирается детерминированно по профилю и тексту. Метод описан в Maier et al., 2025
+(arXiv:2510.08338): на 57 опросах он дал распределения намного ближе к человеческим.
+
+```bash
+DVOINIK_ELICITATION=ssr LLM_EMBED_MODEL=bge-m3 python llm_check.py --scenario senior_deposit --n 20
+```
+
+Нужна модель эмбеддингов с OpenAI-совместимым `/embeddings` на том же `LLM_BASE_URL`
+(в Ollama: `ollama pull bge-m3`). В снимке модель подписывается как «… · SSR», а у каждого
+предложения сохраняется распределение `likert`.

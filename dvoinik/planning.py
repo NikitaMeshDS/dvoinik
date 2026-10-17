@@ -197,8 +197,19 @@ def run_estimate(scenario: dict, n: int, concurrency: int = 16, baseline: bool =
         "currency": os.getenv("DVOINIK_PRICE_CURRENCY", "₽") if price is not None else None,
         "detail": f"≈ по {CHARS_PER_TOKEN:g} символа на токен и {latency:g} с на запрос при параллельности "
         f"{concurrency}. Фактические значения зависят от модели и сервера."
-        + (" Кэш включён: повторные тексты не запрашиваются, это верхняя оценка." if _cache_on() else ""),
+        + (" Кэш включён: повторные тексты не запрашиваются, это верхняя оценка." if _cache_on() else "")
+        + (
+            " Режим SSR: плюс короткие запросы к модели эмбеддингов — по одному на ответ и один на эталоны."
+            if _ssr_on()
+            else ""
+        ),
     }
+
+
+def _ssr_on() -> bool:
+    from .ssr import mode
+
+    return mode() == "ssr"
 
 
 def _env_float(name: str, default):

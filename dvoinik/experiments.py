@@ -202,6 +202,14 @@ def _check_result(result, population, objections, requested):
         _number(probability.get("sd"), "Разброс вероятности", maximum=0.5)
         if _integer(probability.get("n"), "Ответов с вероятностью", maximum=n) != n:
             raise ValueError("Сводка вероятности не соответствует числу ответов.")
+    likert = result.get("likert")
+    if likert is not None:
+        if not isinstance(likert, list) or len(likert) != 5:
+            raise ValueError("Распределение по шкале 1–5 должно содержать пять долей.")
+        for share in likert:
+            _number(share, "Доля точки шкалы")
+        if abs(sum(likert) - 1) > 0.01:
+            raise ValueError("Доли шкалы 1–5 должны давать в сумме 1.")
     examples = result.get("failure_examples", [])
     if not isinstance(examples, list) or len(examples) > 3:
         raise ValueError("Некорректные сведения об ошибках модели.")

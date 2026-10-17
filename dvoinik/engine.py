@@ -15,7 +15,7 @@ import random
 from collections import Counter, defaultdict
 from collections.abc import Callable
 
-from . import llm_cache
+from . import llm_cache, ssr
 from .population import SEGMENTS, Twin
 
 SYSTEM = (
@@ -24,6 +24,16 @@ SYSTEM = (
     "реальные клиенты часто отказываются, если не видят явной пользы.\n"
     'Ответь строго JSON: {"decision": true|false, "probability": 0..1, '
     '"objection": одна категория из списка или null, "quote": одна фраза от первого лица}'
+)
+
+
+SSR_SYSTEM = (
+    "Ты — конкретный клиент банка, описанный ниже. Отвечай от первого лица, как этот человек, "
+    "учитывая его возраст, доход, привычки и отношение к банкам. Не будь чрезмерно позитивным: "
+    "реальные клиенты часто отказываются, если не видят явной пользы.\n"
+    "Скажи одной-двумя фразами, воспользуешься ли ты предложением и почему, без чисел и оценок.\n"
+    'Ответь строго JSON: {"reaction": "одна-две фразы от первого лица", '
+    '"objection": главная причина сомнений — одна категория из списка}'
 )
 
 
@@ -94,6 +104,16 @@ def _parse_response(content, scenario):
     }
 
 
+def _parse_ssr(content, scenario):
+    out = json.loads(content)
+    if not isinstance(out, dict) or not isinstance(out.get("reaction"), str) or not out["reaction"].strip():
+        raise ValueError("reaction должна содержать ответ клиента")
+    objection = _match_objection(out.get("objection"), scenario["objections"])
+    if objection is None:
+        raise ValueError("objection должна быть категорией из сценария")
+    return {"reaction": out["reaction"].strip()[:1000], "objection": objection}
+
+
 async def _ask_llm(
     client,
     model,
@@ -102,6 +122,7 @@ async def _ask_llm(
     variant_text: str,
     sem,
     guard: Callable[[], None] | None = None,
+    references: ssr.References | None = None,
 ):
     user = (
         f"Ты: {twin.profile()}\n\nБанк предлагает: {variant_text}\n\n"
@@ -109,8 +130,10 @@ async def _ask_llm(
         f"Вопрос: {scenario['question']}\n"
         f"Категории отказа: {', '.join(scenario['objections'])}"
     )
-    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
-    cache_key = llm_cache.key(model, messages, 0.8)
+    system = SSR_SYSTEM if references is not None else SYSTEM
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    identity = model if references is None else f"{model}|ssr:{ssr.embed_model()}"
+    cache_key = llm_cache.key(identity, messages, 0.8)
     async with sem:
         # Check after waiting for capacity and outside the provider-error handler.
         # Access revocation must abort the run, never become a simulated refusal.
@@ -126,7 +149,12 @@ async def _ask_llm(
                 response_format={"type": "json_object"},
                 messages=messages,
             )
-            answer = _parse_response(r.choices[0].message.content, scenario)
+            if references is None:
+                answer = _parse_response(r.choices[0].message.content, scenario)
+            else:
+                answer = await _rate_ssr(
+                    client, r.choices[0].message.content, scenario, twin, variant_text, references
+                )
             llm_cache.put(cache_key, answer)
             return answer
         except (ValueError, TypeError, IndexError, AttributeError):
@@ -137,6 +165,24 @@ async def _ask_llm(
                 "error": f"Запрос к модели не выполнен ({type(exc).__name__}).",
                 "error_kind": type(exc).__name__,
             }
+
+
+async def _rate_ssr(client, content, scenario, twin, variant_text, references):
+    """Ответ фразой → распределение по шкале 1–5 → доля «скорее да» и «точно да» → решение."""
+    parsed = _parse_ssr(content, scenario)
+    model = ssr.embed_model()
+    refs = await references.get(client, model)
+    (vector,) = await ssr.embed(client, model, [parsed["reaction"]])
+    distribution = ssr.pmf(vector, refs)
+    probability = round(ssr.top_two(distribution), 4)
+    decision = ssr.draw(probability, twin.id, twin.segment, variant_text)
+    return {
+        "decision": decision,
+        "probability": probability,
+        "objection": None if decision else parsed["objection"],
+        "quote": parsed["reaction"],
+        "likert": distribution,
+    }
 
 
 # ---- эвристический режим (без LLM) ----
@@ -290,11 +336,14 @@ def simulate(
 
         async def run():
             sem = asyncio.Semaphore(concurrency)
+            references = ssr.References() if ssr.mode() == "ssr" else None
             async with _client() as client:
                 model = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
 
                 async def ask(tw, text):
-                    answer = await _ask_llm(client, model, tw, scenario, text, sem, guard=check_access)
+                    answer = await _ask_llm(
+                        client, model, tw, scenario, text, sem, guard=check_access, references=references
+                    )
                     advance()
                     return tw, answer
 
@@ -476,6 +525,7 @@ def aggregate(rows) -> dict:
     by_seg = defaultdict(lambda: [0, 0])
     objections, quote_groups, failures, probabilities = Counter(), defaultdict(list), [], []
     seg_objections = defaultdict(Counter)
+    likerts = []
     for tw, out in rows:
         if out.get("error") or type(out.get("decision")) is not bool:
             failures.append(out.get("error", "Некорректный ответ модели."))
@@ -486,6 +536,8 @@ def aggregate(rows) -> dict:
                 probabilities.append(float(probability))
         by_seg[tw.segment][0] += 1
         by_seg[tw.segment][1] += int(out["decision"])
+        if isinstance(out.get("likert"), list) and len(out["likert"]) == ssr.POINTS:
+            likerts.append(out["likert"])
         if not out["decision"] and out.get("objection"):
             objections[out["objection"]] += 1
             seg_objections[tw.segment][out["objection"]] += 1
@@ -534,6 +586,8 @@ def aggregate(rows) -> dict:
     }
     if probabilities and len(probabilities) == n:
         result["probability"] = _probability_summary(probabilities)
+    if n and len(likerts) == n:
+        result["likert"] = [round(sum(d[i] for d in likerts) / n, 4) for i in range(ssr.POINTS)]
     return result
 
 

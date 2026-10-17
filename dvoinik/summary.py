@@ -12,7 +12,7 @@ from html import escape
 from .experiments import format_timestamp
 from .hypotheses import suggest
 from .planning import baseline_agreement, leader_stability, live_check_plan
-from .population import SEGMENTS
+from .population import DISTORTION_RISK, SEGMENTS
 
 
 def _pct(value) -> str:
@@ -146,6 +146,49 @@ def _hypotheses(record) -> str:
     return "".join(blocks)
 
 
+def _passport(record) -> str:
+    """Раскрытие метода по образцу рекомендаций ESOMAR и AAPOR для синтетических данных."""
+    scenario = record["scenario"]
+    if record["mock"]:
+        method = "Демо-эвристика по ключевым словам, без LLM"
+    elif "SSR" in record["model"]:
+        method = "LLM играет персонажей; готовность — по смыслу ответа (SSR, эмбеддинги)"
+    else:
+        method = "LLM играет персонажей и называет решение и вероятность"
+    segments = ", ".join(SEGMENTS[s]["name"] for s in scenario["population"])
+    risky = [SEGMENTS[s]["name"] for s in scenario["population"] if s in DISTORTION_RISK]
+    validation = record.get("validation")
+    origin = scenario.get("origin")
+    rows = [
+        ("Метод", method),
+        ("Модель", record["model"]),
+        ("Аудитория", f"{record['n']} синтетических профилей: {segments}"),
+        ("Воспроизводимость", f"seed {record['seed']}, подпись снимка {record.get('signature', '—')[:12]}"),
+        (
+            "Проверка на людях",
+            f"загружен опрос, {validation['result']['survey_n']} оценок"
+            if validation
+            else "ещё не проводилась",
+        ),
+        (
+            "Ограничения",
+            "Синтетические ответы — гипотезы для живого исследования, а не измерение спроса. "
+            "Средние и ранги ближе к людям, чем ответы отдельных персонажей.",
+        ),
+    ]
+    if risky:
+        rows.append(("Риск искажений", "Низкий доход, проверить в первую очередь: " + ", ".join(risky)))
+    if origin:
+        kind = (
+            "проверка гипотезы «" + origin.get("lever", "") + "»"
+            if origin["kind"] == "hypothesis"
+            else "итерация"
+        )
+        rows.append(("Источник", f"{kind} исследования «{origin['title']}»"))
+    body = "".join(f"<tr><th>{escape(k)}</th><td>{escape(v)}</td></tr>" for k, v in rows)
+    return f"<table class='passport'><tbody>{body}</tbody></table>"
+
+
 def team_summary(record: dict) -> str:
     scenario = record["scenario"]
     mode = (
@@ -171,7 +214,7 @@ padding-top:20px;border-top:1px solid #dce4ee}}h3{{font-size:15px;margin:18px 0 
 font-size:14px}}table{{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}}
 th,td{{text-align:left;padding:8px 10px;border-bottom:1px solid #e6ecf3;vertical-align:top}}
 thead th{{font-size:12px;color:#60758c;font-weight:600}}tbody th small{{display:block;color:#60758c;font-weight:400}}
-td.lead{{color:#315cf3;font-weight:700}}tr.total th,tr.total td{{border-top:2px solid #dce4ee}}
+td.lead{{color:#315cf3;font-weight:700}}.passport th{{width:30%;font-weight:600}}tr.total th,tr.total td{{border-top:2px solid #dce4ee}}
 .note{{font-size:13px;color:#60758c}}ul,ol{{padding-left:20px}}li{{margin:4px 0}}
 footer{{margin-top:32px;font-size:12px;color:#60758c}}
 @media(max-width:640px){{main{{margin:0;padding:22px;border-radius:0}}}}
@@ -182,6 +225,7 @@ h2{{break-after:avoid}}table{{break-inside:avoid}}}}
 <p class="meta">{escape(format_timestamp(record["created_at"]))} · {record["n"]} двойников · снимок {escape(record["id"])}</p>
 <p class="mode">{mode}</p>
 <p><b>Вопрос:</b> {escape(scenario["question"])}</p>
+<h2>Паспорт исследования</h2>{_passport(record)}
 <h2>Предложения</h2><ul>{offers}</ul>
 <h2>Доли согласий по сегментам</h2>{_matrix(record)}
 <p class="note">Выделены наибольшие доли в строке; статистическая значимость не проверялась.</p>

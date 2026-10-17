@@ -28,3 +28,10 @@ def test_gaps_name_every_segment_without_sources():
 def test_consistent_income_claims_match_profiles():
     assert "пенсия 20–35 тыс. ₽" in SEGMENTS["senior"]["income"]
     assert any("200 тыс. ₽" in income for income in SEGMENTS["self_employed"]["income"])
+
+
+def test_distortion_risk_covers_low_income_segments_only():
+    from dvoinik.population import DISTORTION_RISK, RISK_SOURCE
+
+    assert set(DISTORTION_RISK) == {"student_reg", "teen", "senior", "nonresident"}
+    assert RISK_SOURCE.startswith("https://arxiv.org/")

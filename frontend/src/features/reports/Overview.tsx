@@ -5,6 +5,7 @@ import type { BaselineAgreement, Insights, LivePlan } from "./types";
 import ConversionChart from "./ConversionChart";
 import SnapshotDetails from "./SnapshotDetails";
 import BaselineCard from "./BaselineCard";
+import LikertBars from "./LikertBars";
 export default function Overview({
   record,
   catalog,
@@ -140,6 +141,14 @@ export default function Overview({
           ))}
         </select>
       </label>
+      {segment !== "all" && catalog.risks?.segments[segment] && (
+        <Notice>
+          {catalog.risks.segments[segment]}{" "}
+          <a href={catalog.risks.source} target="_blank" rel="noreferrer">
+            Исследование Columbia, 2025
+          </a>
+        </Notice>
+      )}
       <div className="analysis-grid" aria-busy={!focus}>
         <section className="analysis-chart">
           <div className="section-heading">
@@ -160,6 +169,7 @@ export default function Overview({
             Линии — 95% интервалы ответов симуляции. Они не измеряют точность
             прогноза реального спроса.
           </p>
+          {segment === "all" && <LikertBars report={record.report} />}
         </section>
         <aside className="next-step">
           <span className="mini-label">Что проверить дальше</span>

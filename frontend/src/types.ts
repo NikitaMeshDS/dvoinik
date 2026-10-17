@@ -35,6 +35,7 @@ export type Catalog = {
   scenarios: Record<string, Scenario>;
   segments: Record<string, Segment>;
   sources?: { segments: Record<string, SegmentSource[]>; gaps: string };
+  risks?: { segments: Record<string, string>; source: string };
 };
 export type User = {
   id: string;
@@ -75,6 +76,7 @@ export type ReportItem = {
   quotes: Quote[];
   failure_examples?: string[];
   probability?: { mean: number; sd: number; n: number };
+  likert?: number[];
 };
 export type Profile = {
   id: number;

@@ -5,6 +5,8 @@
 и совпадение лидера с простым подходом. Точность прогноза людей здесь не измеряется.
 
     LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=qwen2.5:7b-instruct python llm_check.py --n 20
+
+Режим SSR (ответ фразой, оценка по эмбеддингам): DVOINIK_ELICITATION=ssr LLM_EMBED_MODEL=bge-m3.
 """
 
 from __future__ import annotations
@@ -62,6 +64,7 @@ def check(key: str, n: int, concurrency: int, seed: int, paraphrase: bool = Fals
         "coverage": valid / requested if requested else 0,
         "rates": {v: r["conversion"] for v, r in report.items() if r["n"]},
         "probability": {v: r.get("probability") for v, r in report.items()},
+        "likert": {v: r.get("likert") for v, r in report.items()},
         "narrow": narrow,
         "baseline": agreement,
         "stability": stability,
@@ -86,6 +89,10 @@ def format_result(result: dict) -> str:
         lines.append(f"Простой подход: ошибка — {baseline['error']}")
     if result["stability"]:
         lines.append(f"{result['stability']['label']}: {result['stability']['share']:.0%} повторных выборок")
+    likert = {v: r for v, r in result.get("likert", {}).items() if r}
+    if likert:
+        rows = " · ".join(f"{v}: " + "/".join(f"{x:.0%}" for x in r) for v, r in likert.items())
+        lines.append(f"Шкала 1–5 (SSR): {rows}")
     if result["narrow"]:
         lines.append(f"ВНИМАНИЕ: однородные ответы в предложениях {', '.join(result['narrow'])}")
     para = result.get("paraphrase")

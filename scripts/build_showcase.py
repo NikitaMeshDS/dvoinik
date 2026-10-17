@@ -23,7 +23,7 @@ from dvoinik.experiments import CUSTOM_SCENARIO  # noqa: E402
 from dvoinik.hypotheses import suggest  # noqa: E402
 from dvoinik.insights import insights_payload  # noqa: E402
 from dvoinik.planning import CHARS_PER_TOKEN, OUTPUT_TOKENS, PROFILE_CHARS  # noqa: E402
-from dvoinik.population import SEGMENT_SOURCES, SEGMENTS, SOURCE_GAPS  # noqa: E402
+from dvoinik.population import DISTORTION_RISK, RISK_SOURCE, SEGMENT_SOURCES, SEGMENTS, SOURCE_GAPS  # noqa: E402
 from dvoinik.runs import RunSettings, run_experiment  # noqa: E402
 from dvoinik.scenarios import SCENARIOS  # noqa: E402
 
@@ -84,6 +84,7 @@ def build() -> dict:
             "scenarios": {**SCENARIOS, "custom": CUSTOM_SCENARIO},
             "segments": SEGMENTS,
             "sources": {"segments": SEGMENT_SOURCES, "gaps": SOURCE_GAPS},
+            "risks": {"segments": DISTORTION_RISK, "source": RISK_SOURCE},
         },
         "sizes": SIZES,
         "seed": 42,
