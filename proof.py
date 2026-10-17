@@ -69,6 +69,14 @@ async def _ping() -> float:
     return time.perf_counter() - started
 
 
+def planned_requests(quick: bool, ssr: bool) -> int:
+    """Грубая оценка числа запросов к чат-модели для всех шагов."""
+    facts, n_bench, n_check = 7, (15 if quick else 30), (10 if quick else 20)
+    bench = facts * (n_bench + 1)
+    check = 3 * n_check + 1 if quick else 2 * 2 * (3 * n_check + 1) + 2
+    return bench * (2 if ssr else 1) + check + ((3 * n_check + 1) if ssr else 0)
+
+
 def _step(name: str, action, log: list) -> dict:
     print(f"\n=== {name}", flush=True)
     started = time.perf_counter()
@@ -98,9 +106,20 @@ def main(argv=None):
     )
     if embed:
         os.environ["LLM_EMBED_MODEL"] = embed
+    if os.getenv("LLM_NO_THINK") is None and "qwen3" in chat.lower().replace(".", ""):
+        os.environ["LLM_NO_THINK"] = "1"
     print(f"Сервер: {base}\nМодель: {chat}\nЭмбеддинги: {embed or 'нет — шаги SSR пропускаю'}")
+    if os.getenv("LLM_NO_THINK") == "1":
+        print("Рассуждения модели отключены (/no_think): для коротких JSON-ответов они не нужны.")
     latency = asyncio.run(_ping())
-    print(f"Один запрос: {latency:.1f} с")
+    requests = planned_requests(args.quick, bool(embed))
+    minutes = requests * latency / max(1, args.concurrency) / 60
+    print(f"Один запрос: {latency:.1f} с · запросов около {requests} · ожидаемо {minutes:.0f} мин")
+    if latency > 8:
+        print(
+            "Запросы медленные. Если модель рассуждает, отключите это в настройках LM Studio "
+            "или возьмите instruct-модель; для короткого прогона — python proof.py --quick."
+        )
 
     out = args.out
     if out.exists():

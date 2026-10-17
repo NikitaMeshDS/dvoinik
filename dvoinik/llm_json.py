@@ -6,6 +6,8 @@ Ollama и vLLM понимают response_format={"type": "json_object"}, LM Stud
 блоков рассуждений <think> и обёрток ```json.
 
 LLM_JSON_MODE: auto (по умолчанию) | json_object | text.
+LLM_NO_THINK=1 добавляет к последнему сообщению «/no_think» — мягкое отключение рассуждений
+у моделей Qwen3.x: короткий JSON не требует размышлений, а с ними запрос идёт в разы дольше.
 """
 
 from __future__ import annotations
@@ -43,8 +45,16 @@ def _rejects_format(exc) -> bool:
     return status in {400, 422} and "response_format" in str(exc).lower()
 
 
+def _no_think(messages: list[dict]) -> list[dict]:
+    if os.getenv("LLM_NO_THINK") != "1" or not messages:
+        return messages
+    last = messages[-1]
+    return [*messages[:-1], {**last, "content": f"{last['content']}\n/no_think"}]
+
+
 async def chat_json(client, model: str, messages: list[dict], temperature: float) -> str:
     """Запрос с ожиданием JSON; возвращает текст объекта для json.loads."""
+    messages = _no_think(messages)
     current = mode()
     use_text = current == "text" or (current == "auto" and _STATE["text"])
     if not use_text:
