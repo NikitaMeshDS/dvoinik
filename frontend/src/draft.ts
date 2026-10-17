@@ -30,9 +30,67 @@ export function draftFromScenario(
 export function draftFromRecord(record: Experiment, demo = false): Draft {
   return {
     ...draftFromScenario(record.scenario, "custom"),
+    origin: {
+      kind: "iteration",
+      record_id: record.id,
+      title: record.scenario.title,
+    },
     n: record.n,
     mock: demo ? true : record.mock,
     seed: record.seed,
+  };
+}
+/** Черновик A/B-проверки гипотезы: лидер против нового текста на затронутых сегментах. */
+export function draftFromHypothesis(
+  record: Experiment,
+  hypothesis: {
+    lever: string;
+    change: string;
+    variant: string;
+    base_text: string;
+    segments: string[];
+  },
+  proposal: string,
+  demo = false,
+): Draft {
+  const base = draftFromRecord(record, demo);
+  const segments = hypothesis.segments.filter(
+    (sid) => (record.scenario.population[sid] ?? 0) > 0,
+  );
+  return {
+    ...base,
+    origin: {
+      kind: "hypothesis",
+      record_id: record.id,
+      title: record.scenario.title,
+      lever: hypothesis.lever,
+      change: hypothesis.change.slice(0, 300),
+      variant: hypothesis.variant,
+    },
+    title: (
+      record.scenario.title +
+      " · гипотеза «" +
+      hypothesis.lever +
+      "»"
+    ).slice(0, 200),
+    description: (
+      "Проверка гипотезы «" +
+      hypothesis.lever +
+      "»: A — текущий вариант " +
+      hypothesis.variant +
+      ", B — " +
+      hypothesis.change.charAt(0).toLowerCase() +
+      hypothesis.change.slice(1) +
+      ". " +
+      record.scenario.description
+    ).slice(0, 4000),
+    variants: { A: hypothesis.base_text, B: proposal },
+    variantCount: 2,
+    weights: segments.length
+      ? Object.fromEntries(
+          segments.map((sid) => [sid, record.scenario.population[sid] * 100]),
+        )
+      : base.weights,
   };
 }
 export function runPayload(d: Draft): RunPayload {
@@ -52,6 +110,7 @@ export function runPayload(d: Draft): RunPayload {
         Object.entries(d.weights).filter(([, n]) => n > 0),
       ),
       objections: d.objections.map((s) => s.trim()).filter(Boolean),
+      ...(d.origin ? { origin: d.origin } : {}),
     },
     n: d.n,
     mock: d.mock,

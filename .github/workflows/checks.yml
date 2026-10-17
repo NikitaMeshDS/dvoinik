@@ -31,3 +31,17 @@ jobs:
       - run: npm test --prefix frontend
       - run: npm run build --prefix frontend
       - run: npm run format --prefix frontend
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t dvoinik .
+      - name: Simulation works without any network
+        run: docker run --rm --network none dvoinik python cli.py senior_deposit --mock --n 50
+      - name: Service starts in the container
+        run: |
+          docker run -d --name dvoinik -p 127.0.0.1:8501:8501 -e DVOINIK_AUTH_MODE=demo dvoinik
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8501/ > /dev/null && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8501/ | grep -q 'id="root"'
+          curl -sS -D - -o /dev/null http://127.0.0.1:8501/ | grep -qi "content-security-policy: default-src 'self'"
+          docker logs dvoinik

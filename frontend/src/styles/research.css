@@ -354,3 +354,15 @@
 .filter-panel[hidden] {
   display: none;
 }
+.study-tags i.origin {
+  color: #4a5f9a;
+  background: #eef1fb;
+}
+.study-tags i.origin.better {
+  color: var(--mint);
+  background: #e4f3ef;
+}
+.study-tags i.origin.worse {
+  color: #985f22;
+  background: #fff1db;
+}

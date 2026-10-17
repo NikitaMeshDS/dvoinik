@@ -1,0 +1,68 @@
+{
+  "about": "Открытые факты с известной долей ответа «да». Двойники и простой подход отвечают на те же вопросы; сравнивается ошибка в процентных пунктах. Годы, методы и выборки источников разные — это ориентир, а не точное измерение.",
+  "facts": [
+    {
+      "id": "senior-mobile-bank",
+      "segments": {"senior": 1},
+      "question": "Пользуетесь ли вы мобильным приложением банка полностью самостоятельно, без помощи родственников?",
+      "share": 0.24,
+      "source": "Опрос «ИнтерПенсионер», август 2025, более 1,5 тыс. человек 60+ из регионов с городами-миллионниками",
+      "url": "https://ecomhub.ru/pensioners-digital-isolation-internet-messengers-russia-2025-interpensioner/",
+      "used_for_profiles": true
+    },
+    {
+      "id": "senior-internet",
+      "segments": {"senior": 1},
+      "question": "Пользуетесь ли вы интернетом?",
+      "share": 0.46,
+      "source": "Опрос «ИнтерПенсионер», август 2025: 54% не пользуются интернетом",
+      "url": "https://ecomhub.ru/pensioners-digital-isolation-internet-messengers-russia-2025-interpensioner/",
+      "used_for_profiles": true
+    },
+    {
+      "id": "teen-card",
+      "segments": {"teen": 1},
+      "question": "Есть ли у тебя личная банковская карта?",
+      "share": 0.59,
+      "source": "НАФИ, опрос подростков 14–17 лет, июнь 2021",
+      "url": "https://www.sostav.ru/publication/detskij-banking-50185.html",
+      "used_for_profiles": false
+    },
+    {
+      "id": "teen-mobile-bank",
+      "segments": {"teen": 1},
+      "question": "Пользуешься ли ты мобильным банком?",
+      "share": 0.56,
+      "source": "НАФИ, опрос подростков 14–17 лет, июнь 2021",
+      "url": "https://www.sostav.ru/publication/detskij-banking-50185.html",
+      "used_for_profiles": false
+    },
+    {
+      "id": "student-savings-account",
+      "segments": {"student_msk": 0.5, "student_reg": 0.5},
+      "question": "Есть ли у вас накопительный счёт в банке?",
+      "share": 0.74,
+      "source": "Центральный университет и T-Data, транзакционные данные 305 тыс. студентов 17–23 лет, 2024/25 учебный год",
+      "url": "https://t-j.ru/news/student-savings/",
+      "used_for_profiles": false
+    },
+    {
+      "id": "student-deposit",
+      "segments": {"student_msk": 0.5, "student_reg": 0.5},
+      "question": "Открывали ли вы банковский вклад за последний учебный год?",
+      "share": 0.13,
+      "source": "Центральный университет и T-Data, транзакционные данные 305 тыс. студентов 17–23 лет, 2024/25 учебный год",
+      "url": "https://t-j.ru/news/student-savings/",
+      "used_for_profiles": false
+    },
+    {
+      "id": "adults-cashback-criterion",
+      "segments": {"young_family": 0.5, "student_msk": 0.25, "self_employed": 0.25},
+      "question": "Кэшбэк в нужных вам категориях — главный критерий при выборе дебетовой карты для повседневных покупок?",
+      "share": 0.85,
+      "source": "Почта Банк и «Выберу.ру», около 2 тыс. человек 18–65 лет, 2023; состав аудитории в Двойнике приближённый",
+      "url": "https://new-retail.ru/novosti/retail/85_rossiyan_nazvali_keshbek_glavnym_kriteriem_vybora_bankovskoy_karty/",
+      "used_for_profiles": false
+    }
+  ]
+}

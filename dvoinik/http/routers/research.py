@@ -6,19 +6,27 @@ import uuid
 
 from fastapi import APIRouter, Depends
 
+from ...engine import rewrite_offer
 from ...experiments import (
     CUSTOM_SCENARIO,
     load_experiment,
     normalize_population,
     normalize_scenario,
-    quality_status,
 )
-from ...insights import segment_report
-from ...population import SEGMENTS, allocate_population
-from ...reporting import summarize
+from ...hypotheses import suggest
+from ...insights import insights_payload
+from ...planning import run_estimate
+from ...population import (
+    DISTORTION_RISK,
+    RISK_SOURCE,
+    SEGMENT_SOURCES,
+    SEGMENTS,
+    SOURCE_GAPS,
+    allocate_population,
+)
 from ...runs import RunSettings
 from ...scenarios import SCENARIOS
-from ..models import Compare, Import, Insights, Preview, Run
+from ..models import Compare, Estimate, Import, Insights, Preview, Rewrite, Run
 from ..runtime import get_runtime
 from ..security import identity
 
@@ -27,7 +35,12 @@ router = APIRouter()
 
 @router.get("/api/catalog")
 def catalog(access=Depends(identity)):
-    return {"scenarios": {**SCENARIOS, "custom": CUSTOM_SCENARIO}, "segments": SEGMENTS}
+    return {
+        "scenarios": {**SCENARIOS, "custom": CUSTOM_SCENARIO},
+        "segments": SEGMENTS,
+        "sources": {"segments": SEGMENT_SOURCES, "gaps": SOURCE_GAPS},
+        "risks": {"segments": DISTORTION_RISK, "source": RISK_SOURCE},
+    }
 
 
 @router.post("/api/preview")
@@ -103,5 +116,27 @@ def compare(body: Compare, access=Depends(identity), runtime=Depends(get_runtime
 @router.post("/api/insights")
 def insights(body: Insights, access=Depends(identity), runtime=Depends(get_runtime)):
     record = runtime.accessible(access[0], body.record_id)
-    report = record["report"] if body.segment == "all" else segment_report(record, body.segment)
-    return {"report": report, "summary": summarize(report), "quality": quality_status(record)}
+    return insights_payload(record, body.segment)
+
+
+@router.post("/api/estimate")
+def estimate(body: Estimate, access=Depends(identity)):
+    settings = RunSettings(n=body.n, concurrency=body.concurrency)
+    scenario = normalize_scenario(body.scenario)
+    return run_estimate(scenario, settings.n, concurrency=settings.concurrency)
+
+
+@router.post("/api/hypotheses/rewrite")
+def rewrite_hypothesis(body: Rewrite, access=Depends(identity), runtime=Depends(get_runtime)):
+    record = runtime.accessible(access[0], body.record_id)
+    if runtime.mode == "demo" or record.get("mock"):
+        raise ValueError("Переписать текст моделью можно для исследования, запущенного с LLM.")
+    found = next((h for h in suggest(record)["items"] if h["id"] == body.hypothesis_id), None)
+    if found is None:
+        raise ValueError("Гипотеза не найдена.")
+    try:
+        return {"id": found["id"], "proposal": rewrite_offer(record["scenario"], found), "method": "llm"}
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"Запрос к модели не выполнен ({type(exc).__name__}).") from exc
