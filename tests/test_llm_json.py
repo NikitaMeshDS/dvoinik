@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import httpx
@@ -98,3 +99,58 @@ def test_no_think_switch_and_auto_enable_for_qwen3(monkeypatch):
     patched = llm_json._no_think(messages)
     assert patched[-1]["content"] == "u\n/no_think" and messages[-1]["content"] == "u"
     assert proof.planned_requests(True, False) < proof.planned_requests(False, True)
+
+
+def test_tune_thinking_finds_the_switch_and_chat_json_sends_it(monkeypatch):
+    import http.server
+    import threading
+
+    import proof
+
+    bodies = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            bodies.append(body)
+            off = body.get("chat_template_kwargs", {}).get("enable_thinking") is False
+            message = {"role": "assistant", "content": '{"ok": true}'}
+            if not off:
+                message["reasoning_content"] = "думаю " * 50
+            payload = json.dumps(
+                {
+                    "id": "t",
+                    "object": "chat.completion",
+                    "created": 0,
+                    "model": "m",
+                    "choices": [{"index": 0, "message": message, "finish_reason": "stop"}],
+                }
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_port}/v1"
+    try:
+        found = proof.tune_thinking(base, "qwen/qwen3.5-9b")
+        assert found == {"chat_template_kwargs": {"enable_thinking": False}}
+        monkeypatch.setenv("LLM_EXTRA_BODY", json.dumps(found))
+        monkeypatch.setenv("LLM_JSON_MODE", "json_object")
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(api_key="k", base_url=base)
+        text = asyncio.run(llm_json.chat_json(client, "m", [{"role": "user", "content": "x"}], 0))
+        assert json.loads(text) == {"ok": True}
+        assert bodies[-1]["chat_template_kwargs"] == {"enable_thinking": False}
+    finally:
+        server.shutdown()
+    monkeypatch.setenv("LLM_EXTRA_BODY", "[1]")
+    with pytest.raises(ValueError):
+        llm_json.extra_body()

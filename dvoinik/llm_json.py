@@ -6,12 +6,15 @@ Ollama и vLLM понимают response_format={"type": "json_object"}, LM Stud
 блоков рассуждений <think> и обёрток ```json.
 
 LLM_JSON_MODE: auto (по умолчанию) | json_object | text.
+LLM_EXTRA_BODY — JSON с дополнительными полями запроса (например, отключение рассуждений:
+{"chat_template_kwargs": {"enable_thinking": false}}); proof.py подбирает его сам.
 LLM_NO_THINK=1 добавляет к последнему сообщению «/no_think» — мягкое отключение рассуждений
 у моделей Qwen3.x: короткий JSON не требует размышлений, а с ними запрос идёт в разы дольше.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
 
@@ -52,9 +55,20 @@ def _no_think(messages: list[dict]) -> list[dict]:
     return [*messages[:-1], {**last, "content": f"{last['content']}\n/no_think"}]
 
 
+def extra_body() -> dict | None:
+    raw = os.getenv("LLM_EXTRA_BODY")
+    if not raw:
+        return None
+    value = json.loads(raw)
+    if not isinstance(value, dict):
+        raise ValueError("LLM_EXTRA_BODY должен быть JSON-объектом.")
+    return value
+
+
 async def chat_json(client, model: str, messages: list[dict], temperature: float) -> str:
     """Запрос с ожиданием JSON; возвращает текст объекта для json.loads."""
     messages = _no_think(messages)
+    extra = {"extra_body": extra_body()} if extra_body() else {}
     current = mode()
     use_text = current == "text" or (current == "auto" and _STATE["text"])
     if not use_text:
@@ -64,11 +78,12 @@ async def chat_json(client, model: str, messages: list[dict], temperature: float
                 temperature=temperature,
                 response_format={"type": "json_object"},
                 messages=messages,
+                **extra,
             )
             return extract(r.choices[0].message.content)
         except Exception as exc:
             if current != "auto" or not _rejects_format(exc):
                 raise
             _STATE["text"] = True
-    r = await client.chat.completions.create(model=model, temperature=temperature, messages=messages)
+    r = await client.chat.completions.create(model=model, temperature=temperature, messages=messages, **extra)
     return extract(r.choices[0].message.content)

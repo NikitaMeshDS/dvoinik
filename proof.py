@@ -13,6 +13,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import shutil
 import time
 import urllib.request
@@ -48,6 +49,52 @@ def discover() -> tuple[str, str, str | None]:
     raise SystemExit(
         "Не нашёл сервер модели. В LM Studio: Developer → Start Server (порт 1234) и загрузите модель."
     )
+
+
+# Способы отключить рассуждения у разных серверов и шаблонов; неизвестные поля обычно игнорируются.
+THINK_OFF = [
+    {"chat_template_kwargs": {"enable_thinking": False}},
+    {"reasoning_effort": "none"},
+    {"reasoning": {"effort": "none"}},
+    {"enable_thinking": False},
+]
+
+
+def _probe(base: str, model: str, extra: dict) -> tuple[float, int, bool]:
+    """Один короткий запрос: время, длина рассуждения и успех."""
+    body = {
+        "model": model,
+        "temperature": 0,
+        "messages": [{"role": "user", "content": 'Ответь строго JSON {"ok": true}'}],
+        **extra,
+    }
+    request = urllib.request.Request(
+        base + "/chat/completions", json.dumps(body).encode(), {"Content-Type": "application/json"}
+    )
+    started = time.perf_counter()
+    try:
+        with urllib.request.urlopen(request, timeout=180) as response:
+            message = json.load(response)["choices"][0]["message"]
+    except Exception:
+        return time.perf_counter() - started, 0, False
+    content = message.get("content") or ""
+    reasoning = len(message.get("reasoning_content") or message.get("reasoning") or "")
+    reasoning += sum(len(m) for m in re.findall(r"<think>(.*?)</think>", content, re.S))
+    return time.perf_counter() - started, reasoning, '"ok"' in content
+
+
+def tune_thinking(base: str, model: str) -> dict | None:
+    """Если модель рассуждает, подбирает поле запроса, которое это отключает."""
+    seconds, reasoning, ok = _probe(base, model, {})
+    print(f"Без настроек: {seconds:.1f} с, рассуждение {reasoning} символов")
+    if ok and not reasoning:
+        return None
+    for extra in THINK_OFF:
+        seconds, reasoning, ok = _probe(base, model, extra)
+        print(f"{json.dumps(extra, ensure_ascii=False)}: {seconds:.1f} с, рассуждение {reasoning} символов")
+        if ok and not reasoning:
+            return extra
+    return None
 
 
 async def _ping() -> float:
@@ -106,11 +153,12 @@ def main(argv=None):
     )
     if embed:
         os.environ["LLM_EMBED_MODEL"] = embed
-    if os.getenv("LLM_NO_THINK") is None and "qwen3" in chat.lower().replace(".", ""):
-        os.environ["LLM_NO_THINK"] = "1"
     print(f"Сервер: {base}\nМодель: {chat}\nЭмбеддинги: {embed or 'нет — шаги SSR пропускаю'}")
-    if os.getenv("LLM_NO_THINK") == "1":
-        print("Рассуждения модели отключены (/no_think): для коротких JSON-ответов они не нужны.")
+    if not os.getenv("LLM_EXTRA_BODY"):
+        found = tune_thinking(base, chat)
+        if found:
+            os.environ["LLM_EXTRA_BODY"] = json.dumps(found)
+            print(f"Рассуждения отключены полем {json.dumps(found, ensure_ascii=False)}.")
     latency = asyncio.run(_ping())
     requests = planned_requests(args.quick, bool(embed))
     minutes = requests * latency / max(1, args.concurrency) / 60
@@ -178,6 +226,7 @@ def main(argv=None):
         "model": chat,
         "embed_model": embed,
         "json_mode": "text" if llm_json._STATE["text"] else llm_json.mode(),
+        "extra_body": os.getenv("LLM_EXTRA_BODY"),
         "latency_s": round(latency, 2),
         "quick": args.quick,
         "steps": log,

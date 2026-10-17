@@ -261,3 +261,8 @@ DVOINIK_ELICITATION=ssr LLM_EMBED_MODEL=bge-m3 python llm_check.py --scenario se
 бенчмарк на открытых данных (обычный и SSR), проверку протокола с перефразировкой и `summary.json`.
 `--quick` — короткий прогон. LM Studio не принимает `response_format: json_object`; сервис сам
 переходит на текстовый JSON (`LLM_JSON_MODE=auto`) и убирает блоки рассуждений `<think>`.
+Если модель рассуждает перед ответом (Qwen3 и Qwen3.5 игнорируют `/no_think`), каждый запрос идёт
+десятки секунд. `proof.py` сначала делает пробный запрос и подбирает поле, отключающее рассуждения
+(`chat_template_kwargs.enable_thinking=false` и другие варианты); найденное поле передаётся во все
+запросы через `LLM_EXTRA_BODY` и записывается в `summary.json`. Задать его можно и вручную:
+`LLM_EXTRA_BODY='{"chat_template_kwargs": {"enable_thinking": false}}'`.
