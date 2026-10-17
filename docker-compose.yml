@@ -1,0 +1,34 @@
+# Всё в контуре: Двойник + локальная модель в Ollama. Наружу открыт только порт интерфейса.
+#   docker compose up -d
+#   docker compose exec ollama ollama pull qwen2.5:7b-instruct
+#   docker compose exec ollama ollama pull bge-m3          # для режима SSR
+#   docker compose exec app python manage.py create-user --username analyst --name "Аналитик"
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      DVOINIK_AUTH_MODE: local
+      DVOINIK_MOCK: "0"
+      LLM_BASE_URL: http://ollama:11434/v1
+      LLM_MODEL: qwen2.5:7b-instruct
+      LLM_API_KEY: ollama
+      # DVOINIK_ELICITATION: ssr
+      # LLM_EMBED_MODEL: bge-m3
+      DVOINIK_LLM_CACHE: "1"
+      DVOINIK_LLM_CACHE_PATH: /data/llm_cache.sqlite3
+    volumes:
+      - dvoinik-data:/data
+    depends_on:
+      - ollama
+    restart: unless-stopped
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+    # Порт модели наружу не публикуется: к ней обращается только сервис app.
+volumes:
+  dvoinik-data:
+  ollama-models:
