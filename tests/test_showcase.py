@@ -15,3 +15,14 @@ def test_showcase_data_covers_every_template_size_and_segment():
             assert f"{record['id']}|{sid}" in data["insights"]
     senior = data["records"]["senior_deposit|200"]["report"]
     assert [senior[v]["yes"] for v in "ABC"] == [9, 86, 111]
+    experiments = data["experiments"]
+    assert experiments and all(e["n"] == module.HYPOTHESIS_N for e in experiments)
+    for item in experiments:
+        record, scenario = item["record"], item["scenario"]
+        assert set(scenario["variants"]) == {"A", "B"} and "· гипотеза «" in scenario["title"]
+        assert record["scenario"]["variants"] == scenario["variants"]
+        assert f"{record['id']}|all" in data["insights"]
+    hypotheses = data["insights"]["senior_deposit-200|all"]["hypotheses"]["items"]
+    assert len([e for e in experiments if e["record"]["id"].startswith("senior_deposit-h")]) == len(
+        hypotheses
+    )

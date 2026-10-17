@@ -16,7 +16,11 @@ export default function Overview({
   baseline,
   plan,
   onPlan,
+  hypothesisCount,
+  onHypotheses,
 }: {
+  hypothesisCount?: number;
+  onHypotheses?: () => void;
   baseline?: BaselineAgreement | null;
   plan?: LivePlan;
   onPlan?: () => void;
@@ -234,10 +238,24 @@ export default function Overview({
                 </>
               )}
               {onPlan && segment === "all" ? (
-                <button className="text-link with-icon" onClick={onPlan}>
-                  План живой проверки и вопросы для интервью
-                  <ArrowRight size={15} aria-hidden="true" />
-                </button>
+                <div className="next-links">
+                  {onHypotheses && hypothesisCount ? (
+                    <button
+                      className="text-link with-icon"
+                      onClick={onHypotheses}
+                    >
+                      {hypothesisCount === 1
+                        ? "1 гипотеза"
+                        : hypothesisCount + " гипотезы"}
+                      , что поменять в предложении
+                      <ArrowRight size={15} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                  <button className="text-link with-icon" onClick={onPlan}>
+                    План живой проверки и вопросы для интервью
+                    <ArrowRight size={15} aria-hidden="true" />
+                  </button>
+                </div>
               ) : (
                 <p className="help">
                   Реплика — синтетический пример, а не полное распределение

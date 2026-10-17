@@ -2,7 +2,7 @@ import { useState } from "react";
 import { download } from "../../api";
 import { Notice, Button } from "../../components";
 import type { Catalog, Experiment } from "../../types";
-import type { ExportAction } from "./types";
+import type { ExportAction, Hypothesis } from "./types";
 import { useInsights } from "./useInsights";
 import ReportHeader from "./ReportHeader";
 import ReportTabs, { type ReportTab } from "./ReportTabs";
@@ -10,11 +10,13 @@ import Overview from "./Overview";
 import Audience from "./Audience";
 import Voices from "./Voices";
 import ValidationPanel from "./ValidationPanel";
+import Hypotheses from "./Hypotheses";
 export default function ReportPage({
   record,
   catalog,
   onBack,
   onReuse,
+  onTestHypothesis,
   onUpdated,
   onCompare,
   onError,
@@ -25,6 +27,7 @@ export default function ReportPage({
   catalog: Catalog;
   onBack: () => void;
   onReuse: () => void;
+  onTestHypothesis?: (hypothesis: Hypothesis, proposal: string) => void;
   onUpdated: (record: Experiment) => void;
   onCompare: () => void;
   onError: (error: unknown) => void;
@@ -84,6 +87,8 @@ export default function ReportPage({
             baseline={insights.base?.baseline}
             plan={insights.base?.plan}
             onPlan={() => setTab("validation")}
+            hypothesisCount={insights.base?.hypotheses?.items.length}
+            onHypotheses={() => setTab("hypotheses")}
           />
         )}
         {tab === "people" && <Audience record={record} catalog={catalog} />}
@@ -97,6 +102,13 @@ export default function ReportPage({
             setVariant={setVariant}
             decision={decision}
             setDecision={setDecision}
+          />
+        )}
+        {tab === "hypotheses" && (
+          <Hypotheses
+            record={record}
+            data={insights.base?.hypotheses}
+            onTest={onTestHypothesis}
           />
         )}
         <div hidden={tab !== "validation"}>

@@ -420,6 +420,46 @@ def paraphrase_variants(scenario: dict) -> dict[str, str]:
     return {vid: texts[vid].strip() for vid in variants}
 
 
+REWRITE_SYSTEM = (
+    "Ты — продуктовый маркетолог банка. Перепиши предложение так, чтобы снять названные "
+    "причины отказа у указанных сегментов. Сохрани продукт и его ключевые условия; не добавляй "
+    "выгод и цифр, которых нет в исходном тексте или в описании изменения. Пиши коротко, "
+    "как текст для клиента, не длиннее полутора исходных.\n"
+    'Ответь строго JSON: {"proposal": "..."}'
+)
+
+
+def rewrite_offer(scenario: dict, hypothesis: dict) -> str:
+    """Текст гипотезы, переписанный моделью вместо черновика по правилу."""
+    user = (
+        f"Контекст: {scenario.get('description', '')}\n"
+        f"Вопрос клиенту: {scenario['question']}\n"
+        f"Исходное предложение: {hypothesis['base_text']}\n"
+        f"Сегменты: {', '.join(hypothesis['segment_names'])}\n"
+        f"Причины отказа: {', '.join(hypothesis['objections']) or 'нет'}\n"
+        f"Что изменить: {hypothesis['change']}\n"
+        f"Черновик по правилу: {hypothesis['proposal']}"
+    )
+
+    async def ask():
+        async with _client() as client:
+            r = await client.chat.completions.create(
+                model=os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
+                temperature=0.4,
+                response_format={"type": "json_object"},
+                messages=[{"role": "system", "content": REWRITE_SYSTEM}, {"role": "user", "content": user}],
+            )
+            return r.choices[0].message.content
+
+    out = json.loads(asyncio.run(ask()))
+    text = out.get("proposal") if isinstance(out, dict) else None
+    if not isinstance(text, str) or not text.strip() or len(text) > 3000:
+        raise ValueError("Модель не вернула текст предложения до 3000 символов.")
+    if text.strip() == hypothesis["base_text"].strip():
+        raise ValueError("Модель вернула исходный текст без изменений.")
+    return text.strip()
+
+
 def _interval(yes, n):
     """Wilson 95%: разброс ответов внутри симуляции, не точность прогноза людей."""
     if not n:

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, ignored, message } from "../api";
-import { runPayload } from "../draft";
+import { draftFromHypothesis, runPayload } from "../draft";
 import { comparisonOrder } from "../data";
 import { Notice, Button } from "../components";
 import { Administration } from "../Account";
@@ -11,6 +11,7 @@ import Report from "../Report";
 import JobView from "../JobView";
 import Methodology from "../Methodology";
 import type { Experiment, Job, Session } from "../types";
+import type { Hypothesis } from "../features/reports/types";
 import WorkspaceShell from "./WorkspaceShell";
 import { useHashRoute } from "./useHashRoute";
 import { useArchive } from "./useArchive";
@@ -79,6 +80,18 @@ export default function Workspace({
       drafts.reuse(record);
       navigate("create");
     }
+  };
+  const testHypothesis = (hypothesis: Hypothesis, proposal: string) => {
+    if (!record) return;
+    drafts.reuseDraft(
+      draftFromHypothesis(
+        record,
+        hypothesis,
+        proposal,
+        session.user.role === "demo",
+      ),
+    );
+    navigate("create");
   };
   const start = async () => {
     if (runs.active) {
@@ -212,6 +225,7 @@ export default function Workspace({
               catalog={catalog}
               onBack={() => navigate("archive")}
               onReuse={reuse}
+              onTestHypothesis={testHypothesis}
               onUpdated={updated}
               onCompare={() => compare([record.id, ""])}
               onError={onError}

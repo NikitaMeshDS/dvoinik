@@ -924,3 +924,171 @@
   color: #b2462e;
   border-color: #efc5bb;
 }
+.next-links {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+.hypotheses-intro {
+  max-width: 90ch;
+  margin-top: 0;
+}
+.hypotheses-empty {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--surface-radius);
+  padding: 24px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.hypothesis-list {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.hypothesis {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--surface-radius);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.hypothesis-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.hypothesis-ceiling {
+  text-align: right;
+  color: var(--blue);
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.hypothesis-ceiling small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.hypothesis h3 {
+  font-size: 17px;
+  line-height: 1.4;
+  margin: 0;
+}
+.hypothesis-segments {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+.hypothesis-evidence {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.hypothesis-more summary {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.hypothesis-diff {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.hypothesis-diff del,
+.hypothesis-diff ins {
+  border-radius: 6px;
+  padding: 6px 10px;
+  text-decoration: none;
+}
+.hypothesis-diff del {
+  background: #fdf0ed;
+  color: #93473b;
+}
+.hypothesis-diff del::before {
+  content: "Убрать: ";
+  font-weight: 600;
+}
+.hypothesis-diff ins {
+  background: #e7f4f1;
+  color: #0f6b64;
+}
+.hypothesis-diff ins::before {
+  content: "Добавить: ";
+  font-weight: 600;
+}
+.hypothesis-text {
+  margin: 0;
+  border-left: 3px solid var(--blue);
+  background: #f5f8ff;
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+}
+.hypothesis-text span {
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 600;
+}
+.hypothesis-text p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.hypothesis-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.hypothesis-metrics dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.hypothesis-metrics dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.hypothesis-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.hypothesis-actions .button {
+  white-space: normal;
+  text-align: left;
+}
+@media (width <= 1100px) {
+  .hypothesis-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (width <= 560px) {
+  .hypothesis {
+    padding: 18px 16px;
+  }
+  .hypothesis-metrics {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .hypothesis-actions .button {
+    width: 100%;
+  }
+}

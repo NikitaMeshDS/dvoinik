@@ -56,6 +56,7 @@ def segment_report(record: dict, sid: str) -> dict:
 def insights_payload(record: dict, segment: str = "all") -> dict:
     """Ответ /api/insights: отчёт выбранной аудитории, сводка и встроенные проверки."""
     from .experiments import quality_status
+    from .hypotheses import suggest
     from .planning import baseline_agreement, leader_stability, live_check_plan
     from .reporting import summarize
 
@@ -69,4 +70,5 @@ def insights_payload(record: dict, segment: str = "all") -> dict:
     if segment == "all":
         result["plan"] = live_check_plan(record)
         result["baseline"] = baseline_agreement(record)
+        result["hypotheses"] = suggest(record)
     return result

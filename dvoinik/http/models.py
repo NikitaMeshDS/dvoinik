@@ -64,5 +64,10 @@ class Insights(Body):
     segment: StrictStr = "all"
 
 
+class Rewrite(Body):
+    record_id: StrictStr
+    hypothesis_id: StrictStr
+
+
 class Active(Body):
     active: StrictBool

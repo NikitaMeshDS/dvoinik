@@ -1,8 +1,15 @@
-import { BarChart3, Users, MessageSquare, ClipboardCheck } from "lucide-react";
+import {
+  BarChart3,
+  Users,
+  MessageSquare,
+  Lightbulb,
+  ClipboardCheck,
+} from "lucide-react";
 const TABS = [
   { id: "overview", label: "Результат", icon: BarChart3 },
   { id: "people", label: "Аудитория", icon: Users },
   { id: "voices", label: "Голоса", icon: MessageSquare },
+  { id: "hypotheses", label: "Гипотезы", icon: Lightbulb },
   { id: "validation", label: "Проверка опросом", icon: ClipboardCheck },
 ] as const;
 export type ReportTab = (typeof TABS)[number]["id"];

@@ -13,6 +13,7 @@ type Data = {
   sizes: number[];
   seed: number;
   records: Record<string, Experiment>;
+  experiments?: { scenario: Scenario; n: number; record: Experiment }[];
   insights: Record<string, unknown>;
   estimate: {
     system_chars: number;
@@ -39,7 +40,8 @@ export const LOCAL_HINT =
   "Полная версия запускается локально: github.com/NikitaMeshDS/dvoinik";
 const ONLY_TEMPLATES =
   "Онлайн-витрина запускает готовые шаблоны без изменений в демо-режиме (seed 42, " +
-  "50–1000 двойников). Свой сценарий и подключённая LLM доступны в локальной версии.";
+  "50–1000 двойников) и A/B-проверки предложенных гипотез на 200 двойниках. " +
+  "Свой сценарий и подключённая LLM доступны в локальной версии.";
 
 class HttpError extends Error {
   constructor(
@@ -147,17 +149,18 @@ export function createBackend(data: Data) {
     seed: number;
   }) {
     const template = data.templates[body.scenario_key];
-    const record = data.records[body.scenario_key + "|" + body.n];
-    if (
-      !template ||
-      !record ||
-      body.mock !== true ||
-      body.seed !== data.seed ||
-      !same(body.scenario, template)
-    )
+    const record =
+      body.scenario_key === "custom"
+        ? data.experiments?.find(
+            (e) => e.n === body.n && same(body.scenario, e.scenario),
+          )?.record
+        : template && same(body.scenario, template)
+          ? data.records[body.scenario_key + "|" + body.n]
+          : undefined;
+    if (!record || body.mock !== true || body.seed !== data.seed)
       throw new HttpError(422, ONLY_TEMPLATES);
     const id = "showcase-" + ++counter;
-    const total = body.n * Object.keys(template.variants).length;
+    const total = body.n * Object.keys(record.scenario.variants).length;
     const run = copy(record);
     run.id = record.id + "-" + counter;
     run.created_at = new Date().toISOString().replace("Z", "+00:00");
@@ -231,6 +234,12 @@ export function createBackend(data: Data) {
     const recordMatch = path.match(/^\/experiments\/([^/]+)$/);
     if (recordMatch && method === "GET")
       return find(decodeURIComponent(recordMatch[1]));
+    if (path === "/hypotheses/rewrite")
+      throw new HttpError(
+        422,
+        "Переписать текст моделью можно в локальной версии с LLM. " +
+          LOCAL_HINT,
+      );
     if (path.includes("/validation"))
       throw new HttpError(
         422,

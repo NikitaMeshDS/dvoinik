@@ -41,6 +41,10 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
     }));
     setActiveKey("custom");
   };
+  const reuseDraft = (value: Draft) => {
+    setDrafts((previous) => ({ ...previous, custom: value }));
+    setActiveKey("custom");
+  };
   const draft =
     drafts[activeKey] ??
     (catalog
@@ -54,6 +58,7 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
     draft,
     choose,
     reuse,
+    reuseDraft,
     update: (value: Draft) =>
       setDrafts((previous) => ({ ...previous, [activeKey]: value })),
   };

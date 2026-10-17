@@ -10,6 +10,7 @@ from __future__ import annotations
 from html import escape
 
 from .experiments import format_timestamp
+from .hypotheses import suggest
 from .planning import baseline_agreement, leader_stability, live_check_plan
 from .population import SEGMENTS
 
@@ -124,6 +125,27 @@ def _plan(record) -> str:
     )
 
 
+def _hypotheses(record) -> str:
+    items = suggest(record)["items"]
+    if not items:
+        return "<p>Частых причин отказа, которые можно снять изменением текста, не найдено.</p>"
+    blocks = []
+    for h in items:
+        evidence = "".join(f"<li>{escape(e)}</li>" for e in h["evidence"])
+        check = (
+            f"≈ {h['check_n']} оценок на вариант, чтобы заметить половину эффекта"
+            if h["check_n"]
+            else "эффект слишком мал для живого теста"
+        )
+        blocks.append(
+            f"<h3>{escape(h['lever'])}</h3><p>{escape(h['change'])}.</p><ul>{evidence}</ul>"
+            f"<p><b>Новый текст:</b> {escape(h['proposal'])}</p>"
+            f"<p class='note'>Потолок эффекта в главном сегменте — +{_num(h['ceiling_pp'])} п.п., "
+            f"если причина отказа исчезнет полностью; проверка: {check}.</p>"
+        )
+    return "".join(blocks)
+
+
 def team_summary(record: dict) -> str:
     scenario = record["scenario"]
     mode = (
@@ -165,6 +187,7 @@ h2{{break-after:avoid}}table{{break-inside:avoid}}}}
 <p class="note">Выделены наибольшие доли в строке; статистическая значимость не проверялась.</p>
 <h2>Частые причины отказа</h2>{_objections(record)}
 <h2>Проверки качества</h2>{_checks(record)}
+<h2>Гипотезы: что поменять в предложении</h2>{_hypotheses(record)}
 <h2>План живой проверки</h2>{_plan(record)}
 <footer>Двойник · синтетическая аудитория для подготовки живых исследований. Доли — заявленная готовность
 синтетических персонажей, а не фактическое оформление продукта. Резюме сформировано из сохранённого снимка.</footer>

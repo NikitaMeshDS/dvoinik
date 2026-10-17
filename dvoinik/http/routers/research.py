@@ -6,18 +6,20 @@ import uuid
 
 from fastapi import APIRouter, Depends
 
+from ...engine import rewrite_offer
 from ...experiments import (
     CUSTOM_SCENARIO,
     load_experiment,
     normalize_population,
     normalize_scenario,
 )
+from ...hypotheses import suggest
 from ...insights import insights_payload
 from ...planning import run_estimate
 from ...population import SEGMENT_SOURCES, SEGMENTS, SOURCE_GAPS, allocate_population
 from ...runs import RunSettings
 from ...scenarios import SCENARIOS
-from ..models import Compare, Estimate, Import, Insights, Preview, Run
+from ..models import Compare, Estimate, Import, Insights, Preview, Rewrite, Run
 from ..runtime import get_runtime
 from ..security import identity
 
@@ -114,3 +116,19 @@ def estimate(body: Estimate, access=Depends(identity)):
     settings = RunSettings(n=body.n, concurrency=body.concurrency)
     scenario = normalize_scenario(body.scenario)
     return run_estimate(scenario, settings.n, concurrency=settings.concurrency)
+
+
+@router.post("/api/hypotheses/rewrite")
+def rewrite_hypothesis(body: Rewrite, access=Depends(identity), runtime=Depends(get_runtime)):
+    record = runtime.accessible(access[0], body.record_id)
+    if runtime.mode == "demo" or record.get("mock"):
+        raise ValueError("Переписать текст моделью можно для исследования, запущенного с LLM.")
+    found = next((h for h in suggest(record)["items"] if h["id"] == body.hypothesis_id), None)
+    if found is None:
+        raise ValueError("Гипотеза не найдена.")
+    try:
+        return {"id": found["id"], "proposal": rewrite_offer(record["scenario"], found), "method": "llm"}
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"Запрос к модели не выполнен ({type(exc).__name__}).") from exc

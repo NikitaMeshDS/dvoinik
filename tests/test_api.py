@@ -850,3 +850,45 @@ def test_team_summary_export_is_html_attachment(app):
     assert record["scenario"]["title"] in response.text
     bad = client.post("/api/export", json={"record_id": record["id"], "kind": "summary", "format": "json"})
     assert bad.status_code == 422
+
+
+def test_insights_include_hypotheses_and_rewrite_requires_llm_record(app, monkeypatch):
+    from dvoinik.http.routers import research
+    from dvoinik.hypotheses import suggest
+
+    client, foreign = login(app), login(app, "bob")
+    sample = client.get("/api/sample/senior_deposit").json()
+    data = client.post("/api/insights", json={"record_id": sample["id"], "segment": "all"}).json()
+    assert data["hypotheses"] == suggest(sample)
+    assert data["hypotheses"]["items"]
+    body = {"record_id": sample["id"], "hypothesis_id": "h1"}
+    refused = client.post("/api/hypotheses/rewrite", json=body)
+    assert refused.status_code == 422 and "LLM" in refused.json()["detail"]
+
+    llm_record = {**sample, "mock": False, "model": "qwen2.5:7b-instruct", "sample": False}
+    imported = client.post("/api/import", json={"content": json.dumps(llm_record)})
+    assert imported.status_code == 200, imported.text
+    rid = imported.json()["id"]
+    calls = []
+
+    def fake(scenario, hypothesis):
+        calls.append(hypothesis["id"])
+        return "Новый текст от модели."
+
+    monkeypatch.setattr(research, "rewrite_offer", fake)
+    ok = client.post("/api/hypotheses/rewrite", json={"record_id": rid, "hypothesis_id": "h1"})
+    assert ok.status_code == 200, ok.text
+    assert ok.json() == {"id": "h1", "proposal": "Новый текст от модели.", "method": "llm"}
+    missing = client.post("/api/hypotheses/rewrite", json={"record_id": rid, "hypothesis_id": "h99"})
+    assert missing.status_code == 422 and calls == ["h1"]
+    assert (
+        foreign.post("/api/hypotheses/rewrite", json={"record_id": rid, "hypothesis_id": "h1"}).status_code
+        == 404
+    )
+
+    def broken(scenario, hypothesis):
+        raise ConnectionError("offline")
+
+    monkeypatch.setattr(research, "rewrite_offer", broken)
+    failed = client.post("/api/hypotheses/rewrite", json={"record_id": rid, "hypothesis_id": "h1"})
+    assert failed.status_code == 422 and "не выполнен" in failed.json()["detail"]

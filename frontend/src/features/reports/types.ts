@@ -11,7 +11,30 @@ export type Insights = {
   stability: Stability | null;
   plan?: LivePlan;
   baseline?: BaselineAgreement | null;
+  hypotheses?: Hypotheses;
 };
+export type Hypothesis = {
+  id: string;
+  kind: "objection" | "segment_offer";
+  lever_id: string;
+  lever: string;
+  change: string;
+  variant: string;
+  alternative?: string;
+  segments: string[];
+  segment_names: string[];
+  objections: string[];
+  evidence: string[];
+  base_rate: number;
+  ceiling_pp: number;
+  audience_pp: number;
+  check_n: number | null;
+  base_text: string;
+  proposal: string;
+  removed: string[];
+  added: string[];
+};
+export type Hypotheses = { leader: string | null; items: Hypothesis[] };
 export type Stability = {
   leader: string;
   runner_up: string;
