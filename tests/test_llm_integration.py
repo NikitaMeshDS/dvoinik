@@ -187,6 +187,7 @@ def test_llm_check_reports_coverage_baseline_and_homogeneity(monkeypatch, tmp_pa
     assert "однородные ответы" in text
     assert "Простой подход" in text
     assert "Перефразировка" in text and "лидер тот же" in text and "иначе A" in text
+    assert "Названная вероятность, среднее: A 100% (разброс 0%)" in text
 
 
 def test_decision_follows_stated_probability_and_unknown_objection_is_kept(monkeypatch):

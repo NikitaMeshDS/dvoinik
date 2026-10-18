@@ -89,6 +89,10 @@ def format_result(result: dict) -> str:
         lines.append(f"Простой подход: ошибка — {baseline['error']}")
     if result["stability"]:
         lines.append(f"{result['stability']['label']}: {result['stability']['share']:.0%} повторных выборок")
+    stated = {v: r for v, r in result.get("probability", {}).items() if r}
+    if stated and not any(result.get("likert", {}).values()):
+        rows = ", ".join(f"{v} {r['mean']:.0%} (разброс {r['sd']:.0%})" for v, r in stated.items())
+        lines.append(f"Названная вероятность, среднее: {rows}")
     likert = {v: r for v, r in result.get("likert", {}).items() if r}
     if likert:
         rows = " · ".join(f"{v}: " + "/".join(f"{x:.0%}" for x in r) for v, r in likert.items())
