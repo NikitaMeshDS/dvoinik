@@ -64,6 +64,7 @@ def check(key: str, n: int, concurrency: int, seed: int, paraphrase: bool = Fals
         "coverage": valid / requested if requested else 0,
         "rates": {v: r["conversion"] for v, r in report.items() if r["n"]},
         "probability": {v: r.get("probability") for v, r in report.items()},
+        "inconsistent": {v: (r.get("inconsistent_n", 0), r["n"]) for v, r in report.items() if r.get("n")},
         "likert": {v: r.get("likert") for v, r in report.items()},
         "narrow": narrow,
         "baseline": agreement,
@@ -93,6 +94,10 @@ def format_result(result: dict) -> str:
     if stated and not any(result.get("likert", {}).values()):
         rows = ", ".join(f"{v} {r['mean']:.0%} (разброс {r['sd']:.0%})" for v, r in stated.items())
         lines.append(f"Названная вероятность, среднее: {rows}")
+        flips = {v: f for v, f in result.get("inconsistent", {}).items() if f[0]}
+        if flips:
+            text = ", ".join(f"{v} {k} из {n}" for v, (k, n) in flips.items())
+            lines.append(f"Вероятность противоречила решению (перевёрнута как уверенность): {text}")
     likert = {v: r for v, r in result.get("likert", {}).items() if r}
     if likert:
         rows = " · ".join(f"{v}: " + "/".join(f"{x:.0%}" for x in r) for v, r in likert.items())

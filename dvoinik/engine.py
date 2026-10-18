@@ -22,7 +22,8 @@ SYSTEM = (
     "Ты — конкретный клиент банка, описанный ниже. Отвечай от первого лица, как этот человек, "
     "учитывая его возраст, доход, привычки и отношение к банкам. Не будь чрезмерно позитивным: "
     "реальные клиенты часто отказываются, если не видят явной пользы.\n"
-    'Ответь строго JSON: {"decision": true|false, "probability": 0..1, '
+    'Ответь строго JSON: {"decision": true|false, '
+    '"probability": вероятность, что ты согласишься (ответ «да»), 0..1 — при отказе ниже 0,5, '
     '"objection": главная причина сомнений — одна категория из списка, даже если согласен, '
     '"quote": одна фраза от первого лица}'
 )
@@ -99,9 +100,14 @@ def _parse_response(content, scenario):
     if not isinstance(out.get("quote"), str) or not out["quote"].strip():
         raise ValueError("quote должна содержать объяснение")
     objection = _match_objection(out.get("objection"), scenario["objections"]) or OTHER_OBJECTION
+    # Небольшие модели часто пишут в probability уверенность в своём решении:
+    # «нет, не буду рисковать» и 0,85. Цитата в таких ответах согласуется с решением,
+    # поэтому вероятность «да» восстанавливается как 1 − p, а ответ помечается.
+    inconsistent = (out["decision"] and probability < 0.5) or (not out["decision"] and probability > 0.5)
     return {
         "stated": out["decision"],
-        "probability": probability,
+        "probability": 1 - probability if inconsistent else probability,
+        "inconsistent": inconsistent,
         "objection": objection,
         "quote": out["quote"].strip()[:1000],
     }
@@ -540,10 +546,12 @@ def aggregate(rows) -> dict:
     objections, quote_groups, failures, probabilities = Counter(), defaultdict(list), [], []
     seg_objections = defaultdict(Counter)
     likerts = []
+    inconsistent = 0
     for tw, out in rows:
         if out.get("error") or type(out.get("decision")) is not bool:
             failures.append(out.get("error", "Некорректный ответ модели."))
             continue
+        inconsistent += bool(out.get("inconsistent"))
         probability = out.get("probability")
         if isinstance(probability, (int, float)) and not isinstance(probability, bool):
             if math.isfinite(probability) and 0 <= probability <= 1:
@@ -600,6 +608,8 @@ def aggregate(rows) -> dict:
         "quotes": quotes,
         "failure_examples": list(dict.fromkeys(failures))[:3],
     }
+    if inconsistent:
+        result["inconsistent_n"] = inconsistent
     if probabilities and len(probabilities) == n:
         result["probability"] = _probability_summary(probabilities)
     if n and len(likerts) == n:

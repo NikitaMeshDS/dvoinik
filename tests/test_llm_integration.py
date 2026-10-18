@@ -196,9 +196,10 @@ def test_decision_follows_stated_probability_and_unknown_objection_is_kept(monke
     def respond(request):
         user = json.loads(request.content)["messages"][1]["content"]
         if "accept-offer" in user:
-            answer = {"decision": True, "probability": 0.3, "objection": None, "quote": "Пожалуй, да."}
+            answer = {"decision": False, "probability": 0.3, "objection": "плата", "quote": "Скорее нет."}
         else:
-            answer = {"decision": False, "probability": 0.0, "objection": "дорого и скучно", "quote": "Нет."}
+            # Уверенный отказ, записанный как «уверенность 0,9»: вероятность «да» — 0,1.
+            answer = {"decision": False, "probability": 0.9, "objection": "дорого и скучно", "quote": "Нет."}
         return httpx.Response(
             200,
             json={
@@ -232,12 +233,14 @@ def test_decision_follows_stated_probability_and_unknown_objection_is_kept(monke
         "objections": ["плата", "не доверяю"],
     }
     report = engine.simulate(build_population(200, {"student_msk": 1}), scenario)
-    # Все сказали «да», но с вероятностью 0,3: конверсия около 30%, а не 100%.
+    # Все сказали «нет», но с вероятностью «да» 0,3: конверсия около 30%, а не 0%.
     assert report["A"]["failed_n"] == 0 and 0.2 < report["A"]["conversion"] < 0.4
-    assert all(q["decision"] for q in report["A"]["quotes"])
+    assert not any(q["decision"] for q in report["A"]["quotes"]) and "inconsistent_n" not in report["A"]
     # Причина своими словами не теряет ответ, а попадает в «другое».
-    assert report["B"]["failed_n"] == 0 and report["B"]["conversion"] == 0
-    assert report["B"]["objections"] == {engine.OTHER_OBJECTION: 200}
+    # Противоречие решения и вероятности: вероятность перевёрнута, ответ помечен.
+    assert report["B"]["failed_n"] == 0 and report["B"]["conversion"] < 0.2
+    assert report["B"]["inconsistent_n"] == 200 and report["B"]["probability"]["mean"] == pytest.approx(0.1)
+    assert set(report["B"]["objections"]) == {engine.OTHER_OBJECTION}
     # Отчёт с причиной «другое» сохраняется и загружается.
     from dvoinik.experiments import load_experiment
     from dvoinik.reporting import make_record
@@ -245,4 +248,5 @@ def test_decision_follows_stated_probability_and_unknown_objection_is_kept(monke
     twins = build_population(200, {"student_msk": 1})
     full = {**scenario, "title": "Подписка", "population": {"student_msk": 1}}
     record = make_record("custom", full, 200, False, 0, report, twins)
-    assert load_experiment(json.dumps(record))["report"]["B"]["objections"] == {"другое": 200}
+    loaded = load_experiment(json.dumps(record))["report"]["B"]
+    assert set(loaded["objections"]) == {"другое"} and loaded["inconsistent_n"] == 200
