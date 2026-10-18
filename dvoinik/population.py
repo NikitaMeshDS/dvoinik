@@ -85,7 +85,7 @@ SEGMENT_SOURCES = {
         },
         {
             "fact": "24% людей старше 60 полностью самостоятельно пользуются мобильным банком; 54% не пользуются интернетом",
-            "use": "Поддерживает установки «предпочитает отделение» и «осторожен с новым».",
+            "use": "Атрибут «Цифровые навыки» распределён точно по этим долям: 24% / 22% / 54%.",
             "status": "ориентир",
             "source": "Опрос «ИнтерПенсионер», август 2025, более 1,5 тыс. человек 60+ из регионов с городами-миллионниками",
             "date": "октябрь 2025",
@@ -168,6 +168,39 @@ FIRST = [
 ]
 
 
+# Атрибуты с опубликованными долями: каждый двойник получает конкретное значение,
+# а не угадывает его по возрасту. Доли распределяются точно (наибольшие остатки).
+# Модели без этого атрибута почти всем пенсионерам приписывали смартфон: в бенчмарке
+# «пользуюсь интернетом» 93% против опубликованных 46%, а вклад «только в приложении»
+# получал ту же готовность, что и вклад в отделении.
+DIGITAL = {
+    "senior": [
+        ("сам пользуется мобильным приложением банка", 0.24),
+        ("пользуется интернетом, но в приложении банка — только с помощью родственников", 0.22),
+        ("интернетом не пользуется", 0.54),
+    ],
+}
+DIGITAL_SOURCE = {
+    "senior": (
+        "Опрос «ИнтерПенсионер», август 2025, 1,5 тыс. человек 60+: 24% полностью самостоятельно "
+        "пользуются мобильным банком, 54% не пользуются интернетом"
+    ),
+}
+
+
+def _shares(levels: list[tuple[str, float]], k: int, rng: random.Random) -> list[str]:
+    """k значений с долями как в источнике: целые части, остатки по величине, затем перемешивание."""
+    expected = [(text, k * share) for text, share in levels]
+    counts = {text: math.floor(value) for text, value in expected}
+    for text, value in sorted(expected, key=lambda item: item[1] - math.floor(item[1]), reverse=True)[
+        : k - sum(counts.values())
+    ]:
+        counts[text] += 1
+    values = [text for text, count in counts.items() for _ in range(count)]
+    rng.shuffle(values)
+    return values
+
+
 @dataclass
 class Twin:
     id: int
@@ -178,15 +211,20 @@ class Twin:
     income: str
     habits: list[str]
     attitude: str
+    digital: str | None = None
 
     def profile(self) -> str:
-        return (
+        text = (
             f"{self.name}, {self.age} лет, {self.region}. Доход: {self.income}. "
             f"Привычки: {', '.join(self.habits)}. Отношение к банкам: {self.attitude}."
         )
+        return text + (f" Цифровые навыки: {self.digital}." if self.digital else "")
 
     def to_dict(self):
-        return asdict(self)
+        data = asdict(self)
+        if data["digital"] is None:
+            del data["digital"]
+        return data
 
 
 def allocate_population(n: int, segments: dict[str, float]) -> dict[str, int]:
@@ -234,4 +272,10 @@ def build_population(n: int, segments: dict[str, float], seed: int = 42) -> list
                 attitude=rng.choice(s["attitude"]),
             )
         )
+    # Отдельный генератор: остальные поля профилей не меняются от добавления атрибута.
+    digital_rng = random.Random(f"{seed}:digital")
+    for sid, levels in DIGITAL.items():
+        members = [t for t in twins if t.segment == sid]
+        for twin, value in zip(members, _shares(levels, len(members), digital_rng), strict=True):
+            twin.digital = value
     return twins

@@ -87,6 +87,7 @@ export type Profile = {
   income: string;
   habits: string[];
   attitude: string;
+  digital?: string;
 };
 export type ValidationCell = {
   variant: string;

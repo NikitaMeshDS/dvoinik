@@ -53,6 +53,7 @@ export default function Audience({
                     ))}
                   </div>
                   <p className="help">{p.attitude}</p>
+                  {p.digital ? <p className="help">Цифровые навыки: {p.digital}</p> : null}
                 </article>
               ))}
             </div>

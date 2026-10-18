@@ -374,6 +374,8 @@ def load_experiment(source):
                 raise ValueError("Привычки профиля должны быть списком.")
             for habit in habits:
                 _text(habit, "Привычка", 500)
+            if profile.get("digital") is not None:
+                _text(profile["digital"], "Профиль: цифровые навыки", 500)
         baseline = record.get("baseline")
         if baseline is not None:
             _check_baseline(baseline, scenario["variants"])
