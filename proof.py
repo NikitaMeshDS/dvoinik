@@ -169,7 +169,9 @@ def main(argv=None):
             print(f"Рассуждения отключены полем {json.dumps(found, ensure_ascii=False)}.")
     latency = asyncio.run(_ping())
     requests = planned_requests(args.quick, bool(embed))
-    minutes = requests * latency / max(1, args.concurrency) / 60
+    # LM Studio обрабатывает запросы почти по одному, а промпты двойников длиннее пробного:
+    # на qwen3.5-9b реальный запрос шёл примерно втрое дольше пробного.
+    minutes = requests * latency * 3 / 60
     print(f"Один запрос: {latency:.1f} с · запросов около {requests} · ожидаемо {minutes:.0f} мин")
     if latency > 8:
         print(

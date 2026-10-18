@@ -13,7 +13,7 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from .engine import _interval
+from .engine import OTHER_OBJECTION, _interval
 from .population import SEGMENTS
 from .reporting import PROFILES_PER_SEGMENT
 from .validate import SurveyRates, compare
@@ -143,6 +143,7 @@ def _check_result(result, population, objections, requested):
     if not isinstance(result, dict):
         raise ValueError("Результат варианта должен быть объектом.")
     n = _integer(result.get("n"), "Валидных ответов", maximum=requested)
+    known = {*objections, OTHER_OBJECTION}
     yes = _integer(result.get("yes"), "Согласий", maximum=n)
     failed = _integer(result.get("failed_n"), "Ошибок", maximum=requested)
     if _integer(result.get("requested_n"), "Запрошено ответов") != requested or n + failed != requested:
@@ -166,7 +167,7 @@ def _check_result(result, population, objections, requested):
         segment["confidence_interval"] = _interval(syes, sn)
         seg_reasons = segment.get("objections")
         if seg_reasons is not None:
-            if not isinstance(seg_reasons, dict) or any(o not in objections for o in seg_reasons):
+            if not isinstance(seg_reasons, dict) or any(o not in known for o in seg_reasons):
                 raise ValueError("В сегменте есть неизвестная категория отказа.")
             for count in seg_reasons.values():
                 _integer(count, "Количество отказов в сегменте", maximum=sn)
@@ -175,7 +176,7 @@ def _check_result(result, population, objections, requested):
     if sum(s["n"] for s in segments.values()) != n or sum(s["yes"] for s in segments.values()) != yes:
         raise ValueError("Итоги сегментов не соответствуют итогам варианта.")
     reasons = result.get("objections")
-    if not isinstance(reasons, dict) or any(o not in objections for o in reasons):
+    if not isinstance(reasons, dict) or any(o not in known for o in reasons):
         raise ValueError("В отчёте есть неизвестная категория отказа.")
     for count in reasons.values():
         _integer(count, "Количество отказов", maximum=n)

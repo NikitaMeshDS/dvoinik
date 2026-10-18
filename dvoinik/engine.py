@@ -23,7 +23,8 @@ SYSTEM = (
     "учитывая его возраст, доход, привычки и отношение к банкам. Не будь чрезмерно позитивным: "
     "реальные клиенты часто отказываются, если не видят явной пользы.\n"
     'Ответь строго JSON: {"decision": true|false, "probability": 0..1, '
-    '"objection": одна категория из списка или null, "quote": одна фраза от первого лица}'
+    '"objection": главная причина сомнений — одна категория из списка, даже если согласен, '
+    '"quote": одна фраза от первого лица}'
 )
 
 
@@ -53,6 +54,10 @@ def _client():
         timeout=45,
         max_retries=2,
     )
+
+
+# Причина отказа не из списка категорий: названа своими словами или не названа.
+OTHER_OBJECTION = "другое"
 
 
 def _clean(text: str) -> str:
@@ -93,15 +98,24 @@ def _parse_response(content, scenario):
         raise ValueError("probability должна быть числом от 0 до 1")
     if not isinstance(out.get("quote"), str) or not out["quote"].strip():
         raise ValueError("quote должна содержать объяснение")
-    objection = _match_objection(out.get("objection"), scenario["objections"])
-    if not out["decision"] and objection is None:
-        raise ValueError("objection должна быть категорией из сценария")
+    objection = _match_objection(out.get("objection"), scenario["objections"]) or OTHER_OBJECTION
     return {
-        "decision": out["decision"],
+        "stated": out["decision"],
         "probability": probability,
-        "objection": None if out["decision"] else objection,
+        "objection": objection,
         "quote": out["quote"].strip()[:1000],
     }
+
+
+def _decide(parsed: dict, twin: Twin, variant_text: str) -> dict:
+    """Решение по названной вероятности, а не по ответу «да/нет».
+
+    Ответ «да/нет» сводит сегмент к одному мнению: на открытых данных средняя ошибка
+    двойников по ответу 32 п.п., по вероятности 21,5 п.п. (proof.py, qwen3.5-9b).
+    Жребий детерминирован: тот же профиль и текст дают то же решение.
+    """
+    decision = ssr.draw(parsed["probability"], twin.id, twin.segment, variant_text)
+    return {**parsed, "decision": decision, "objection": None if decision else parsed["objection"]}
 
 
 def _parse_ssr(content, scenario):
@@ -110,7 +124,7 @@ def _parse_ssr(content, scenario):
         raise ValueError("reaction должна содержать ответ клиента")
     objection = _match_objection(out.get("objection"), scenario["objections"])
     if objection is None:
-        raise ValueError("objection должна быть категорией из сценария")
+        objection = OTHER_OBJECTION
     return {"reaction": out["reaction"].strip()[:1000], "objection": objection}
 
 
@@ -132,7 +146,8 @@ async def _ask_llm(
     )
     system = SSR_SYSTEM if references is not None else SYSTEM
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
-    identity = model if references is None else f"{model}|ssr:{ssr.embed_model()}"
+    # «|draw»: решение по вероятности; старые записи кэша с решением модели не подходят.
+    identity = f"{model}|draw" if references is None else f"{model}|ssr:{ssr.embed_model()}"
     cache_key = llm_cache.key(identity, messages, 0.8)
     async with sem:
         # Check after waiting for capacity and outside the provider-error handler.
@@ -145,7 +160,7 @@ async def _ask_llm(
         try:
             content = await llm_json.chat_json(client, model, messages, 0.8)
             if references is None:
-                answer = _parse_response(content, scenario)
+                answer = _decide(_parse_response(content, scenario), twin, variant_text)
             else:
                 answer = await _rate_ssr(client, content, scenario, twin, variant_text, references)
             llm_cache.put(cache_key, answer)
@@ -541,12 +556,14 @@ def aggregate(rows) -> dict:
             objections[out["objection"]] += 1
             seg_objections[tw.segment][out["objection"]] += 1
         if out.get("quote"):
-            quote_groups[(tw.segment, out["decision"])].append(
+            # Цитату подписываем тем, что сказал двойник, а не жребием по вероятности.
+            said = out.get("stated", out["decision"])
+            quote_groups[(tw.segment, said)].append(
                 {
                     "who": f"{tw.name}, {tw.age}, {tw.region}",
                     "segment_id": tw.segment,
                     "segment": SEGMENTS[tw.segment]["name"],
-                    "decision": out["decision"],
+                    "decision": said,
                     "quote": out["quote"],
                 }
             )

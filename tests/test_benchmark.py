@@ -193,3 +193,18 @@ def test_benchmark_reports_stated_probability_next_to_yes_no(monkeypatch, tmp_pa
     header = next(line for line in text.splitlines() if line.startswith("| Факт"))
     separator = text.splitlines()[text.splitlines().index(header) + 1]
     assert separator.count("---") == header.count("|") - 1
+
+
+def test_paired_gap_shows_noise_on_few_facts_and_signal_on_consistent_ones():
+    def row(truth, twins, baseline):
+        return {"truth": truth, "twins": twins, "baseline": baseline, "used_for_profiles": False}
+
+    mixed = [row(0.5, 0.4, 0.6), row(0.5, 0.9, 0.5), row(0.2, 0.2, 0.5), row(0.7, 0.3, 0.7)]
+    gap = benchmark.paired_gap(mixed, "twins", "baseline")
+    assert gap["facts"] == 4 and gap["ci"][0] < 0 < gap["ci"][1]
+    better = [row(t, t + 0.01, t + 0.2) for t in (0.1, 0.3, 0.5, 0.7, 0.2, 0.4)]
+    gap = benchmark.paired_gap(better, "twins", "baseline")
+    assert gap["gap"] < 0 and gap["ci"][1] < 0
+    assert benchmark.paired_gap(better[:2], "twins", "baseline") is None
+    text = "\n".join(benchmark._gap_lines({"primary": "twins", "vs_baseline": gap, "facts": 6}))
+    assert "двойники точнее" in text and "бутстреп по 6 фактам" in text

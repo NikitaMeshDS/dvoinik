@@ -67,7 +67,7 @@ def test_extract_strips_reasoning_fences_and_chatter():
 
 
 def test_lm_studio_style_server_switches_to_text_once(monkeypatch):
-    answer = {"decision": False, "probability": 0.2, "objection": "Не доверяю", "quote": "Нет."}
+    answer = {"decision": False, "probability": 0.0, "objection": "Не доверяю", "quote": "Нет."}
     seen = lm_studio(monkeypatch, "<think>...</think>" + json.dumps(answer, ensure_ascii=False))
     report = engine.simulate(build_population(4, {"senior": 1}), SCENARIOS["senior_deposit"], concurrency=1)
     assert report["A"]["n"] == 4 and report["A"]["failed_n"] == 0

@@ -153,7 +153,7 @@ def test_llm_check_reports_coverage_baseline_and_homogeneity(monkeypatch, tmp_pa
             ]
             content = json.dumps({"rates": {v: 0.5 for v in variants if len(v) == 1}})
         else:
-            content = json.dumps({"decision": True, "probability": 0.6, "objection": None, "quote": "Да"})
+            content = json.dumps({"decision": True, "probability": 1.0, "objection": None, "quote": "Да"})
         return httpx.Response(
             200,
             json={
@@ -187,3 +187,61 @@ def test_llm_check_reports_coverage_baseline_and_homogeneity(monkeypatch, tmp_pa
     assert "однородные ответы" in text
     assert "Простой подход" in text
     assert "Перефразировка" in text and "лидер тот же" in text and "иначе A" in text
+
+
+def test_decision_follows_stated_probability_and_unknown_objection_is_kept(monkeypatch):
+    """Конверсия — по названной вероятности, цитата — по сказанному, причина «своими словами» — «другое»."""
+
+    def respond(request):
+        user = json.loads(request.content)["messages"][1]["content"]
+        if "accept-offer" in user:
+            answer = {"decision": True, "probability": 0.3, "objection": None, "quote": "Пожалуй, да."}
+        else:
+            answer = {"decision": False, "probability": 0.0, "objection": "дорого и скучно", "quote": "Нет."}
+        return httpx.Response(
+            200,
+            json={
+                "id": "t",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": json.dumps(answer, ensure_ascii=False)},
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        )
+
+    monkeypatch.setattr(
+        engine,
+        "_client",
+        lambda: AsyncOpenAI(
+            api_key="k",
+            base_url="http://local-test/v1",
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond)),
+        ),
+    )
+    scenario = {
+        "description": "Проверка",
+        "question": "Подключите?",
+        "variants": {"A": "accept-offer", "B": "decline-offer"},
+        "objections": ["плата", "не доверяю"],
+    }
+    report = engine.simulate(build_population(200, {"student_msk": 1}), scenario)
+    # Все сказали «да», но с вероятностью 0,3: конверсия около 30%, а не 100%.
+    assert report["A"]["failed_n"] == 0 and 0.2 < report["A"]["conversion"] < 0.4
+    assert all(q["decision"] for q in report["A"]["quotes"])
+    # Причина своими словами не теряет ответ, а попадает в «другое».
+    assert report["B"]["failed_n"] == 0 and report["B"]["conversion"] == 0
+    assert report["B"]["objections"] == {engine.OTHER_OBJECTION: 200}
+    # Отчёт с причиной «другое» сохраняется и загружается.
+    from dvoinik.experiments import load_experiment
+    from dvoinik.reporting import make_record
+
+    twins = build_population(200, {"student_msk": 1})
+    full = {**scenario, "title": "Подписка", "population": {"student_msk": 1}}
+    record = make_record("custom", full, 200, False, 0, report, twins)
+    assert load_experiment(json.dumps(record))["report"]["B"]["objections"] == {"другое": 200}

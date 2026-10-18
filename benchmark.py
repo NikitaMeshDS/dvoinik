@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import json
 import os
+import random
 import time
 from pathlib import Path
 
@@ -157,10 +158,38 @@ def _mae(rows: list[dict], key: str) -> float | None:
     return sum(errors) / len(errors) * 100 if errors else None
 
 
+def _primary(rows: list[dict]) -> str:
+    """Основная оценка двойников: названная вероятность, если она есть у всех фактов."""
+    return "twins_prob" if rows and all(r.get("twins_prob") is not None for r in rows) else "twins"
+
+
+def paired_gap(rows: list[dict], key: str, other: str, draws: int = 4000, seed: int = 7) -> dict | None:
+    """Разница средних ошибок (key минус other, п.п.) и 95% бутстреп-интервал по фактам.
+
+    Факты пересэмплируются с возвращением, пары ошибок сохраняются. Интервал, включающий 0,
+    значит: на таком числе фактов разница не отличима от шума.
+    """
+    pairs = [
+        abs(r[key] - r["truth"]) - abs(r[other] - r["truth"])
+        for r in rows
+        if r.get(key) is not None and r.get(other) is not None
+    ]
+    if len(pairs) < 3:
+        return None
+    rng = random.Random(seed)
+    means = sorted(sum(rng.choice(pairs) for _ in pairs) / len(pairs) for _ in range(draws))
+    low, high = means[int(0.025 * draws)], means[int(0.975 * draws) - 1]
+    return {"gap": sum(pairs) / len(pairs) * 100, "ci": [low * 100, high * 100], "facts": len(pairs)}
+
+
 def summarize(rows: list[dict]) -> dict:
     independent = [r for r in rows if not r["used_for_profiles"]]
     naive = [{**r, "naive": 0.5} for r in rows]
+    primary = _primary(rows)
     return {
+        "primary": primary,
+        "vs_baseline": paired_gap(rows, primary, "baseline"),
+        "vs_naive": paired_gap(naive, primary, "naive"),
         "twins_mae": _mae(rows, "twins"),
         "twins_prob_mae": _mae(rows, "twins_prob"),
         "baseline_mae": _mae(rows, "baseline"),
@@ -180,6 +209,33 @@ def _pp(value) -> str:
 
 def _pct(value) -> str:
     return "—" if value is None else f"{value * 100:.0f}%"
+
+
+def _gap_line(name: str, gap: dict | None) -> str | None:
+    if not gap:
+        return None
+    low, high = gap["ci"]
+    verdict = (
+        "интервал включает 0: разница не отличима от шума"
+        if low <= 0 <= high
+        else ("двойники точнее" if high < 0 else "двойники хуже")
+    )
+    fmt = lambda v: f"{v:+.1f}".replace(".", ",")  # noqa: E731
+    return f"- против {name}: {fmt(gap['gap'])} п.п., 95% интервал [{fmt(low)}; {fmt(high)}] — {verdict}."
+
+
+def _gap_lines(summary: dict) -> list[str]:
+    gaps = [("простого подхода", summary.get("vs_baseline")), ("наивных 50%", summary.get("vs_naive"))]
+    lines = [_gap_line(name, gap) for name, gap in gaps if gap]
+    if not lines:
+        return []
+    facts = next(gap["facts"] for _, gap in gaps if gap)
+    label = "по вероятности" if summary.get("primary") == "twins_prob" else "по ответам"
+    return [
+        f"Разница ошибок двойников ({label}), минус — двойники точнее; бутстреп по {facts} фактам:",
+        *lines,
+        "",
+    ]
 
 
 def format_report(rows: list[dict], summary: dict, model: str) -> str:
@@ -205,11 +261,12 @@ def format_report(rows: list[dict], summary: dict, model: str) -> str:
         "",
         f"Средняя ошибка: двойники {_pp(summary['twins_mae'])}"
         + (f", двойники по вероятности {_pp(summary['twins_prob_mae'])}" if prob else "")
-        + f", простой подход {_pp(summary['baseline_mae'])}, наивные 50% {_pp(summary['naive_mae'])}.",
+        + f", простой подход {_pp(summary['baseline_mae'])}, наивные 50% {_pp(summary['naive_mae'])}",
         f"Без фактов, использованных при составлении профилей: двойники {_pp(summary['independent_twins_mae'])}"
         + (f", по вероятности {_pp(summary['independent_twins_prob_mae'])}" if prob else "")
-        + f", простой подход {_pp(summary['independent_baseline_mae'])}.",
+        + f", простой подход {_pp(summary['independent_baseline_mae'])}",
         "",
+        *_gap_lines(summary),
         "\\* факт был ориентиром при составлении профиля сегмента, поэтому проверка по нему не независимая.",
         "Источники разных лет и методов: это ориентир для сравнения подходов, а не точность прогноза спроса.",
     ]
