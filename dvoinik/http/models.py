@@ -17,6 +17,12 @@ class Preview(Body):
     n: StrictInt
 
 
+class Estimate(Body):
+    scenario: dict
+    n: StrictInt
+    concurrency: StrictInt = 16
+
+
 class Run(Body):
     scenario_key: StrictStr
     scenario: dict
@@ -56,6 +62,11 @@ class RecordExport(Export):
 class Insights(Body):
     record_id: StrictStr
     segment: StrictStr = "all"
+
+
+class Rewrite(Body):
+    record_id: StrictStr
+    hypothesis_id: StrictStr
 
 
 class Active(Body):

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
-from .engine import simulate
+from .engine import baseline_estimate, simulate
 from .experiments import normalize_scenario
 from .population import build_population
 from .reporting import make_record
@@ -61,6 +61,38 @@ def run_experiment(
         guard=check_access,
     )
     check_access()
+    baseline = baseline_estimate(checked, mock=settings.mock)
+    check_access()
     return make_record(
-        key, checked, settings.n, settings.mock, settings.seed, report, twins, time.perf_counter() - started
+        key,
+        checked,
+        settings.n,
+        settings.mock,
+        settings.seed,
+        report,
+        twins,
+        time.perf_counter() - started,
+        baseline=baseline,
     )
+
+
+def seed_robustness(key: str, scenario: dict, settings: RunSettings, repeats: int) -> dict:
+    """Повторяет запуск с соседними seed: другая выборка профилей и ответов.
+
+    Показывает, насколько лидер зависит от случайной популяции. Формулировки,
+    модель и состав сегментов не меняются; точность прогноза людей не проверяется.
+    """
+    if type(repeats) is not int or not 2 <= repeats <= 20:
+        raise ValueError("Повторов: нужно целое число от 2 до 20.")
+    leaders: dict[str, int] = {}
+    runs = []
+    for offset in range(repeats):
+        seed = (settings.seed + offset) % 1_000_000
+        record = run_experiment(key, scenario, replace(settings, seed=seed))
+        rates = {v: r["conversion"] for v, r in record["report"].items() if r["n"]}
+        best = max(rates.values()) if rates else None
+        top = sorted(v for v, rate in rates.items() if rate == best)
+        label = "=".join(top) if top else "—"
+        leaders[label] = leaders.get(label, 0) + 1
+        runs.append({"seed": seed, "leaders": top, "rates": rates})
+    return {"repeats": repeats, "leaders": leaders, "runs": runs}

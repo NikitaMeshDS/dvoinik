@@ -32,7 +32,7 @@ export default function ResponsePreview({
           >
             <span>
               <b>{id}</b>
-              <small>{percent(rate, 0)}</small>
+              <small>{percent(rate)}</small>
             </span>
             <span className="response-mini-track">
               <i

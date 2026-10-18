@@ -2,7 +2,7 @@ import { useState } from "react";
 import { download } from "../../api";
 import { Notice, Button } from "../../components";
 import type { Catalog, Experiment } from "../../types";
-import type { ExportAction } from "./types";
+import type { ExportAction, Hypothesis } from "./types";
 import { useInsights } from "./useInsights";
 import ReportHeader from "./ReportHeader";
 import ReportTabs, { type ReportTab } from "./ReportTabs";
@@ -10,11 +10,24 @@ import Overview from "./Overview";
 import Audience from "./Audience";
 import Voices from "./Voices";
 import ValidationPanel from "./ValidationPanel";
+import Hypotheses from "./Hypotheses";
+import OriginBanner from "./OriginBanner";
+function leaderOf(record: Experiment) {
+  const entries = Object.entries(record.report).filter(([, r]) => r.n);
+  if (!entries.length) return Object.keys(record.report)[0];
+  return entries.reduce((best, item) =>
+    (item[1].conversion ?? 0) > (best[1].conversion ?? 0) ? item : best,
+  )[0];
+}
 export default function ReportPage({
   record,
   catalog,
   onBack,
   onReuse,
+  onTestHypothesis,
+  onOpenRecord,
+  onCompareWith,
+  related = [],
   onUpdated,
   onCompare,
   onError,
@@ -25,6 +38,10 @@ export default function ReportPage({
   catalog: Catalog;
   onBack: () => void;
   onReuse: () => void;
+  onTestHypothesis?: (hypothesis: Hypothesis, proposal: string) => void;
+  onOpenRecord?: (id: string) => void;
+  onCompareWith?: (id: string) => void;
+  related?: Experiment[];
   onUpdated: (record: Experiment) => void;
   onCompare: () => void;
   onError: (error: unknown) => void;
@@ -33,7 +50,7 @@ export default function ReportPage({
 }) {
   const [tab, setTab] = useState<ReportTab>("overview"),
     [segment, setSegment] = useState("all"),
-    [variant, setVariant] = useState(Object.keys(record.report)[0]),
+    [variant, setVariant] = useState(() => leaderOf(record)),
     [decision, setDecision] = useState("all");
   const insights = useInsights(record, segment);
   const exportFile: ExportAction = (format, kind = "record", preview_id) => {
@@ -66,6 +83,13 @@ export default function ReportPage({
           </div>
         </Notice>
       )}
+      <OriginBanner
+        record={record}
+        stability={insights.base?.stability}
+        plan={insights.base?.plan}
+        onOpen={onOpenRecord}
+        onCompare={onCompareWith}
+      />
       <ReportTabs tab={tab} setTab={setTab} />
       <section
         role="tabpanel"
@@ -81,6 +105,11 @@ export default function ReportPage({
             setSegment={setSegment}
             variant={variant}
             setVariant={setVariant}
+            baseline={insights.base?.baseline}
+            plan={insights.base?.plan}
+            onPlan={() => setTab("validation")}
+            hypothesisCount={insights.base?.hypotheses?.items.length}
+            onHypotheses={() => setTab("hypotheses")}
           />
         )}
         {tab === "people" && <Audience record={record} catalog={catalog} />}
@@ -96,12 +125,24 @@ export default function ReportPage({
             setDecision={setDecision}
           />
         )}
+        {tab === "hypotheses" && (
+          <Hypotheses
+            record={record}
+            data={insights.base?.hypotheses}
+            onTest={onTestHypothesis}
+            checks={related.filter(
+              (r) => r.scenario.origin?.record_id === record.id,
+            )}
+            onOpen={onOpenRecord}
+          />
+        )}
         <div hidden={tab !== "validation"}>
           <ValidationPanel
             record={record}
             catalog={catalog}
             onUpdated={onUpdated}
             onExport={exportFile}
+            plan={insights.base?.plan}
           />
         </div>
       </section>

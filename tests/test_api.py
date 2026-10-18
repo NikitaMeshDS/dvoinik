@@ -114,6 +114,8 @@ def test_catalog_and_population_are_server_validated(app):
     client = login(app)
     catalog = client.get("/api/catalog").json()
     assert set(catalog["scenarios"]) == set(SCENARIOS) | {"custom"}
+    assert set(catalog["sources"]["segments"]) <= set(catalog["segments"])
+    assert catalog["sources"]["gaps"]
     preview = client.post("/api/preview", json={"n": 7, "population": {"student_msk": 1, "student_reg": 2}})
     assert sum(preview.json()["counts"].values()) == 7
     assert preview.json()["shares"]["student_reg"] == pytest.approx(2 / 3)
@@ -373,7 +375,10 @@ def test_insights_use_server_segment_metrics_and_owner_access(app):
     data = response.json()
     assert data["report"] == segment_report(record, sid)
     assert data["quality"]["kind"] == "demo"
-    assert all(not variant["objections"] for variant in data["report"].values())
+    assert all(
+        variant["objections"] == record["report"][vid]["segments"].get(sid, {}).get("objections", {})
+        for vid, variant in data["report"].items()
+    )
     assert (
         client.post("/api/insights", json={"record_id": record["id"], "segment": "all"}).json()["report"]
         == record["report"]
@@ -810,3 +815,116 @@ def test_app_factories_keep_session_caches_secrets_and_job_owners_independent(ap
     finally:
         release.set()
         other_app.state.jobs.close()
+
+
+def test_insights_include_plan_stability_and_baseline_agreement(app):
+    client = login(app)
+    record = run(client)["record"]
+    data = client.post("/api/insights", json={"record_id": record["id"], "segment": "all"}).json()
+    assert data["plan"]["questions"] and data["plan"]["exploratory_n"] == 30
+    assert data["stability"]["leader"] in record["report"]
+    assert data["baseline"]["method"] == "demo_rule"
+    sid = next(iter(record["scenario"]["population"]))
+    focused = client.post("/api/insights", json={"record_id": record["id"], "segment": sid}).json()
+    assert "plan" not in focused and "stability" in focused
+
+
+def test_estimate_validates_scenario_and_counts_requests(app):
+    client = login(app)
+    response = client.post("/api/estimate", json={"scenario": SCENARIOS[KEY], "n": 100, "concurrency": 8})
+    assert response.status_code == 200, response.text
+    assert response.json()["requests"] == 100 * len(SCENARIOS[KEY]["variants"]) + 1
+    bad = client.post("/api/estimate", json={"scenario": {"title": ""}, "n": 100})
+    assert bad.status_code == 422
+    assert client.post("/api/estimate", json={"scenario": SCENARIOS[KEY], "n": 0}).status_code == 422
+
+
+def test_team_summary_export_is_html_attachment(app):
+    client = login(app)
+    record = run(client)["record"]
+    link = client.post("/api/export", json={"record_id": record["id"], "kind": "summary", "format": "html"})
+    assert link.status_code == 200, link.text
+    response = client.get(link.json()["url"])
+    assert response.headers["content-type"].startswith("text/html")
+    assert "attachment" in response.headers["content-disposition"]
+    assert record["scenario"]["title"] in response.text
+    bad = client.post("/api/export", json={"record_id": record["id"], "kind": "summary", "format": "json"})
+    assert bad.status_code == 422
+
+
+def test_insights_include_hypotheses_and_rewrite_requires_llm_record(app, monkeypatch):
+    from dvoinik.http.routers import research
+    from dvoinik.hypotheses import suggest
+
+    client, foreign = login(app), login(app, "bob")
+    sample = client.get("/api/sample/senior_deposit").json()
+    data = client.post("/api/insights", json={"record_id": sample["id"], "segment": "all"}).json()
+    assert data["hypotheses"] == suggest(sample)
+    assert data["hypotheses"]["items"]
+    body = {"record_id": sample["id"], "hypothesis_id": "h1"}
+    refused = client.post("/api/hypotheses/rewrite", json=body)
+    assert refused.status_code == 422 and "LLM" in refused.json()["detail"]
+
+    llm_record = {**sample, "mock": False, "model": "qwen2.5:7b-instruct", "sample": False}
+    imported = client.post("/api/import", json={"content": json.dumps(llm_record)})
+    assert imported.status_code == 200, imported.text
+    rid = imported.json()["id"]
+    calls = []
+
+    def fake(scenario, hypothesis):
+        calls.append(hypothesis["id"])
+        return "Новый текст от модели."
+
+    monkeypatch.setattr(research, "rewrite_offer", fake)
+    ok = client.post("/api/hypotheses/rewrite", json={"record_id": rid, "hypothesis_id": "h1"})
+    assert ok.status_code == 200, ok.text
+    assert ok.json() == {"id": "h1", "proposal": "Новый текст от модели.", "method": "llm"}
+    missing = client.post("/api/hypotheses/rewrite", json={"record_id": rid, "hypothesis_id": "h99"})
+    assert missing.status_code == 422 and calls == ["h1"]
+    assert (
+        foreign.post("/api/hypotheses/rewrite", json={"record_id": rid, "hypothesis_id": "h1"}).status_code
+        == 404
+    )
+
+    def broken(scenario, hypothesis):
+        raise ConnectionError("offline")
+
+    monkeypatch.setattr(research, "rewrite_offer", broken)
+    failed = client.post("/api/hypotheses/rewrite", json={"record_id": rid, "hypothesis_id": "h1"})
+    assert failed.status_code == 422 and "не выполнен" in failed.json()["detail"]
+
+
+def test_runs_keep_their_source_study_for_iterations_and_hypotheses(app):
+    from dvoinik.reporting import signature
+
+    client = login(app)
+    parent = run(client)["record"]
+    origin = {
+        "kind": "hypothesis",
+        "record_id": parent["id"],
+        "title": parent["scenario"]["title"],
+        "lever": "Цена",
+        "change": "Убрать абонентскую плату",
+        "variant": "A",
+    }
+    scenario = {**SCENARIOS[KEY], "origin": origin}
+    child = completed(client, start(client, scenario_key="custom", scenario=scenario).json()["id"])["record"]
+    assert child["scenario"]["origin"] == origin
+    assert child["signature"] == signature(SCENARIOS[KEY], 10, True, 42)
+    stored = client.get(f"/api/experiments/{child['id']}").json()
+    assert stored["scenario"]["origin"] == origin
+    reimported = client.post("/api/import", json={"content": json.dumps(stored)})
+    assert reimported.status_code == 200 and reimported.json()["scenario"]["origin"] == origin
+    for bad in [
+        {**origin, "kind": "copy"},
+        {**origin, "record_id": "../x"},
+        {**origin, "extra": 1},
+        {"kind": "hypothesis", "record_id": "abc", "title": "t"},
+        "abc",
+    ]:
+        response = start(client, scenario_key="custom", scenario={**SCENARIOS[KEY], "origin": bad})
+        assert response.status_code == 422, bad
+    iteration = {"kind": "iteration", "record_id": parent["id"], "title": "Исходное"}
+    ok = start(client, scenario_key="custom", scenario={**SCENARIOS[KEY], "origin": iteration})
+    assert ok.status_code == 202
+    completed(client, ok.json()["id"])

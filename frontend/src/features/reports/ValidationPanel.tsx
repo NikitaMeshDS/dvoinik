@@ -6,12 +6,16 @@ import type { Catalog, Experiment, Validation } from "../../types";
 import type { ExportAction } from "./types";
 import ValidationMetrics from "./ValidationMetrics";
 import SurveyPreparation from "./SurveyPreparation";
+import LivePlan from "./LivePlan";
+import type { LivePlan as Plan } from "./types";
 export default function ValidationPanel({
   record,
   catalog,
   onUpdated,
   onExport,
+  plan,
 }: {
+  plan?: Plan;
   record: Experiment;
   catalog: Catalog;
   onUpdated: (r: Experiment) => void;
@@ -65,6 +69,7 @@ export default function ValidationPanel({
   };
   return (
     <>
+      <LivePlan plan={plan} mock={record.mock} />
       <SurveyPreparation record={record} catalog={catalog} />
       <section
         className="survey-results"
@@ -73,7 +78,7 @@ export default function ValidationPanel({
         <div className="section-heading">
           <h2>
             <span className="validation-step" aria-hidden="true">
-              2
+              3
             </span>{" "}
             Сопоставьте ответы
           </h2>
@@ -109,7 +114,11 @@ export default function ValidationPanel({
             {filename || "Выберите CSV опроса"}
           </strong>
           <span id={uploadId + "-hint"}>UTF-8 · до 5 МБ</span>
+          <span className="upload-button" aria-hidden="true">
+            Выбрать файл
+          </span>
           <input
+            className="visually-hidden"
             type="file"
             accept=".csv,text/csv"
             aria-label="CSV живого опроса"

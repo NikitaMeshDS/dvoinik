@@ -45,7 +45,7 @@ export default function SurveyPreparation({
         <div>
           <h2>
             <span className="validation-step" aria-hidden="true">
-              1
+              2
             </span>{" "}
             Подготовьте живой опрос
           </h2>
