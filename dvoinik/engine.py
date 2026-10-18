@@ -547,6 +547,7 @@ def aggregate(rows) -> dict:
     seg_objections = defaultdict(Counter)
     likerts = []
     inconsistent = 0
+    by_digital = defaultdict(list)
     for tw, out in rows:
         if out.get("error") or type(out.get("decision")) is not bool:
             failures.append(out.get("error", "Некорректный ответ модели."))
@@ -558,6 +559,8 @@ def aggregate(rows) -> dict:
                 probabilities.append(float(probability))
         by_seg[tw.segment][0] += 1
         by_seg[tw.segment][1] += int(out["decision"])
+        if getattr(tw, "digital", None) and isinstance(out.get("probability"), (int, float)):
+            by_digital[tw.digital].append(float(out["probability"]))
         if isinstance(out.get("likert"), list) and len(out["likert"]) == ssr.POINTS:
             likerts.append(out["likert"])
         if not out["decision"] and out.get("objection"):
@@ -610,6 +613,12 @@ def aggregate(rows) -> dict:
     }
     if inconsistent:
         result["inconsistent_n"] = inconsistent
+    if by_digital:
+        # Проверка, что двойники учитывают атрибут: средняя вероятность «да» по уровню цифровых навыков.
+        result["by_digital"] = {
+            level: {"n": len(values), "mean": round(sum(values) / len(values), 4)}
+            for level, values in by_digital.items()
+        }
     if probabilities and len(probabilities) == n:
         result["probability"] = _probability_summary(probabilities)
     if n and len(likerts) == n:

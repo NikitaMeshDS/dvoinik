@@ -66,6 +66,8 @@ def check(key: str, n: int, concurrency: int, seed: int, paraphrase: bool = Fals
         "probability": {v: r.get("probability") for v, r in report.items()},
         "inconsistent": {v: (r.get("inconsistent_n", 0), r["n"]) for v, r in report.items() if r.get("n")},
         "likert": {v: r.get("likert") for v, r in report.items()},
+        "by_digital": {v: r["by_digital"] for v, r in report.items() if r.get("by_digital")},
+        "objections": {v: r.get("objections", {}) for v, r in report.items()},
         "narrow": narrow,
         "baseline": agreement,
         "stability": stability,
@@ -98,6 +100,20 @@ def format_result(result: dict) -> str:
         if flips:
             text = ", ".join(f"{v} {k} из {n}" for v, (k, n) in flips.items())
             lines.append(f"Вероятность противоречила решению (перевёрнута как уверенность): {text}")
+    digital = result.get("by_digital") or {}
+    if digital:
+        levels = list(dict.fromkeys(level for d in digital.values() for level in d))
+        lines.append("Вероятность «да» по цифровым навыкам:")
+        for level in levels:
+            cells = ", ".join(f"{v} {d[level]['mean']:.0%}" for v, d in digital.items() if level in d)
+            n = max(d[level]["n"] for d in digital.values() if level in d)
+            lines.append(f"  {level} (n≈{n}): {cells}")
+    reasons = {v: r for v, r in result.get("objections", {}).items() if r}
+    if reasons:
+        top = " · ".join(
+            f"{v}: " + ", ".join(f"{o} {c}" for o, c in list(r.items())[:2]) for v, r in reasons.items()
+        )
+        lines.append(f"Главные причины отказа: {top}")
     likert = {v: r for v, r in result.get("likert", {}).items() if r}
     if likert:
         rows = " · ".join(f"{v}: " + "/".join(f"{x:.0%}" for x in r) for v, r in likert.items())
