@@ -208,3 +208,23 @@ def test_paired_gap_shows_noise_on_few_facts_and_signal_on_consistent_ones():
     assert benchmark.paired_gap(better[:2], "twins", "baseline") is None
     text = "\n".join(benchmark._gap_lines({"primary": "twins", "vs_baseline": gap, "facts": 6}))
     assert "двойники точнее" in text and "бутстреп по 6 фактам" in text
+
+
+def test_benchmark_reads_confidence_as_yes_probability(monkeypatch, tmp_path):
+    # «Да» с 0,3 для младших — уверенность, а не вероятность: читается как 0,7.
+    fake(monkeypatch, stated=True)
+    out = tmp_path / "flip.md"
+    benchmark.main(["--n", "5", "--output", str(out)])
+    text = out.read_text(encoding="utf-8")
+    row = next(
+        line for line in text.splitlines() if line.startswith("| [") and "личная банковская карта" in line
+    )
+    assert [c.strip() for c in row.split("|")[2:5]][1:] == ["100%", "70%"]
+    assert "прочитана как уверенность" in text
+
+
+def test_yes_probability_from_keeps_consistent_answers():
+    assert engine.yes_probability_from(True, 0.8) == (0.8, False)
+    assert engine.yes_probability_from(False, 0.2) == (0.2, False)
+    assert engine.yes_probability_from(False, 0.9) == (pytest.approx(0.1), True)
+    assert engine.yes_probability_from(True, 0.5) == (0.5, False)

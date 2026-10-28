@@ -29,7 +29,8 @@ FACTS = Path(__file__).with_name("benchmarks") / "open_facts.json"
 FACT_SYSTEM = (
     "Ты — конкретный человек, описанный ниже. Отвечай на вопрос анкеты честно, как ответил бы он, "
     "учитывая возраст, доход, привычки и отношение к банкам.\n"
-    'Ответь строго JSON: {"answer": true|false, "probability": вероятность, что такой человек ответит «да», 0..1}'
+    'Ответь строго JSON: {"answer": true|false, '
+    '"probability": вероятность ответа «да» от 0 до 1, где 0 — точно нет, 1 — точно да}'
 )
 FACT_SSR_SYSTEM = (
     "Ты — конкретный человек, описанный ниже. Ответь на вопрос анкеты одной короткой фразой "
@@ -94,7 +95,12 @@ async def _twin_answer(client, sem, twin, question: str, references=None):
             answer = out.get("answer") if isinstance(out, dict) else None
             if not isinstance(answer, bool):
                 return None
-            return float(answer), _probability(out.get("probability"))
+            stated = _probability(out.get("probability"))
+            if stated is None:
+                return float(answer), None, False
+            # Модели часто пишут уверенность в ответе вместо вероятности «да»: «нет» и 0,94.
+            yes, flipped = engine.yes_probability_from(answer, stated)
+            return float(answer), yes, flipped
         out = await _chat(client, sem, FACT_SSR_SYSTEM, user, 0.8)
         reply = out.get("reply") if isinstance(out, dict) else None
         if not isinstance(reply, str) or not reply.strip():
@@ -103,7 +109,7 @@ async def _twin_answer(client, sem, twin, question: str, references=None):
         refs = await references.get(client, model)
         async with sem:
             (vector,) = await ssr.embed(client, model, [reply.strip()])
-        return ssr.top_two(ssr.pmf(vector, refs)), None
+        return ssr.top_two(ssr.pmf(vector, refs)), None, False
     except Exception:
         return None
 
@@ -131,8 +137,9 @@ async def _run(facts: list[dict], n: int, concurrency: int, seed: int, use_ssr: 
             )
             valid = [a for a in answers if a is not None]
             baseline = await _baseline(client, sem, fact)
-            twins_share = sum(a for a, _ in valid) / len(valid) if valid else None
-            stated = [p for _, p in valid if p is not None]
+            twins_share = sum(a for a, _, _ in valid) / len(valid) if valid else None
+            stated = [p for _, p, _ in valid if p is not None]
+            flipped = sum(f for _, _, f in valid)
             # Средняя названная вероятность: учитывает неуверенность, которую ответ «да/нет» теряет.
             twins_prob = sum(stated) / len(stated) if valid and len(stated) == len(valid) else None
             rows.append(
@@ -142,6 +149,7 @@ async def _run(facts: list[dict], n: int, concurrency: int, seed: int, use_ssr: 
                     "truth": fact["share"],
                     "twins": twins_share,
                     "twins_prob": twins_prob,
+                    "flipped": flipped,
                     "baseline": baseline,
                     "valid": len(valid),
                     "requested": len(twins),
@@ -187,6 +195,7 @@ def summarize(rows: list[dict]) -> dict:
     naive = [{**r, "naive": 0.5} for r in rows]
     primary = _primary(rows)
     return {
+        "flipped": sum(r.get("flipped", 0) for r in rows),
         "primary": primary,
         "vs_baseline": paired_gap(rows, primary, "baseline"),
         "vs_naive": paired_gap(naive, primary, "naive"),
@@ -246,7 +255,12 @@ def format_report(rows: list[dict], summary: dict, model: str) -> str:
         f"# Бенчмарк на открытых данных · {model}",
         "",
         f"Фактов: {summary['facts']}, из них независимых от профилей: {summary['independent']}. "
-        f"Покрытие ответов: {summary['coverage']:.0%}.",
+        f"Покрытие ответов: {summary['coverage']:.0%}."
+        + (
+            f" Вероятность противоречила ответу и прочитана как уверенность: {summary['flipped']} ответов."
+            if summary.get("flipped")
+            else ""
+        ),
         "",
         head,
         "|" + " --- |" * (head.count("|") - 1),

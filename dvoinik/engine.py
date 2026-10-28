@@ -23,7 +23,7 @@ SYSTEM = (
     "учитывая его возраст, доход, привычки и отношение к банкам. Не будь чрезмерно позитивным: "
     "реальные клиенты часто отказываются, если не видят явной пользы.\n"
     'Ответь строго JSON: {"decision": true|false, '
-    '"probability": вероятность, что ты согласишься (ответ «да»), 0..1 — при отказе ниже 0,5, '
+    '"probability": вероятность согласия от 0 до 1, где 0 — точно нет, 1 — точно да, '
     '"objection": главная причина сомнений — одна категория из списка, даже если согласен, '
     '"quote": одна фраза от первого лица}'
 )
@@ -103,14 +103,24 @@ def _parse_response(content, scenario):
     # Небольшие модели часто пишут в probability уверенность в своём решении:
     # «нет, не буду рисковать» и 0,85. Цитата в таких ответах согласуется с решением,
     # поэтому вероятность «да» восстанавливается как 1 − p, а ответ помечается.
-    inconsistent = (out["decision"] and probability < 0.5) or (not out["decision"] and probability > 0.5)
+    yes_probability, inconsistent = yes_probability_from(out["decision"], probability)
     return {
         "stated": out["decision"],
-        "probability": 1 - probability if inconsistent else probability,
+        "probability": yes_probability,
         "inconsistent": inconsistent,
         "objection": objection,
         "quote": out["quote"].strip()[:1000],
     }
+
+
+def yes_probability_from(decision: bool, probability: float) -> tuple[float, bool]:
+    """Вероятность «да» и признак, что модель написала вместо неё уверенность в решении.
+
+    «Нет» с 0,85 читается как уверенный отказ (вероятность «да» 0,15): у qwen3.5-9b и
+    qwen3-30b-a3b цитаты и ответы в таких случаях согласуются с решением, а не с числом.
+    """
+    inconsistent = (decision and probability < 0.5) or (not decision and probability > 0.5)
+    return (1 - probability if inconsistent else probability), inconsistent
 
 
 def _decide(parsed: dict, twin: Twin, variant_text: str) -> dict:
