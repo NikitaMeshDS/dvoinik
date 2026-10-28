@@ -49,3 +49,10 @@ it("renders without catalog sources", () => {
   render(<Methodology />);
   expect(screen.queryByText("С чем сверены сегменты")).toBeNull();
 });
+
+it("shows measured results with limits", () => {
+  render(<Methodology />);
+  expect(screen.getByText("Что показали замеры")).toBeTruthy();
+  expect(screen.getByText("qwen3-30b-a3b, SSR")).toBeTruthy();
+  expect(screen.getByText(/Доли рынка двойники не прогнозируют/)).toBeTruthy();
+});
