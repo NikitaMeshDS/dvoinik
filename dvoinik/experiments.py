@@ -376,6 +376,13 @@ def load_experiment(source):
                 _text(habit, "Привычка", 500)
             if profile.get("digital") is not None:
                 _text(profile["digital"], "Профиль: цифровые навыки", 500)
+            traits = profile.get("traits")
+            if traits is not None:
+                if not isinstance(traits, dict) or len(traits) > 10:
+                    raise ValueError("Атрибуты профиля должны быть словарём.")
+                for label, value in traits.items():
+                    _text(label, "Атрибут профиля", 100)
+                    _text(value, "Значение атрибута", 500)
         baseline = record.get("baseline")
         if baseline is not None:
             _check_baseline(baseline, scenario["variants"])

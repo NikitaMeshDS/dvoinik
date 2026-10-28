@@ -88,6 +88,7 @@ export type Profile = {
   habits: string[];
   attitude: string;
   digital?: string;
+  traits?: Record<string, string>;
 };
 export type ValidationCell = {
   variant: string;

@@ -53,7 +53,13 @@ export default function Audience({
                     ))}
                   </div>
                   <p className="help">{p.attitude}</p>
-                  {p.digital ? <p className="help">Цифровые навыки: {p.digital}</p> : null}
+                  {Object.entries(p.traits ?? (p.digital ? { "Цифровые навыки": p.digital } : {})).map(
+                    ([label, value]) => (
+                      <p key={label} className="help">
+                        {label}: {value}
+                      </p>
+                    ),
+                  )}
                 </article>
               ))}
             </div>

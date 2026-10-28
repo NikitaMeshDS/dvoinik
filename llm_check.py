@@ -66,7 +66,7 @@ def check(key: str, n: int, concurrency: int, seed: int, paraphrase: bool = Fals
         "probability": {v: r.get("probability") for v, r in report.items()},
         "inconsistent": {v: (r.get("inconsistent_n", 0), r["n"]) for v, r in report.items() if r.get("n")},
         "likert": {v: r.get("likert") for v, r in report.items()},
-        "by_digital": {v: r["by_digital"] for v, r in report.items() if r.get("by_digital")},
+        "by_trait": {v: r["by_trait"] for v, r in report.items() if r.get("by_trait")},
         "objections": {v: r.get("objections", {}) for v, r in report.items()},
         "narrow": narrow,
         "baseline": agreement,
@@ -100,10 +100,10 @@ def format_result(result: dict) -> str:
         if flips:
             text = ", ".join(f"{v} {k} из {n}" for v, (k, n) in flips.items())
             lines.append(f"Вероятность противоречила решению (перевёрнута как уверенность): {text}")
-    digital = result.get("by_digital") or {}
+    digital = result.get("by_trait") or {}
     if digital:
         levels = list(dict.fromkeys(level for d in digital.values() for level in d))
-        lines.append("Вероятность «да» по цифровым навыкам:")
+        lines.append("Вероятность «да» по атрибутам профиля:")
         for level in levels:
             cells = ", ".join(f"{v} {d[level]['mean']:.0%}" for v, d in digital.items() if level in d)
             n = max(d[level]["n"] for d in digital.values() if level in d)

@@ -20,9 +20,9 @@ def test_sources_reference_known_segments_with_full_citations():
 def test_gaps_name_every_segment_without_sources():
     missing = [SEGMENTS[s]["name"] for s in SEGMENTS if s not in SEGMENT_SOURCES]
     assert missing, "если источники есть для всех сегментов, обновите SOURCE_GAPS"
-    for keyword in ["студентов Москвы", "регионов", "молодых семей"]:
+    for keyword in ["молодых семей", "студентов"]:
         assert keyword in SOURCE_GAPS
-    assert {"student_msk", "student_reg", "young_family"} == set(SEGMENTS) - set(SEGMENT_SOURCES)
+    assert {"young_family"} == set(SEGMENTS) - set(SEGMENT_SOURCES)
 
 
 def test_consistent_income_claims_match_profiles():

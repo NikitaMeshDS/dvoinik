@@ -569,8 +569,9 @@ def aggregate(rows) -> dict:
                 probabilities.append(float(probability))
         by_seg[tw.segment][0] += 1
         by_seg[tw.segment][1] += int(out["decision"])
-        if getattr(tw, "digital", None) and isinstance(out.get("probability"), (int, float)):
-            by_digital[tw.digital].append(float(out["probability"]))
+        if isinstance(out.get("probability"), (int, float)):
+            for label, value in getattr(tw, "traits", {}).items():
+                by_digital[f"{label}: {value}"].append(float(out["probability"]))
         if isinstance(out.get("likert"), list) and len(out["likert"]) == ssr.POINTS:
             likerts.append(out["likert"])
         if not out["decision"] and out.get("objection"):
@@ -624,8 +625,8 @@ def aggregate(rows) -> dict:
     if inconsistent:
         result["inconsistent_n"] = inconsistent
     if by_digital:
-        # Проверка, что двойники учитывают атрибут: средняя вероятность «да» по уровню цифровых навыков.
-        result["by_digital"] = {
+        # Проверка, что двойники учитывают атрибуты профиля: средняя вероятность «да» по их значениям.
+        result["by_trait"] = {
             level: {"n": len(values), "mean": round(sum(values) / len(values), 4)}
             for level, values in by_digital.items()
         }

@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import random
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 SEGMENTS = {
     "student_msk": {
@@ -129,6 +129,34 @@ SEGMENT_SOURCES = {
             "date": "сентябрь 2021",
             "url": "https://www.sostav.ru/publication/detskij-banking-50185.html",
         },
+        {
+            "fact": "15% родителей подростков 14–17 лет сказали, что ребёнок будет подрабатывать летом; 35% затруднились",
+            "use": "Атрибут «Подработка» распределён по этим долям: 15% / 85%. О картах атрибут молчит — это вопрос бенчмарка.",
+            "status": "ориентир",
+            "source": "Superjob, по данным ТАСС и «Мела»",
+            "date": "май 2021",
+            "url": "https://mel.fm/novosti/3610754-opros-okolo-15-rossyskikh-roditeley-podrostkov-zayavili-chto-ikh-deti-budut-podrabatyvat-letom",
+        },
+    ],
+    "student_msk": [
+        {
+            "fact": "63% студентов 18–25 лет работают во время учёбы; из них 56% — до 10 часов в неделю",
+            "use": "Атрибут «Работа» распределён по этим долям: 35% / 28% / 37%. О картах и счетах атрибут молчит — это вопросы бенчмарка.",
+            "status": "ориентир",
+            "source": "Zarplata.ru, опрос 2–17 сентября 2025, 1870 человек 18–25 лет, по данным ТАСС",
+            "date": "сентябрь 2025",
+            "url": "https://finance.mail.ru/article/zarplataru-63-studentov-sovmeshayut-rabotu-s-ucheboj-67943804/",
+        },
+    ],
+    "student_reg": [
+        {
+            "fact": "63% студентов 18–25 лет работают во время учёбы; из них 56% — до 10 часов в неделю",
+            "use": "Атрибут «Работа» распределён по этим долям: 35% / 28% / 37%. О картах и счетах атрибут молчит — это вопросы бенчмарка.",
+            "status": "ориентир",
+            "source": "Zarplata.ru, опрос 2–17 сентября 2025, 1870 человек 18–25 лет, по данным ТАСС",
+            "date": "сентябрь 2025",
+            "url": "https://finance.mail.ru/article/zarplataru-63-studentov-sovmeshayut-rabotu-s-ucheboj-67943804/",
+        },
     ],
 }
 # Сегменты с повышенным риском искажений: в мегаисследовании Columbia (Peng, Toubia et al., 2025)
@@ -141,8 +169,8 @@ DISTORTION_RISK = {
 RISK_SOURCE = "https://arxiv.org/html/2509.19088v4"
 
 SOURCE_GAPS = (
-    "Для студентов Москвы и регионов и для молодых семей открытых опорных цифр пока не подобрано: "
-    "доходы, привычки и установки этих сегментов — экспертные допущения."
+    "Для молодых семей открытых опорных цифр пока не подобрано, у студентов источник есть только для "
+    "занятости: доходы, привычки и установки — экспертные допущения."
 )
 
 
@@ -170,22 +198,59 @@ FIRST = [
 
 # Атрибуты с опубликованными долями: каждый двойник получает конкретное значение,
 # а не угадывает его по возрасту. Доли распределяются точно (наибольшие остатки).
-# Модели без этого атрибута почти всем пенсионерам приписывали смартфон: в бенчмарке
-# «пользуюсь интернетом» 93% против опубликованных 46%, а вклад «только в приложении»
-# получал ту же готовность, что и вклад в отделении.
-DIGITAL = {
+# Источники атрибутов не совпадают с вопросами бенчмарка (benchmarks/open_facts.json):
+# у молодёжи атрибут описывает работу, а не карты и счета, поэтому факты о картах,
+# мобильном банке и накопительных счетах остаются независимой проверкой.
+TRAITS = {
     "senior": [
-        ("сам пользуется мобильным приложением банка", 0.24),
-        ("пользуется интернетом, но в приложении банка — только с помощью родственников", 0.22),
-        ("интернетом не пользуется", 0.54),
+        {
+            # Без него модели почти всем пенсионерам приписывали смартфон: «пользуюсь интернетом»
+            # 93% против опубликованных 46%, а вклад «только в приложении» получал ту же
+            # готовность, что и вклад в отделении.
+            "label": "Цифровые навыки",
+            "levels": [
+                ("сам пользуется мобильным приложением банка", 0.24),
+                ("пользуется интернетом, но в приложении банка — только с помощью родственников", 0.22),
+                ("интернетом не пользуется", 0.54),
+            ],
+            "source": (
+                "Опрос «ИнтерПенсионер», август 2025, 1,5 тыс. человек 60+: 24% полностью самостоятельно "
+                "пользуются мобильным банком, 54% не пользуются интернетом"
+            ),
+            "url": "https://ecomhub.ru/pensioners-digital-isolation-internet-messengers-russia-2025-interpensioner/",
+        }
+    ],
+    "student_msk": [
+        {
+            "label": "Работа",
+            "levels": [
+                ("подрабатывает до 10 часов в неделю", 0.35),
+                ("работает больше 10 часов в неделю", 0.28),
+                ("не работает", 0.37),
+            ],
+            "source": (
+                "Zarplata.ru, 2–17 сентября 2025, 1870 человек 18–25 лет: 63% студентов работают во время "
+                "учёбы; из работающих 56% — до 10 часов в неделю"
+            ),
+            "url": "https://finance.mail.ru/article/zarplataru-63-studentov-sovmeshayut-rabotu-s-ucheboj-67943804/",
+        }
+    ],
+    "teen": [
+        {
+            "label": "Подработка",
+            "levels": [("подрабатывает летом", 0.15), ("не подрабатывает", 0.85)],
+            "source": (
+                "Superjob, май 2021, опрос родителей подростков 14–17 лет: 15% сказали, что ребёнок будет "
+                "подрабатывать летом (35% затруднились — отнесены к «не подрабатывает»)"
+            ),
+            "url": "https://mel.fm/novosti/3610754-opros-okolo-15-rossyskikh-roditeley-podrostkov-zayavili-chto-ikh-deti-budut-podrabatyvat-letom",
+        }
     ],
 }
-DIGITAL_SOURCE = {
-    "senior": (
-        "Опрос «ИнтерПенсионер», август 2025, 1,5 тыс. человек 60+: 24% полностью самостоятельно "
-        "пользуются мобильным банком, 54% не пользуются интернетом"
-    ),
-}
+# Работа студентов в источнике — по России в целом, поэтому одинакова для Москвы и регионов.
+TRAITS["student_reg"] = TRAITS["student_msk"]
+DIGITAL_LABEL = "Цифровые навыки"
+DIGITAL = {"senior": TRAITS["senior"][0]["levels"]}
 
 
 def _shares(levels: list[tuple[str, float]], k: int, rng: random.Random) -> list[str]:
@@ -211,19 +276,23 @@ class Twin:
     income: str
     habits: list[str]
     attitude: str
-    digital: str | None = None
+    traits: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def digital(self) -> str | None:
+        return self.traits.get(DIGITAL_LABEL)
 
     def profile(self) -> str:
         text = (
             f"{self.name}, {self.age} лет, {self.region}. Доход: {self.income}. "
             f"Привычки: {', '.join(self.habits)}. Отношение к банкам: {self.attitude}."
         )
-        return text + (f" Цифровые навыки: {self.digital}." if self.digital else "")
+        return text + "".join(f" {label}: {value}." for label, value in self.traits.items())
 
     def to_dict(self):
         data = asdict(self)
-        if data["digital"] is None:
-            del data["digital"]
+        if not data["traits"]:
+            del data["traits"]
         return data
 
 
@@ -272,10 +341,12 @@ def build_population(n: int, segments: dict[str, float], seed: int = 42) -> list
                 attitude=rng.choice(s["attitude"]),
             )
         )
-    # Отдельный генератор: остальные поля профилей не меняются от добавления атрибута.
-    digital_rng = random.Random(f"{seed}:digital")
-    for sid, levels in DIGITAL.items():
+    # Отдельные генераторы: остальные поля профилей не меняются от добавления атрибутов.
+    for sid, traits in TRAITS.items():
         members = [t for t in twins if t.segment == sid]
-        for twin, value in zip(members, _shares(levels, len(members), digital_rng), strict=True):
-            twin.digital = value
+        for trait in traits:
+            name = "digital" if trait["label"] == DIGITAL_LABEL else f"{sid}:{trait['label']}"
+            trait_rng = random.Random(f"{seed}:{name}")
+            for twin, value in zip(members, _shares(trait["levels"], len(members), trait_rng), strict=True):
+                twin.traits[trait["label"]] = value
     return twins

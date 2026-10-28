@@ -15,7 +15,9 @@ def test_other_segments_and_fields_are_unchanged():
     twins = build_population(30, {"senior": 0.5, "student_msk": 0.5}, seed=3)
     students = [t for t in twins if t.segment == "student_msk"]
     assert students and all(t.digital is None and "Цифровые" not in t.profile() for t in students)
-    assert "digital" not in students[0].to_dict()
+    assert all("Работа: " in t.profile() for t in students)
+    families = build_population(5, {"young_family": 1})
+    assert all(not t.traits and "traits" not in t.to_dict() for t in families)
     # Атрибут берётся из отдельного генератора: остальные поля те же, что без него.
     again = build_population(30, {"senior": 0.5, "student_msk": 0.5}, seed=3)
     assert [t.to_dict() for t in twins] == [t.to_dict() for t in again]
@@ -28,7 +30,7 @@ def test_digital_attribute_survives_saved_report():
 
     record = run_experiment("senior_deposit", SCENARIOS["senior_deposit"], RunSettings(n=20))
     sample = load_experiment(json.dumps(record))["population_sample"]
-    assert all(p["digital"] in {text for text, _ in DIGITAL["senior"]} for p in sample)
+    assert all(p["traits"]["Цифровые навыки"] in {text for text, _ in DIGITAL["senior"]} for p in sample)
 
 
 def test_llm_check_shows_probability_by_digital_level(monkeypatch, tmp_path):
@@ -79,6 +81,28 @@ def test_llm_check_shows_probability_by_digital_level(monkeypatch, tmp_path):
     out = tmp_path / "check.md"
     llm_check.main(["--scenario", "senior_deposit", "--n", "50", "--output", str(out)])
     text = out.read_text(encoding="utf-8")
-    assert "Вероятность «да» по цифровым навыкам:" in text
-    assert "интернетом не пользуется (n≈27): A 5%, B 50%" in text
+    assert "Вероятность «да» по атрибутам профиля:" in text
+    assert "Цифровые навыки: интернетом не пользуется (n≈27): A 5%, B 50%" in text
     assert "Главные причины отказа: A: не доверяю" in text
+
+
+def test_youth_traits_follow_sources_and_stay_off_benchmark_questions():
+    from dvoinik.population import TRAITS
+
+    students = build_population(100, {"student_reg": 1})
+    assert Counter(t.traits["Работа"] for t in students) == {
+        "подрабатывает до 10 часов в неделю": 35,
+        "работает больше 10 часов в неделю": 28,
+        "не работает": 37,
+    }
+    teens = build_population(20, {"teen": 1})
+    assert Counter(t.traits["Подработка"] for t in teens) == {
+        "подрабатывает летом": 3,
+        "не подрабатывает": 17,
+    }
+    # Атрибуты молодёжи не говорят о картах и счетах — это вопросы бенчмарка.
+    for sid in ("teen", "student_msk", "student_reg"):
+        for trait in TRAITS[sid]:
+            text = " ".join([trait["label"], *(v for v, _ in trait["levels"])]).lower()
+            assert not any(word in text for word in ("карт", "счёт", "счет", "вклад", "банк"))
+        assert all(abs(sum(share for _, share in t["levels"]) - 1) < 1e-9 for t in TRAITS[sid])
