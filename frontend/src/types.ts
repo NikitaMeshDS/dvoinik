@@ -5,6 +5,15 @@ export type Scenario = {
   variants: Record<string, string>;
   population: Record<string, number>;
   objections: string[];
+  origin?: Origin;
+};
+export type Origin = {
+  kind: "iteration" | "hypothesis";
+  record_id: string;
+  title: string;
+  lever?: string;
+  change?: string;
+  variant?: string;
 };
 export type Segment = {
   name: string;
@@ -14,9 +23,19 @@ export type Segment = {
   habits: string[];
   attitude: string[];
 };
+export type SegmentSource = {
+  fact: string;
+  use: string;
+  status: string;
+  source: string;
+  date: string;
+  url: string;
+};
 export type Catalog = {
   scenarios: Record<string, Scenario>;
   segments: Record<string, Segment>;
+  sources?: { segments: Record<string, SegmentSource[]>; gaps: string };
+  risks?: { segments: Record<string, string>; source: string };
 };
 export type User = {
   id: string;
@@ -43,6 +62,7 @@ export type Cell = {
   yes: number;
   conversion: number | null;
   name?: string;
+  objections?: Record<string, number>;
 };
 export type ReportItem = {
   n: number;
@@ -55,6 +75,8 @@ export type ReportItem = {
   objections: Record<string, number>;
   quotes: Quote[];
   failure_examples?: string[];
+  probability?: { mean: number; sd: number; n: number };
+  likert?: number[];
 };
 export type Profile = {
   id: number;
@@ -65,6 +87,8 @@ export type Profile = {
   income: string;
   habits: string[];
   attitude: string;
+  digital?: string;
+  traits?: Record<string, string>;
 };
 export type ValidationCell = {
   variant: string;
@@ -83,6 +107,19 @@ export type ValidationResult = {
   cells: ValidationCell[];
   actual_winners: string[];
   predicted_winners: string[];
+  baseline?: {
+    twins_mae_variants: number;
+    baseline_mae_variants: number;
+    twins_spearman: number | null;
+    baseline_spearman: number | null;
+    baseline_winner_match: boolean | null;
+    variants: {
+      variant: string;
+      actual: number;
+      twins: number;
+      baseline: number;
+    }[];
+  };
 };
 export type Validation = {
   created_at: string;
@@ -108,8 +145,25 @@ export type Experiment = {
   signature: string;
   validation?: Validation;
   import_origin_id?: string;
+  baseline?: {
+    method: string;
+    rates?: Record<string, number>;
+    error?: string;
+  };
+};
+export type Estimate = {
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  minutes: number;
+  latency_s: number;
+  concurrency: number;
+  cost: number | null;
+  currency: string | null;
+  detail: string;
 };
 export type Draft = {
+  origin?: Origin;
   key: string;
   title: string;
   description: string;

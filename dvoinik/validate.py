@@ -64,7 +64,7 @@ def _correlation(xs, ys):
     return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / math.sqrt(vx * vy)
 
 
-def compare(report: dict, survey: dict) -> dict:
+def compare(report: dict, survey: dict, baseline: dict | None = None) -> dict:
     if not survey:
         raise ValueError("Добавьте ответы живого опроса для сравнения.")
     counts = getattr(survey, "counts", {})
@@ -97,7 +97,7 @@ def compare(report: dict, survey: dict) -> dict:
     actual_winners = [v for v, x in zip(variants, real) if math.isclose(x, max(real))]
     predicted_winners = [v for v, x in zip(variants, pred) if math.isclose(x, max(pred))]
     unique = len(actual_winners) == len(predicted_winners) == 1 and len(variants) > 1
-    return {
+    result = {
         "mae_conversion": sum(c["error"] * c["survey_n"] for c in cells) / sum(c["survey_n"] for c in cells),
         "spearman_variants": _correlation(_rank(real), _rank(pred)),
         "winner_match": actual_winners == predicted_winners if unique else None,
@@ -106,4 +106,35 @@ def compare(report: dict, survey: dict) -> dict:
         "cells": cells,
         "actual_winners": actual_winners,
         "predicted_winners": predicted_winners,
+    }
+    if baseline and all(v in baseline for v in variants):
+        result["baseline"] = _baseline_metrics(variants, real, pred, [baseline[v] for v in variants], totals)
+    return result
+
+
+def _baseline_metrics(variants, real, pred, base, totals):
+    """Сравнение двойников и простого подхода на уровне предложений, по весам опроса.
+
+    Простой подход оценивает всю аудиторию сразу; если опрос покрывает не все сегменты,
+    сопоставление приблизительное.
+    """
+    weights = [totals[v][2] for v in variants]
+    total = sum(weights)
+
+    def mae(xs):
+        return sum(abs(x - r) * w for x, r, w in zip(xs, real, weights)) / total
+
+    actual = [v for v, x in zip(variants, real) if math.isclose(x, max(real))]
+    base_winners = [v for v, x in zip(variants, base) if math.isclose(x, max(base))]
+    unique = len(actual) == len(base_winners) == 1 and len(variants) > 1
+    return {
+        "twins_mae_variants": mae(pred),
+        "baseline_mae_variants": mae(base),
+        "twins_spearman": _correlation(_rank(real), _rank(pred)),
+        "baseline_spearman": _correlation(_rank(real), _rank(base)),
+        "baseline_winner_match": actual == base_winners if unique else None,
+        "variants": [
+            {"variant": v, "actual": r, "twins": p, "baseline": b}
+            for v, r, p, b in zip(variants, real, pred, base)
+        ],
     }

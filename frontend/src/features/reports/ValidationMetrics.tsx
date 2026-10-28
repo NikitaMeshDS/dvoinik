@@ -1,4 +1,4 @@
-import { percent } from "../../components";
+import { decimal, percent } from "../../components";
 import type { Catalog, ValidationResult } from "../../types";
 export default function ValidationMetrics({
   result,
@@ -13,7 +13,7 @@ export default function ValidationMetrics({
         <div>
           <span>Ошибка долей</span>
           <strong>
-            {(result.mae_conversion * 100).toFixed(1)} <small>п.п.</small>
+            {decimal(result.mae_conversion * 100)} <small>п.п.</small>
           </strong>
         </div>
         <div>
@@ -21,7 +21,7 @@ export default function ValidationMetrics({
           <strong>
             {result.spearman_variants === null
               ? "—"
-              : result.spearman_variants.toFixed(2)}
+              : decimal(result.spearman_variants, 2)}
           </strong>
         </div>
         <div>
@@ -40,6 +40,47 @@ export default function ValidationMetrics({
         {result.matched_cells}. Это оценки предложений, а не число уникальных
         людей. Подлинность опроса приложение не проверяет.
       </p>
+      {result.baseline && (
+        <div className="baseline-validation">
+          <h3>Двойники против простого подхода</h3>
+          <div className="validation-metrics compact">
+            <div>
+              <span>Ошибка двойников</span>
+              <strong>
+                {decimal(result.baseline.twins_mae_variants * 100)}{" "}
+                <small>п.п.</small>
+              </strong>
+            </div>
+            <div>
+              <span>Ошибка простого подхода</span>
+              <strong>
+                {decimal(result.baseline.baseline_mae_variants * 100)}{" "}
+                <small>п.п.</small>
+              </strong>
+            </div>
+            <div>
+              <span>Кто ближе к опросу</span>
+              <strong>
+                {Math.abs(
+                  result.baseline.twins_mae_variants -
+                    result.baseline.baseline_mae_variants,
+                ) < 0.005
+                  ? "Одинаково"
+                  : result.baseline.twins_mae_variants <
+                      result.baseline.baseline_mae_variants
+                    ? "Двойники"
+                    : "Простой подход"}
+              </strong>
+            </div>
+          </div>
+          <p className="help">
+            Сравнение по предложениям с весами опроса. Простой подход оценивает
+            всю аудиторию сразу: если опрос покрывает не все сегменты,
+            сопоставление приблизительное. Один опрос — разведка, а не
+            доказательство преимущества.
+          </p>
+        </div>
+      )}
       <div className="table-scroll">
         <table className="data-table">
           <thead>
@@ -63,7 +104,7 @@ export default function ValidationMetrics({
                 <td>{c.survey_n}</td>
                 <td>{percent(c.actual)}</td>
                 <td>{percent(c.predicted)}</td>
-                <td>{percent(c.error)}</td>
+                <td>{decimal(c.error * 100)} п.п.</td>
               </tr>
             ))}
           </tbody>

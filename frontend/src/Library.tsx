@@ -25,6 +25,26 @@ import ResponsePreview from "./features/research/ResponsePreview";
 import ResearchFilters, {
   type ResearchFilterState,
 } from "./features/research/ResearchFilters";
+import { hypothesisVerdict } from "./features/reports/OriginBanner";
+function originTag(r: Experiment) {
+  const origin = r.scenario.origin;
+  if (!origin) return "";
+  if (origin.kind === "iteration") return "Итерация";
+  const verdict = hypothesisVerdict(r)?.kind;
+  return (
+    "Гипотеза «" +
+    origin.lever +
+    "»" +
+    (verdict === "better"
+      ? " · подтвердилась"
+      : verdict === "worse"
+        ? " · не подтвердилась"
+        : verdict === "same"
+          ? " · без разницы"
+          : "")
+  );
+}
+
 export type LibraryState = ResearchFilterState & {
   page: number;
   compare: boolean;
@@ -317,6 +337,21 @@ export default function Library({
                             <i className={r.mock ? "demo" : "llm"}>
                               {r.mock ? "Демо" : "LLM"}
                             </i>
+                            {r.scenario.origin && (
+                              <i
+                                className={
+                                  "origin " +
+                                  (hypothesisVerdict(r)?.kind ?? "iteration")
+                                }
+                                title={
+                                  "Из исследования «" +
+                                  r.scenario.origin.title +
+                                  "»"
+                                }
+                              >
+                                {originTag(r)}
+                              </i>
+                            )}
                             {r.validation && (
                               <i>
                                 <Check size={12} />
@@ -330,7 +365,7 @@ export default function Library({
                         </span>
                         <ResponsePreview report={r.report} />
                         <span className="study-result">
-                          <b>{percent(best, 0)}</b>
+                          <b>{percent(best)}</b>
                           <small>
                             {leaders.length
                               ? "Вариант " + leaders.join(" / ")

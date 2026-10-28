@@ -7,9 +7,15 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { api, ignored, message } from "./api";
-import { draftError } from "./draft";
-import { Button, Heading, Notice } from "./components";
-import { VARIANTS, TITLES, type Catalog, type Draft } from "./types";
+import { draftError, runPayload } from "./draft";
+import { Button, Heading, Notice, decimal } from "./components";
+import {
+  VARIANTS,
+  TITLES,
+  type Catalog,
+  type Draft,
+  type Estimate,
+} from "./types";
 type Preview = {
   counts: Record<string, number>;
   shares: Record<string, number>;
@@ -37,7 +43,8 @@ export default function Composer({
     [error, setError] = useState(""),
     [preview, setPreview] = useState<Preview | null>(null),
     [previewError, setPreviewError] = useState(""),
-    [loading, setLoading] = useState(false);
+    [loading, setLoading] = useState(false),
+    [estimate, setEstimate] = useState<Estimate | null>(null);
   const stage = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -48,6 +55,37 @@ export default function Composer({
     setError("");
   };
   const weights = JSON.stringify(draft.weights);
+  const payload = draftError(draft) ? null : runPayload(draft);
+  const estimateKey = payload
+    ? JSON.stringify([payload.scenario, payload.n, payload.concurrency])
+    : "";
+  useEffect(() => {
+    if (step !== 1 || !payload) {
+      setEstimate(null);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      api
+        .request<Estimate>(
+          "/estimate",
+          "POST",
+          {
+            scenario: payload.scenario,
+            n: payload.n,
+            concurrency: payload.concurrency,
+          },
+          controller.signal,
+        )
+        .then(setEstimate)
+        .catch(() => setEstimate(null));
+    }, 300);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+    // payload пересчитывается из draft; ключ фиксирует только значимые поля.
+  }, [step, estimateKey]);
   useEffect(() => {
     if (step !== 1) return;
     const controller = new AbortController();
@@ -122,6 +160,41 @@ export default function Composer({
         </span>
       </div>
       {error && <Notice kind="error">{error}</Notice>}
+      {draft.origin && (
+        <div className="origin-note" role="status">
+          {draft.origin.kind === "hypothesis" ? (
+            <>
+              <div>
+                <strong>Проверка гипотезы «{draft.origin.lever}»</strong>
+                <p>
+                  Из исследования «{draft.origin.title}». A — текущий вариант{" "}
+                  {draft.origin.variant} без изменений, B — новый текст:{" "}
+                  {draft.origin.change?.toLowerCase()}. Текст B можно
+                  отредактировать, аудитория уже ограничена затронутыми
+                  сегментами.
+                </p>
+              </div>
+              <Button
+                kind="primary"
+                onClick={start}
+                disabled={busy || activeRun}
+              >
+                Запустить проверку
+                <ArrowRight size={17} />
+              </Button>
+            </>
+          ) : (
+            <div>
+              <strong>Следующая итерация</strong>
+              <p>
+                Основа — исследование «{draft.origin.title}». Измените
+                предложения или аудиторию: новый отчёт сохранит связь с исходным
+                и сравнит их в один клик.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
       {step === 0 ? (
         <section
           className="composer-step"
@@ -380,6 +453,52 @@ export default function Composer({
               </p>
             </div>
           </details>
+          {estimate && (
+            <div className="run-estimate" aria-live="polite">
+              <span className="mini-label">
+                {draft.mock
+                  ? "Демо без запросов · с подключённой LLM было бы"
+                  : "Оценка запуска на LLM"}
+              </span>
+              <div>
+                <span>
+                  <strong>{estimate.requests.toLocaleString("ru-RU")}</strong>{" "}
+                  запросов
+                </span>
+                <span>
+                  <strong>
+                    ≈{" "}
+                    {decimal(
+                      (estimate.input_tokens + estimate.output_tokens) / 1000,
+                      0,
+                    )}{" "}
+                    тыс.
+                  </strong>{" "}
+                  токенов
+                </span>
+                <span>
+                  <strong>
+                    ≈{" "}
+                    {estimate.minutes < 1
+                      ? "< 1"
+                      : decimal(Math.ceil(estimate.minutes), 0)}{" "}
+                    мин
+                  </strong>
+                </span>
+                {estimate.cost !== null && (
+                  <span>
+                    <strong>
+                      ≈ {decimal(estimate.cost, 0)} {estimate.currency}
+                    </strong>
+                  </span>
+                )}
+              </div>
+              <p className="help">
+                {estimate.detail} Включая один запрос простого подхода для
+                сравнения.
+              </p>
+            </div>
+          )}
           <div className="step-actions">
             <Button onClick={() => setStep(0)}>
               <ArrowLeft size={17} />

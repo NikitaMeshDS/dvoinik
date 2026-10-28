@@ -7,6 +7,7 @@ LLM: любая OpenAI-совместимая модель (on-prem vLLM/Ollama,
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import math
 import os
@@ -14,14 +15,34 @@ import random
 from collections import Counter, defaultdict
 from collections.abc import Callable
 
+from . import llm_cache, llm_json, ssr
 from .population import SEGMENTS, Twin
 
 SYSTEM = (
     "Ты — конкретный клиент банка, описанный ниже. Отвечай от первого лица, как этот человек, "
     "учитывая его возраст, доход, привычки и отношение к банкам. Не будь чрезмерно позитивным: "
     "реальные клиенты часто отказываются, если не видят явной пользы.\n"
-    'Ответь строго JSON: {"decision": true|false, "probability": 0..1, '
-    '"objection": одна категория из списка или null, "quote": одна фраза от первого лица}'
+    'Ответь строго JSON: {"decision": true|false, '
+    '"probability": вероятность согласия от 0 до 1, где 0 — точно нет, 1 — точно да, '
+    '"objection": главная причина сомнений — одна категория из списка, даже если согласен, '
+    '"quote": одна фраза от первого лица}'
+)
+
+
+SSR_SYSTEM = (
+    "Ты — конкретный клиент банка, описанный ниже. Отвечай от первого лица, как этот человек, "
+    "учитывая его возраст, доход, привычки и отношение к банкам. Не будь чрезмерно позитивным: "
+    "реальные клиенты часто отказываются, если не видят явной пользы.\n"
+    "Скажи одной-двумя фразами, воспользуешься ли ты предложением и почему, без чисел и оценок.\n"
+    'Ответь строго JSON: {"reaction": "одна-две фразы от первого лица", '
+    '"objection": главная причина сомнений — одна категория из списка}'
+)
+
+
+BASELINE_SYSTEM = (
+    "Ты — продуктовый аналитик банка. Оцени, какая доля описанной аудитории ответит «да» "
+    "на вопрос по каждому предложению. Не моделируй отдельных людей: дай одну общую оценку.\n"
+    'Ответь строго JSON: {"rates": {"A": 0..1, "B": 0..1, ...}}'
 )
 
 
@@ -34,6 +55,34 @@ def _client():
         timeout=45,
         max_retries=2,
     )
+
+
+# Причина отказа не из списка категорий: названа своими словами или не названа.
+OTHER_OBJECTION = "другое"
+
+
+def _clean(text: str) -> str:
+    return " ".join(text.strip().strip("«»\"'.!").lower().replace("ё", "е").split())
+
+
+def _match_objection(value, objections: list[str]) -> str | None:
+    """Сопоставляет ответ модели с категорией: регистр, кавычки, «ё» и однозначное вхождение.
+
+    Небольшие модели часто возвращают «Не доверяю.» вместо «не доверяю». Неоднозначные
+    и посторонние ответы не угадываются: такой ответ остаётся ошибкой формата.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    if value in objections:
+        return value
+    cleaned = _clean(value)
+    exact = [o for o in objections if _clean(o) == cleaned]
+    if len(exact) == 1:
+        return exact[0]
+    contained = [
+        o for o in objections if _clean(o) in cleaned or (len(cleaned) >= 5 and cleaned in _clean(o))
+    ]
+    return contained[0] if len(contained) == 1 else None
 
 
 def _parse_response(content, scenario):
@@ -50,15 +99,49 @@ def _parse_response(content, scenario):
         raise ValueError("probability должна быть числом от 0 до 1")
     if not isinstance(out.get("quote"), str) or not out["quote"].strip():
         raise ValueError("quote должна содержать объяснение")
-    objection = out.get("objection")
-    if not out["decision"] and objection not in scenario["objections"]:
-        raise ValueError("objection должна быть категорией из сценария")
+    objection = _match_objection(out.get("objection"), scenario["objections"]) or OTHER_OBJECTION
+    # Небольшие модели часто пишут в probability уверенность в своём решении:
+    # «нет, не буду рисковать» и 0,85. Цитата в таких ответах согласуется с решением,
+    # поэтому вероятность «да» восстанавливается как 1 − p, а ответ помечается.
+    yes_probability, inconsistent = yes_probability_from(out["decision"], probability)
     return {
-        "decision": out["decision"],
-        "probability": probability,
-        "objection": None if out["decision"] else objection,
+        "stated": out["decision"],
+        "probability": yes_probability,
+        "inconsistent": inconsistent,
+        "objection": objection,
         "quote": out["quote"].strip()[:1000],
     }
+
+
+def yes_probability_from(decision: bool, probability: float) -> tuple[float, bool]:
+    """Вероятность «да» и признак, что модель написала вместо неё уверенность в решении.
+
+    «Нет» с 0,85 читается как уверенный отказ (вероятность «да» 0,15): у qwen3.5-9b и
+    qwen3-30b-a3b цитаты и ответы в таких случаях согласуются с решением, а не с числом.
+    """
+    inconsistent = (decision and probability < 0.5) or (not decision and probability > 0.5)
+    return (1 - probability if inconsistent else probability), inconsistent
+
+
+def _decide(parsed: dict, twin: Twin, variant_text: str) -> dict:
+    """Решение по названной вероятности, а не по ответу «да/нет».
+
+    Ответ «да/нет» сводит сегмент к одному мнению: на открытых данных средняя ошибка
+    двойников по ответу 32 п.п., по вероятности 21,5 п.п. (proof.py, qwen3.5-9b).
+    Жребий детерминирован: тот же профиль и текст дают то же решение.
+    """
+    decision = ssr.draw(parsed["probability"], twin.id, twin.segment, variant_text)
+    return {**parsed, "decision": decision, "objection": None if decision else parsed["objection"]}
+
+
+def _parse_ssr(content, scenario):
+    out = json.loads(content)
+    if not isinstance(out, dict) or not isinstance(out.get("reaction"), str) or not out["reaction"].strip():
+        raise ValueError("reaction должна содержать ответ клиента")
+    objection = _match_objection(out.get("objection"), scenario["objections"])
+    if objection is None:
+        objection = OTHER_OBJECTION
+    return {"reaction": out["reaction"].strip()[:1000], "objection": objection}
 
 
 async def _ask_llm(
@@ -69,6 +152,7 @@ async def _ask_llm(
     variant_text: str,
     sem,
     guard: Callable[[], None] | None = None,
+    references: ssr.References | None = None,
 ):
     user = (
         f"Ты: {twin.profile()}\n\nБанк предлагает: {variant_text}\n\n"
@@ -76,27 +160,62 @@ async def _ask_llm(
         f"Вопрос: {scenario['question']}\n"
         f"Категории отказа: {', '.join(scenario['objections'])}"
     )
+    system = SSR_SYSTEM if references is not None else SYSTEM
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    # «|draw»: решение по вероятности; старые записи кэша с решением модели не подходят.
+    identity = f"{model}|draw" if references is None else f"{model}|ssr:{ssr.embed_model()}"
+    cache_key = llm_cache.key(identity, messages, 0.8)
     async with sem:
         # Check after waiting for capacity and outside the provider-error handler.
         # Access revocation must abort the run, never become a simulated refusal.
         if guard:
             guard()
+        cached = llm_cache.get(cache_key)
+        if cached is not None:
+            return cached
         try:
-            r = await client.chat.completions.create(
-                model=model,
-                temperature=0.8,
-                response_format={"type": "json_object"},
-                messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}],
-            )
-            return _parse_response(r.choices[0].message.content, scenario)
-        except (ValueError, TypeError, IndexError, AttributeError):
-            return {"error": "Модель вернула ответ, не соответствующий JSON-схеме."}
+            content = await llm_json.chat_json(client, model, messages, 0.8)
+            if references is None:
+                answer = _decide(_parse_response(content, scenario), twin, variant_text)
+            else:
+                answer = await _rate_ssr(client, content, scenario, twin, variant_text, references)
+            llm_cache.put(cache_key, answer)
+            return answer
+        except (ValueError, TypeError, IndexError, AttributeError) as exc:
+            return {"error": f"Модель вернула ответ, не соответствующий JSON-схеме: {_schema_reason(exc)}."}
         except Exception as exc:
             # Не включаем тело HTTP-ответа, URL или ключ в экспортируемые отчёты.
             return {
                 "error": f"Запрос к модели не выполнен ({type(exc).__name__}).",
                 "error_kind": type(exc).__name__,
             }
+
+
+def _schema_reason(exc: Exception) -> str:
+    """Причина отказа без текста ответа модели: какое поле не прошло проверку."""
+    if isinstance(exc, json.JSONDecodeError):
+        return "ответ не является JSON"
+    if isinstance(exc, ValueError) and str(exc):
+        return str(exc).rstrip(".")[:120]
+    return type(exc).__name__
+
+
+async def _rate_ssr(client, content, scenario, twin, variant_text, references):
+    """Ответ фразой → распределение по шкале 1–5 → доля «скорее да» и «точно да» → решение."""
+    parsed = _parse_ssr(content, scenario)
+    model = ssr.embed_model()
+    refs = await references.get(client, model)
+    (vector,) = await ssr.embed(client, model, [parsed["reaction"]])
+    distribution = ssr.pmf(vector, refs)
+    probability = round(ssr.top_two(distribution), 4)
+    decision = ssr.draw(probability, twin.id, twin.segment, variant_text)
+    return {
+        "decision": decision,
+        "probability": probability,
+        "objection": None if decision else parsed["objection"],
+        "quote": parsed["reaction"],
+        "likert": distribution,
+    }
 
 
 # ---- эвристический режим (без LLM) ----
@@ -133,6 +252,57 @@ BASE = {
 }
 
 
+MOTIVES = {
+    "student_msk": [
+        "Если это подходит для моих ежедневных покупок, готов попробовать.",
+        "Звучит выгодно для того, как я трачу. Оформлю и посмотрю месяц.",
+        "Сравню с тем, что у меня уже есть, но предложение интересное.",
+    ],
+    "student_reg": [
+        "Для меня важно не тратить лишнее на обслуживание карты.",
+        "Если правда без скрытых платежей, переведу сюда стипендию.",
+        "Подходит, пока условия понятные и ничего не списывают.",
+    ],
+    "teen": [
+        "Обсужу с родителями, мне интересно попробовать.",
+        "Если друзья тоже будут пользоваться, попрошу маму оформить.",
+        "Хочу попробовать, но решать будут родители.",
+    ],
+    "young_family": [
+        "Если семье будет проще планировать расходы, подключу.",
+        "Обсудим дома: если сэкономит время на бюджете, оформим.",
+        "Для семьи это может быть удобно, попробуем.",
+    ],
+    "senior": [
+        "Сначала уточню условия у сотрудника банка.",
+        "Если помогут оформить и всё объяснят, открою.",
+        "Посоветуюсь с дочерью, но в целом подходит.",
+    ],
+    "self_employed": [
+        "Попробую, если это упростит расчёты с клиентами.",
+        "Если комиссии честные, перейду с текущего счёта.",
+        "Это может сэкономить мне время на отчётности.",
+    ],
+    "nonresident": [
+        "Мне важно понимать условия переводов и комиссии.",
+        "Если всё объяснено понятно, буду пользоваться.",
+        "Подойдёт для переводов домой, если комиссия честная.",
+    ],
+}
+REFUSALS = [
+    "Пока не подключу. Причина: {reason}.",
+    "Не вижу смысла менять что-то сейчас: {reason}.",
+    "Скорее нет. Главное для меня — {reason}.",
+    "Отложу решение: {reason}.",
+]
+
+
+def _pick(options: list[str], *keys) -> str:
+    """Детерминированный выбор формулировки без расхода генератора решений."""
+    digest = hashlib.sha256("|".join(map(str, keys)).encode()).digest()
+    return options[int.from_bytes(digest[:4], "big") % len(options)]
+
+
 def _ask_mock(rng: random.Random, twin: Twin, scenario: dict, variant_text: str):
     t = variant_text.lower()
     p = BASE[twin.segment] + sum(v.get(twin.segment, 0) for k, v in KEYWORDS.items() if k in t)
@@ -155,18 +325,9 @@ def _ask_mock(rng: random.Random, twin: Twin, scenario: dict, variant_text: str)
         weights.append(weight)
     obj = None if decision else rng.choices(objections, weights=weights if sum(weights) else None)[0]
     if decision:
-        motives = {
-            "student_msk": "Если это подходит для моих ежедневных покупок, готов попробовать.",
-            "student_reg": "Для меня важно не тратить лишнее на обслуживание карты.",
-            "teen": "Обсужу с родителями, мне интересно попробовать.",
-            "young_family": "Если семье будет проще планировать расходы, подключу.",
-            "senior": "Сначала уточню условия у сотрудника банка.",
-            "self_employed": "Попробую, если это упростит расчёты с клиентами.",
-            "nonresident": "Мне важно понимать условия переводов и комиссии.",
-        }
-        quote = motives[twin.segment]
+        quote = _pick(MOTIVES[twin.segment], twin.id, t)
     else:
-        quote = f"Пока не подключу. Причина: {obj}."
+        quote = _pick(REFUSALS, twin.id, t).format(reason=obj)
     return {"decision": decision, "probability": round(p, 2), "objection": obj, "quote": quote}
 
 
@@ -208,11 +369,14 @@ def simulate(
 
         async def run():
             sem = asyncio.Semaphore(concurrency)
+            references = ssr.References() if ssr.mode() == "ssr" else None
             async with _client() as client:
                 model = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
 
                 async def ask(tw, text):
-                    answer = await _ask_llm(client, model, tw, scenario, text, sem, guard=check_access)
+                    answer = await _ask_llm(
+                        client, model, tw, scenario, text, sem, guard=check_access, references=references
+                    )
                     advance()
                     return tw, answer
 
@@ -236,6 +400,145 @@ def simulate(
     return {vid: aggregate(rows) for vid, rows in results.items()}
 
 
+def _audience_text(scenario: dict) -> str:
+    return "; ".join(
+        f"{SEGMENTS[sid]['name']} — {share * 100:.0f}%" for sid, share in scenario["population"].items()
+    )
+
+
+def _parse_baseline(content, variants):
+    out = json.loads(content)
+    rates = out.get("rates") if isinstance(out, dict) else None
+    if not isinstance(rates, dict) or set(rates) != set(variants):
+        raise ValueError("rates должны содержать все варианты")
+    clean = {}
+    for vid in variants:
+        value = rates[vid]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError("доля должна быть числом")
+        if not 0 <= value <= 1:
+            raise ValueError("доля должна быть от 0 до 1")
+        clean[vid] = float(value)
+    return clean
+
+
+def _demo_baseline(scenario: dict) -> dict:
+    """Правило без профилей для демо: те же ключевые слова, усреднённые по всем сегментам."""
+    rates = {}
+    for vid, text in scenario["variants"].items():
+        t = text.lower()
+        effect = sum(sum(v.values()) / len(BASE) for k, v in KEYWORDS.items() if k in t)
+        rates[vid] = round(min(0.92, max(0.03, sum(BASE.values()) / len(BASE) + effect)), 4)
+    return {"method": "demo_rule", "rates": rates}
+
+
+def baseline_estimate(scenario: dict, mock: bool = False) -> dict:
+    """Простой подход для сравнения: одна оценка по описанию аудитории, без персонажей.
+
+    Ошибка модели не прерывает исследование: она сохраняется вместо долей.
+    """
+    if mock:
+        return _demo_baseline(scenario)
+    variants = scenario["variants"]
+    user = (
+        f"Аудитория: {_audience_text(scenario)}.\n"
+        f"Контекст: {scenario.get('description', '')}\n"
+        f"Вопрос: {scenario['question']}\n"
+        + "\n".join(f"Предложение {vid}: {text}" for vid, text in variants.items())
+    )
+
+    async def ask():
+        async with _client() as client:
+            return await llm_json.chat_json(
+                client,
+                os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
+                [{"role": "system", "content": BASELINE_SYSTEM}, {"role": "user", "content": user}],
+                0,
+            )
+
+    try:
+        return {"method": "single_prompt", "rates": _parse_baseline(asyncio.run(ask()), variants)}
+    except (ValueError, TypeError, IndexError, AttributeError):
+        return {"method": "single_prompt", "error": "Модель вернула ответ, не соответствующий JSON-схеме."}
+    except Exception as exc:
+        return {"method": "single_prompt", "error": f"Запрос к модели не выполнен ({type(exc).__name__})."}
+
+
+PARAPHRASE_SYSTEM = (
+    "Перефразируй каждое банковское предложение другими словами. Сохрани все условия, числа, "
+    "ограничения и смысл; не добавляй и не убирай выгоды. Длина — примерно та же.\n"
+    'Ответь строго JSON: {"variants": {"A": "...", "B": "...", ...}}'
+)
+
+
+def paraphrase_variants(scenario: dict) -> dict[str, str]:
+    """Перефразировки предложений той же моделью — для проверки чувствительности к формулировке.
+
+    Проверяется только формат; сохранение условий нужно просмотреть глазами.
+    """
+    variants = scenario["variants"]
+    user = "\n".join(f"{vid}: {text}" for vid, text in variants.items())
+
+    async def ask():
+        async with _client() as client:
+            return await llm_json.chat_json(
+                client,
+                os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
+                [
+                    {"role": "system", "content": PARAPHRASE_SYSTEM},
+                    {"role": "user", "content": user},
+                ],
+                0.7,
+            )
+
+    out = json.loads(asyncio.run(ask()))
+    texts = out.get("variants") if isinstance(out, dict) else None
+    if not isinstance(texts, dict) or set(texts) != set(variants):
+        raise ValueError("Модель не вернула перефразировки всех предложений.")
+    if any(not isinstance(t, str) or not t.strip() or len(t) > 3000 for t in texts.values()):
+        raise ValueError("Перефразировка должна быть непустым текстом до 3000 символов.")
+    return {vid: texts[vid].strip() for vid in variants}
+
+
+REWRITE_SYSTEM = (
+    "Ты — продуктовый маркетолог банка. Перепиши предложение так, чтобы снять названные "
+    "причины отказа у указанных сегментов. Сохрани продукт и его ключевые условия; не добавляй "
+    "выгод и цифр, которых нет в исходном тексте или в описании изменения. Пиши коротко, "
+    "как текст для клиента, не длиннее полутора исходных.\n"
+    'Ответь строго JSON: {"proposal": "..."}'
+)
+
+
+def rewrite_offer(scenario: dict, hypothesis: dict) -> str:
+    """Текст гипотезы, переписанный моделью вместо черновика по правилу."""
+    user = (
+        f"Контекст: {scenario.get('description', '')}\n"
+        f"Вопрос клиенту: {scenario['question']}\n"
+        f"Исходное предложение: {hypothesis['base_text']}\n"
+        f"Сегменты: {', '.join(hypothesis['segment_names'])}\n"
+        f"Причины отказа: {', '.join(hypothesis['objections']) or 'нет'}\n"
+        f"Что изменить: {hypothesis['change']}\n"
+        f"Черновик по правилу: {hypothesis['proposal']}"
+    )
+
+    async def ask():
+        async with _client() as client:
+            return await llm_json.chat_json(
+                client,
+                os.getenv("LLM_MODEL", "qwen2.5:7b-instruct"),
+                [{"role": "system", "content": REWRITE_SYSTEM}, {"role": "user", "content": user}],
+                0.4,
+            )
+
+    out = json.loads(asyncio.run(ask()))
+    text = out.get("proposal") if isinstance(out, dict) else None
+    if not isinstance(text, str) or not text.strip() or len(text) > 3000:
+        raise ValueError("Модель не вернула текст предложения до 3000 символов.")
+    if text.strip() == hypothesis["base_text"].strip():
+        raise ValueError("Модель вернула исходный текст без изменений.")
+    return text.strip()
+
+
 def _interval(yes, n):
     """Wilson 95%: разброс ответов внутри симуляции, не точность прогноза людей."""
     if not n:
@@ -250,22 +553,39 @@ def _interval(yes, n):
 def aggregate(rows) -> dict:
     rows = list(rows)
     by_seg = defaultdict(lambda: [0, 0])
-    objections, quote_groups, failures = Counter(), defaultdict(list), []
+    objections, quote_groups, failures, probabilities = Counter(), defaultdict(list), [], []
+    seg_objections = defaultdict(Counter)
+    likerts = []
+    inconsistent = 0
+    by_digital = defaultdict(list)
     for tw, out in rows:
         if out.get("error") or type(out.get("decision")) is not bool:
             failures.append(out.get("error", "Некорректный ответ модели."))
             continue
+        inconsistent += bool(out.get("inconsistent"))
+        probability = out.get("probability")
+        if isinstance(probability, (int, float)) and not isinstance(probability, bool):
+            if math.isfinite(probability) and 0 <= probability <= 1:
+                probabilities.append(float(probability))
         by_seg[tw.segment][0] += 1
         by_seg[tw.segment][1] += int(out["decision"])
+        if isinstance(out.get("probability"), (int, float)):
+            for label, value in getattr(tw, "traits", {}).items():
+                by_digital[f"{label}: {value}"].append(float(out["probability"]))
+        if isinstance(out.get("likert"), list) and len(out["likert"]) == ssr.POINTS:
+            likerts.append(out["likert"])
         if not out["decision"] and out.get("objection"):
             objections[out["objection"]] += 1
+            seg_objections[tw.segment][out["objection"]] += 1
         if out.get("quote"):
-            quote_groups[(tw.segment, out["decision"])].append(
+            # Цитату подписываем тем, что сказал двойник, а не жребием по вероятности.
+            said = out.get("stated", out["decision"])
+            quote_groups[(tw.segment, said)].append(
                 {
                     "who": f"{tw.name}, {tw.age}, {tw.region}",
                     "segment_id": tw.segment,
                     "segment": SEGMENTS[tw.segment]["name"],
-                    "decision": out["decision"],
+                    "decision": said,
                     "quote": out["quote"],
                 }
             )
@@ -280,7 +600,7 @@ def aggregate(rows) -> dict:
                 break
     n = sum(v[0] for v in by_seg.values())
     yes = sum(v[1] for v in by_seg.values())
-    return {
+    result = {
         "n": n,
         "requested_n": len(rows),
         "failed_n": len(failures),
@@ -294,6 +614,7 @@ def aggregate(rows) -> dict:
                 "yes": v[1],
                 "conversion": v[1] / v[0],
                 "confidence_interval": _interval(v[1], v[0]),
+                "objections": dict(seg_objections[s].most_common()),
             }
             for s, v in by_seg.items()
         },
@@ -301,3 +622,23 @@ def aggregate(rows) -> dict:
         "quotes": quotes,
         "failure_examples": list(dict.fromkeys(failures))[:3],
     }
+    if inconsistent:
+        result["inconsistent_n"] = inconsistent
+    if by_digital:
+        # Проверка, что двойники учитывают атрибуты профиля: средняя вероятность «да» по их значениям.
+        result["by_trait"] = {
+            level: {"n": len(values), "mean": round(sum(values) / len(values), 4)}
+            for level, values in by_digital.items()
+        }
+    if probabilities and len(probabilities) == n:
+        result["probability"] = _probability_summary(probabilities)
+    if n and len(likerts) == n:
+        result["likert"] = [round(sum(d[i] for d in likerts) / n, 4) for i in range(ssr.POINTS)]
+    return result
+
+
+def _probability_summary(values: list[float]) -> dict:
+    """Заявленная вероятность: средняя и разброс. Низкий разброс — признак однородных персонажей."""
+    mean = sum(values) / len(values)
+    sd = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values))
+    return {"mean": round(mean, 4), "sd": round(sd, 4), "n": len(values)}

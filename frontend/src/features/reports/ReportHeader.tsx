@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  FileText,
   FileJson,
   FileSpreadsheet,
   GitCompare,
@@ -12,6 +13,7 @@ import {
   Menu,
   Notice,
   date,
+  decimal,
   percent,
 } from "../../components";
 import type { Experiment } from "../../types";
@@ -57,6 +59,10 @@ export default function ReportHeader({
               <ArrowRight size={18} />
             </Button>
             <Menu label="Действия с отчётом">
+              <button onClick={() => exportFile("html", "summary")}>
+                <FileText size={17} />
+                Резюме для команды
+              </button>
               <button onClick={() => exportFile("json")}>
                 <FileJson size={17} />
                 Отчёт JSON
@@ -96,6 +102,40 @@ export default function ReportHeader({
             <strong>{base.quality.title}</strong>
             <p>{base.quality.detail}</p>
           </div>
+          <ul className="quality-checks" aria-label="Проверки качества">
+            <li className={base.stability?.level ?? "muted"}>
+              Лидер в повторных выборках:{" "}
+              {base.stability
+                ? decimal(base.stability.share * 100, 0) + "%"
+                : "нужны два варианта"}
+            </li>
+            <li
+              className={
+                !base.baseline || base.baseline.error
+                  ? "muted"
+                  : base.baseline.same_leader
+                    ? "stable"
+                    : "moderate"
+              }
+            >
+              Простой подход:{" "}
+              {!base.baseline
+                ? "нет в снимке"
+                : base.baseline.error
+                  ? "ошибка запроса"
+                  : base.baseline.same_leader
+                    ? "лидер совпадает"
+                    : "лидеры различаются"}
+            </li>
+            <li className={record.validation ? "stable" : "muted"}>
+              Живой опрос:{" "}
+              {record.validation
+                ? "ошибка " +
+                  decimal(record.validation.result.mae_conversion * 100) +
+                  " п.п."
+                : "ещё не загружен"}
+            </li>
+          </ul>
         </div>
       )}
       <div className="report-summary">
@@ -108,7 +148,7 @@ export default function ReportHeader({
                 : "Доля согласий"}
           </span>
           <strong>
-            {summary?.leaders.length ? percent(summary.best, 0) : "—"}
+            {summary?.leaders.length ? percent(summary.best) : "—"}
           </strong>
           <small>
             {summary?.leaders.length
@@ -135,7 +175,7 @@ export default function ReportHeader({
         <div>
           <span>Отрыв от следующего</span>
           <strong>
-            {summary ? summary.gap_pp.toFixed(1) : "—"} <small>п.п.</small>
+            {summary ? decimal(summary.gap_pp) : "—"} <small>п.п.</small>
           </strong>
           <small>Описательное сравнение</small>
         </div>

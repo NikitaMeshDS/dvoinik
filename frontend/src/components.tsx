@@ -192,6 +192,19 @@ export function Notice({
   );
 }
 export { date } from "./data";
+const formats = new Map<number, Intl.NumberFormat>();
+export function decimal(value: number, digits = 1) {
+  let format = formats.get(digits);
+  if (!format) {
+    format = new Intl.NumberFormat("ru-RU", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+    formats.set(digits, format);
+  }
+  return format.format(value).replace("-", "−");
+}
+/** Доли везде показываются с одним знаком после запятой, чтобы цифры не расходились между блоками. */
 export function percent(value: number | null, digits = 1) {
-  return value === null ? "—" : (value * 100).toFixed(digits) + "%";
+  return value === null ? "—" : decimal(value * 100, digits) + "%";
 }

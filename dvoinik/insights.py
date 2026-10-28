@@ -46,8 +46,29 @@ def segment_report(record: dict, sid: str) -> dict:
             "requested_n": requested,
             "failed_n": requested - n,
             "confidence_interval": _interval(yes, n),
-            # Снимок не содержит количественного распределения причин по сегментам.
-            "objections": {},
+            # Старые снимки не содержат распределения причин по сегментам.
+            "objections": copy.deepcopy(segment.get("objections", {})),
             "quotes": copy.deepcopy([q for q in result["quotes"] if q["segment_id"] == sid]),
         }
     return focused
+
+
+def insights_payload(record: dict, segment: str = "all") -> dict:
+    """Ответ /api/insights: отчёт выбранной аудитории, сводка и встроенные проверки."""
+    from .experiments import quality_status
+    from .hypotheses import suggest
+    from .planning import baseline_agreement, leader_stability, live_check_plan
+    from .reporting import summarize
+
+    report = record["report"] if segment == "all" else segment_report(record, segment)
+    result = {
+        "report": report,
+        "summary": summarize(report),
+        "quality": quality_status(record),
+        "stability": leader_stability(report),
+    }
+    if segment == "all":
+        result["plan"] = live_check_plan(record)
+        result["baseline"] = baseline_agreement(record)
+        result["hypotheses"] = suggest(record)
+    return result

@@ -19,6 +19,7 @@ from ..reporting import export_csv, export_json
 from ..runs import RunSettings, run_experiment
 from ..scenarios import SCENARIOS
 from ..storage import StorageError
+from ..summary import team_summary
 from ..survey_materials import survey_kit, survey_template
 from ..validate import load_survey
 
@@ -145,12 +146,13 @@ class Runtime:
             "validation": {"json", "csv"},
             "survey-template": {"csv"},
             "survey-kit": {"zip"},
+            "summary": {"html"},
             "preview": {"json"},
         }
         if options.format not in formats.get(options.kind, set()):
             raise ValueError(
                 "Выберите JSON/CSV для отчёта или проверки, CSV для шаблона, "
-                "ZIP для комплекта опроса или JSON для предпросмотра."
+                "ZIP для комплекта опроса, HTML для резюме или JSON для предпросмотра."
             )
         if options.kind == "preview":
             if options.format != "json":
@@ -162,6 +164,8 @@ class Runtime:
             data = survey_template(record)
         elif options.kind == "survey-kit":
             data = survey_kit(record)
+        elif options.kind == "summary":
+            data = team_summary(record)
         else:
             validation_record = (
                 self.cached_preview(token, record["id"], options.preview_id)
@@ -185,7 +189,12 @@ class Runtime:
         handle = self.auth.issue_export(
             token,
             data,
-            {"json": "application/json", "csv": "text/csv", "zip": "application/zip"}[options.format],
+            {
+                "json": "application/json",
+                "csv": "text/csv",
+                "zip": "application/zip",
+                "html": "text/html",
+            }[options.format],
             f"dvoinik-{record['id']}-{options.kind}.{options.format}",
         )
         return {"url": f"/download/{handle}"}
