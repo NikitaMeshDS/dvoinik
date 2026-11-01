@@ -8,7 +8,7 @@
 
 **Работающий локальный MVP** · React + TypeScript · FastAPI + Python · MISIS X
 
-[Маршрут демо](docs/demo.md) · [Пример полного отчёта](examples/senior-deposit.demo.json) · [Запуск и настройка](docs/development.md) · [Архитектура](docs/architecture.md) · [Проверки CI](https://github.com/NikitaMeshDS/dvoinik/actions/workflows/checks.yml)
+[Онлайн-витрина](https://nikitameshds.github.io/dvoinik/) · [Маршрут локального демо](docs/demo.md) · [Пример полного отчёта](examples/senior-deposit.demo.json) · [Запуск и настройка](docs/development.md) · [Архитектура](docs/architecture.md) · [Проверки CI](https://github.com/NikitaMeshDS/dvoinik/actions/workflows/checks.yml)
 
 Лицензия: [MIT](LICENSE).
 
