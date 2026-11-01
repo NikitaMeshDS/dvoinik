@@ -10,6 +10,8 @@
 
 [Маршрут демо](docs/demo.md) · [Пример полного отчёта](examples/senior-deposit.demo.json) · [Запуск и настройка](docs/development.md) · [Архитектура](docs/architecture.md) · [Проверки CI](https://github.com/NikitaMeshDS/dvoinik/actions/workflows/checks.yml)
 
+Лицензия: [MIT](LICENSE).
+
 > Демо основано на правилах и ключевых словах. Его проценты показывают работу продукта,
 > а не прогноз реального спроса. Подключение LLM реализовано; точность на живых клиентах
 > и калибровка популяции пока не подтверждены.
@@ -58,7 +60,7 @@ docker compose exec app python manage.py create-user --username analyst --name "
 
 ## Запустить демо без аккаунта, API-ключа и GPU
 
-Нужны Git, Python **3.11 или 3.12** и Node.js **24.15+** (ветка24) для сборки интерфейса.
+Нужны Git, Python **3.11 или 3.12** и Node.js **24.15+** для сборки интерфейса.
 Команды для macOS/Linux:
 
 ```bash
