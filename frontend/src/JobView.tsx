@@ -37,7 +37,9 @@ export default function JobView({
         description={
           cancelled
             ? "Частичный результат не сохранён. Можно настроить и запустить новое исследование."
-            : "Можно продолжать работу: запуск выполняется на сервере."
+            : failed
+              ? "Запуск завершился ошибкой. Проверьте настройки перед новой попыткой."
+              : "Можно продолжать работу: запуск выполняется на сервере."
         }
       />
       {error && (
@@ -63,9 +65,46 @@ export default function JobView({
             <Notice kind={failed ? "error" : ""}>
               {job?.error || "Не удалось выполнить исследование."}
             </Notice>
+            {job?.request ? (
+              <>
+                <p className="help">
+                  Снимок настроек доступен, пока задание хранится на сервере.
+                  Восстановление откроет черновик; новая попытка начнётся только
+                  после явного запуска.
+                </p>
+                <details className="disclosure">
+                  <summary>Настройки этого запуска</summary>
+                  <div className="disclosure-content">
+                    <p>
+                      <strong>{job.request.scenario.title}</strong>
+                    </p>
+                    <p>{job.request.scenario.question}</p>
+                    <p>
+                      {job.request.mock ? "Демо" : "LLM"} · {job.request.n}{" "}
+                      профилей · Seed {job.request.seed} · параллельность{" "}
+                      {job.request.concurrency}
+                    </p>
+                    {Object.entries(job.request.scenario.variants).map(
+                      ([variant, text]) => (
+                        <p key={variant}>
+                          <strong>{variant}:</strong> {text}
+                        </p>
+                      ),
+                    )}
+                  </div>
+                </details>
+              </>
+            ) : (
+              <p className="help">
+                Снимок настроек недоступен для этого задания. Откроется текущий
+                черновик; проверьте его перед запуском.
+              </p>
+            )}
             <Button onClick={onBack}>
               <ArrowLeft size={17} />
-              Вернуться к настройкам
+              {job?.request
+                ? "Восстановить настройки запуска"
+                : "Открыть черновик"}
             </Button>
           </>
         ) : (

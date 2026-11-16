@@ -95,6 +95,19 @@ export function draftFromHypothesis(
       : base.weights,
   };
 }
+/** Recover the submitted inputs without generating new provenance or submitting a job. */
+export function draftFromRun(request: RunPayload, demo = false): Draft {
+  return {
+    ...draftFromScenario(request.scenario, "custom", demo || request.mock),
+    weights: { ...request.scenario.population },
+    n: request.n,
+    seed: request.seed,
+    concurrency: request.concurrency,
+    ...(request.scenario.origin
+      ? { origin: { ...request.scenario.origin } }
+      : {}),
+  };
+}
 export function runPayload(d: Draft): RunPayload {
   return {
     scenario_key: d.key,

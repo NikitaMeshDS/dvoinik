@@ -197,6 +197,7 @@ export type RunPayload = {
   concurrency: number;
 };
 export type Job = {
+  request?: RunPayload;
   id: string;
   status:
     "queued" | "running" | "cancelling" | "cancelled" | "completed" | "failed";

@@ -46,13 +46,17 @@ class Job:
     record: dict | None = None
     error: str | None = None
     saved: bool = False
+    request: dict | None = field(default=None, repr=False)
     released: bool = field(default=False, repr=False)
     cancel_requested: bool = field(default=False, repr=False)
     future: Future | None = field(default=None, repr=False)
 
     def public(self):
         return copy.deepcopy(
-            {key: getattr(self, key) for key in ("id", "status", "done", "total", "record", "error", "saved")}
+            {
+                key: getattr(self, key)
+                for key in ("id", "status", "done", "total", "record", "error", "saved", "request")
+            }
         )
 
 
@@ -90,11 +94,29 @@ class Jobs:
                     raise JobBusy("Сначала сохраните готовые результаты или завершите текущие исследования.")
             if not self.capacity.acquire(blocking=False):
                 raise JobBusy("Очередь исследований заполнена. Повторите позже.")
-            job = Job(uuid.uuid4().hex, token, user.id, settings.n * len(scenario["variants"]))
+            # Retain only application inputs: provider settings and credentials are
+            # deliberately absent. Workers/public responses receive separate copies.
+            request = {
+                "scenario_key": key,
+                "scenario": copy.deepcopy(scenario),
+                "n": settings.n,
+                "mock": settings.mock,
+                "seed": settings.seed,
+                "concurrency": settings.concurrency,
+            }
+            job = Job(
+                uuid.uuid4().hex,
+                token,
+                user.id,
+                settings.n * len(request["scenario"]["variants"]),
+                request=request,
+            )
             self.jobs[job.id] = job
             self.owners.add(user.id)
             try:
-                future = self.pool.submit(self._execute, job, key, copy.deepcopy(scenario), settings)
+                future = self.pool.submit(
+                    self._execute, job, key, copy.deepcopy(request["scenario"]), settings
+                )
                 job.future = future
                 future.add_done_callback(lambda done: self._cancelled(job) if done.cancelled() else None)
             except RuntimeError:

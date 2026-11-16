@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, ignored, message } from "../api";
-import { draftFromHypothesis, runPayload } from "../draft";
+import { draftFromHypothesis, draftFromRun, runPayload } from "../draft";
 import { comparisonOrder } from "../data";
 import { Notice, Button } from "../components";
 import { Administration } from "../Account";
@@ -282,7 +282,18 @@ export default function Workspace({
             onCancel={cancel}
             cancelBusy={cancelBusy}
             onBackground={() => navigate("archive")}
-            onBack={() => navigate("create")}
+            onBack={() => {
+              if (!runs.job?.request) {
+                navigate("create");
+                return;
+              }
+              if (
+                drafts.reuseDraft(
+                  draftFromRun(runs.job.request, session.user.role === "demo"),
+                )
+              )
+                navigate("create");
+            }}
           />
         ) : route === "methodology" ? (
           <Methodology catalog={catalog} />
