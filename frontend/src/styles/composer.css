@@ -441,3 +441,51 @@
   color: var(--muted);
   font-size: 13px;
 }
+
+.launch-review {
+  margin: 24px 0;
+  padding: 22px;
+  border: 1px solid #ccd9f6;
+  border-left: 4px solid var(--blue);
+  border-radius: 12px;
+  background: #f8faff;
+  min-width: 0;
+}
+.launch-review h3,
+.launch-review p {
+  overflow-wrap: anywhere;
+}
+.launch-review-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  font-size: 14px;
+}
+.launch-review-facts dt {
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.launch-review-facts dd {
+  margin: 0;
+}
+.launch-review-audience {
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.launch-review-warning {
+  color: #874e16;
+  font-size: 14px;
+}
+.launch-review-offer {
+  white-space: pre-wrap;
+  font-size: 14px;
+}
+@media (max-width: 760px) {
+  .launch-review {
+    padding: 16px;
+  }
+  .launch-review-facts {
+    grid-template-columns: 1fr;
+  }
+}

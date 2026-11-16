@@ -16,7 +16,9 @@ import {
   type Draft,
   type Estimate,
 } from "./types";
+import LaunchReview from "./features/composer/LaunchReview";
 type Preview = {
+  requestKey: string;
   counts: Record<string, number>;
   shares: Record<string, number>;
 };
@@ -52,7 +54,9 @@ export default function Composer({
     [preview, setPreview] = useState<Preview | null>(null),
     [previewError, setPreviewError] = useState(""),
     [loading, setLoading] = useState(false),
-    [estimate, setEstimate] = useState<Estimate | null>(null);
+    [estimate, setEstimate] = useState<
+      (Estimate & { requestKey: string }) | null
+    >(null);
   const step = controlledStep ?? localStep;
   const setStep = (value: number) => {
     setLocalStep(value);
@@ -106,12 +110,17 @@ export default function Composer({
   const estimateKey = payload
     ? JSON.stringify([payload.scenario, payload.n, payload.concurrency])
     : "";
+  const previewKey = JSON.stringify([draft.weights, draft.n]);
+  const activePreview = preview?.requestKey === previewKey ? preview : null;
+  const activeEstimate = estimate?.requestKey === estimateKey ? estimate : null;
   useEffect(() => {
     if (step !== 1 || !payload) {
       setEstimate(null);
       return;
     }
     const controller = new AbortController();
+    setEstimate(null);
+    let current = true;
     const timer = window.setTimeout(() => {
       api
         .request<Estimate>(
@@ -124,10 +133,15 @@ export default function Composer({
           },
           controller.signal,
         )
-        .then(setEstimate)
-        .catch(() => setEstimate(null));
+        .then((value) => {
+          if (current) setEstimate({ ...value, requestKey: estimateKey });
+        })
+        .catch(() => {
+          if (current) setEstimate(null);
+        });
     }, 300);
     return () => {
+      current = false;
       window.clearTimeout(timer);
       controller.abort();
     };
@@ -148,7 +162,7 @@ export default function Composer({
           controller.signal,
         )
         .then((p) => {
-          if (alive) setPreview(p);
+          if (alive) setPreview({ ...p, requestKey: previewKey });
         })
         .catch((e) => {
           if (alive && !ignored(e)) {
@@ -241,10 +255,10 @@ export default function Composer({
               </div>
               <Button
                 kind="primary"
-                onClick={start}
+                onClick={next}
                 disabled={busy || activeRun}
               >
-                Запустить проверку
+                Проверить настройки A/B
                 <ArrowRight size={17} />
               </Button>
             </>
@@ -467,7 +481,9 @@ export default function Composer({
                   }
                 />
                 <span className="segment-count">
-                  {loading ? "…" : (preview?.counts[sid] ?? 0)}
+                  {loading || !activePreview
+                    ? "…"
+                    : (activePreview.counts[sid] ?? 0)}
                   <small>профилей</small>
                 </span>
               </label>
@@ -475,9 +491,9 @@ export default function Composer({
           </div>
           {previewError && <Notice kind="error">{previewError}</Notice>}
           {!loading &&
-            preview &&
+            activePreview &&
             Object.entries(draft.weights).some(
-              ([sid, w]) => w > 0 && !preview.counts[sid],
+              ([sid, w]) => w > 0 && !activePreview.counts[sid],
             ) && (
               <Notice>
                 В одном из выбранных сегментов нет профилей после округления.
@@ -534,7 +550,22 @@ export default function Composer({
               </p>
             </div>
           </details>
-          {estimate && (
+          <LaunchReview
+            draft={draft}
+            catalog={catalog}
+            counts={
+              !loading && !previewError ? activePreview?.counts : undefined
+            }
+            onEdit={() => setStep(0)}
+          />
+          {!activeEstimate && (
+            <p className="help" role="status">
+              {draft.mock
+                ? "Демо выполняется без запросов к модели."
+                : "Оценка нагрузки пока недоступна. Фактические расходы зависят от настроенной модели."}
+            </p>
+          )}
+          {activeEstimate && (
             <div className="run-estimate" aria-live="polite">
               <span className="mini-label">
                 {draft.mock
@@ -543,14 +574,18 @@ export default function Composer({
               </span>
               <div>
                 <span>
-                  <strong>{estimate.requests.toLocaleString("ru-RU")}</strong>{" "}
+                  <strong>
+                    {activeEstimate.requests.toLocaleString("ru-RU")}
+                  </strong>{" "}
                   запросов
                 </span>
                 <span>
                   <strong>
                     ≈{" "}
                     {decimal(
-                      (estimate.input_tokens + estimate.output_tokens) / 1000,
+                      (activeEstimate.input_tokens +
+                        activeEstimate.output_tokens) /
+                        1000,
                       0,
                     )}{" "}
                     тыс.
@@ -560,23 +595,27 @@ export default function Composer({
                 <span>
                   <strong>
                     ≈{" "}
-                    {estimate.minutes < 1
+                    {activeEstimate.minutes < 1
                       ? "< 1"
-                      : decimal(Math.ceil(estimate.minutes), 0)}{" "}
+                      : decimal(Math.ceil(activeEstimate.minutes), 0)}{" "}
                     мин
                   </strong>
                 </span>
-                {estimate.cost !== null && (
+                {activeEstimate.cost !== null && (
                   <span>
                     <strong>
-                      ≈ {decimal(estimate.cost, 0)} {estimate.currency}
+                      ≈ {decimal(activeEstimate.cost, 0)}{" "}
+                      {activeEstimate.currency}
                     </strong>
                   </span>
                 )}
               </div>
               <p className="help">
-                {estimate.detail} Включая один запрос простого подхода для
-                сравнения.
+                {activeEstimate.detail} Включая один запрос простого подхода для
+                сравнения.{" "}
+                {activeEstimate.cost === null
+                  ? "Стоимость не рассчитана: тариф модели не задан."
+                  : "Это предварительная оценка, фактические расходы могут отличаться."}
               </p>
             </div>
           )}

@@ -163,7 +163,7 @@ it("shows nothing for studies without a source", () => {
   const { container } = render(<OriginBanner record={record} />);
   expect(container.innerHTML).toBe("");
 });
-it("lets a hypothesis check run straight from the composer", () => {
+it("opens audience review before launching a hypothesis check", () => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   const catalog: Catalog = {
     scenarios: { custom: record.scenario },
@@ -182,8 +182,13 @@ it("lets a hypothesis check run straight from the composer", () => {
     />,
   );
   expect(screen.getByText("Проверка гипотезы «Цена»")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Запустить проверку" }));
-  expect(onRun).toHaveBeenCalledOnce();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Проверить настройки A/B" }),
+  );
+  expect(onRun).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("region", { name: "Проверьте перед запуском" }),
+  ).toBeTruthy();
 });
 
 it("discloses corrected probabilities even before insights load", () => {
