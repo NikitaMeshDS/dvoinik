@@ -118,25 +118,37 @@ export function runPayload(d: Draft): RunPayload {
     concurrency: d.concurrency,
   };
 }
-export function draftError(d: Draft): string | null {
-  if (!d.title.trim()) return "Добавьте название исследования.";
-  if (!d.question.trim()) return "Добавьте вопрос двойникам.";
+export type DraftIssue = { field: string; step: number; message: string };
+export function draftIssue(d: Draft, offersOnly = false): DraftIssue | null {
+  const issue = (field: string, step: number, message: string) => ({
+    field,
+    step,
+    message,
+  });
+  if (!d.title.trim())
+    return issue("title", 0, "Добавьте название исследования.");
+  if (!d.question.trim())
+    return issue("question", 0, "Добавьте вопрос двойникам.");
   for (const v of VARIANTS.slice(0, d.variantCount))
     if (!(d.variants[v] ?? "").trim())
-      return "Заполните предложение " + v + ".";
-  if (!Object.values(d.weights).some((n) => n > 0))
-    return "Выберите хотя бы один сегмент аудитории.";
+      return issue("variant-" + v, 0, "Заполните предложение " + v + ".");
   if (!d.objections.some((s) => s.trim()))
-    return "Добавьте хотя бы одну категорию отказа.";
+    return issue("objections", 0, "Добавьте хотя бы одну категорию отказа.");
+  if (offersOnly) return null;
+  if (!Object.values(d.weights).some((n) => n > 0))
+    return issue("weights", 1, "Выберите хотя бы один сегмент аудитории.");
   if (!Number.isInteger(d.n) || d.n < 1 || d.n > 10000)
-    return "Размер аудитории: целое число от 1 до 10 000.";
+    return issue("n", 1, "Размер аудитории: целое число от 1 до 10 000.");
   if (!Number.isInteger(d.seed) || d.seed < 0 || d.seed > 999999)
-    return "Seed: целое число от 0 до 999 999.";
+    return issue("seed", 1, "Seed: целое число от 0 до 999 999.");
   if (
     !Number.isInteger(d.concurrency) ||
     d.concurrency < 1 ||
     d.concurrency > 64
   )
-    return "Параллельность: от 1 до 64 запросов.";
+    return issue("concurrency", 1, "Параллельность: от 1 до 64 запросов.");
   return null;
+}
+export function draftError(d: Draft): string | null {
+  return draftIssue(d)?.message ?? null;
 }

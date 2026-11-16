@@ -8,6 +8,7 @@ import { ImportDialog, ComparisonDialog } from "../Compare";
 import Composer from "../Composer";
 import Library, { INITIAL_LIBRARY, type LibraryState } from "../Library";
 import Report from "../Report";
+import { reportTabFromRoute } from "../features/reports/ReportTabs";
 import JobView from "../JobView";
 import Methodology from "../Methodology";
 import type { Experiment, Job, Session } from "../types";
@@ -43,7 +44,7 @@ export default function Workspace({
     if (!ignored(error) && !(error instanceof ApiError && error.authBlocked))
       setToast(message(error));
   };
-  const runs = useJob(route, (value) => {
+  const runs = useJob(route.split("?")[0], (value) => {
     if (value.status === "completed" && value.record) {
       archive.recovered(value);
       void archive.reload();
@@ -77,13 +78,12 @@ export default function Workspace({
   };
   const reuse = () => {
     if (record) {
-      drafts.reuse(record);
-      navigate("create");
+      if (drafts.reuse(record)) navigate("create");
     }
   };
   const testHypothesis = (hypothesis: Hypothesis, proposal: string) => {
     if (!record) return;
-    drafts.reuseDraft(
+    const accepted = drafts.reuseDraft(
       draftFromHypothesis(
         record,
         hypothesis,
@@ -91,7 +91,7 @@ export default function Workspace({
         session.user.role === "demo",
       ),
     );
-    navigate("create");
+    if (accepted) navigate("create");
   };
   const start = async () => {
     if (runs.active) {
@@ -155,7 +155,14 @@ export default function Workspace({
         session={session}
         route={route}
         navigate={navigate}
-        onLogout={onLogout}
+        onLogout={() => {
+          if (
+            window.dispatchEvent(
+              new Event("dvoinik:before-leave", { cancelable: true }),
+            )
+          )
+            onLogout();
+        }}
         toast={toast}
         onDismiss={() => setToast("")}
       >
@@ -210,6 +217,10 @@ export default function Workspace({
           <Composer
             catalog={catalog}
             draft={drafts.draft!}
+            step={drafts.step}
+            onStepChange={drafts.setStep}
+            draftStatus={drafts.status}
+            onReset={drafts.reset}
             onChange={drafts.update}
             onTemplate={drafts.choose}
             onRun={start}
@@ -221,6 +232,14 @@ export default function Workspace({
           record ? (
             <Report
               key={record.id}
+              selectedTab={reportTabFromRoute(route)}
+              onTabChange={(tab) =>
+                navigate(
+                  "report/" +
+                    record.id +
+                    (tab === "overview" ? "" : "?tab=" + tab),
+                )
+              }
               record={record}
               catalog={catalog}
               onBack={() => navigate("archive")}
@@ -281,7 +300,13 @@ export default function Workspace({
             state={library}
             onState={setLibrary}
             onNew={() => navigate("create")}
-            onOpen={(id) => navigate("report/" + id)}
+            onOpen={(id, tab) => {
+              navigate(
+                "report/" +
+                  id +
+                  (tab === "validation" ? "?tab=validation" : ""),
+              );
+            }}
             onImport={() => setModal("import")}
             onSample={openSample}
             onCompare={compare}

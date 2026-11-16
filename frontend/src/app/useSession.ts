@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError, ignored, message } from "../api";
 import type { Session } from "../types";
+import { clearDrafts } from "./draftStorage";
 /** Authentication owns the lifetime of a workspace, never its research data. */
 export function useSession() {
   const [session, setSession] = useState<Session | null>(null);
@@ -12,6 +13,7 @@ export function useSession() {
   sessionRef.current = session;
   const channel = useRef<BroadcastChannel | null>(null);
   const clear = () => {
+    clearDrafts();
     api.reset();
     setSession(null);
     setLogoutBlocked("");
@@ -80,6 +82,7 @@ export function useSession() {
         username,
         password,
       });
+      clearDrafts();
       api.setSession(value);
       setSession(value);
       window.location.hash = "/archive";

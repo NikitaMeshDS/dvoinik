@@ -54,6 +54,7 @@
   border-top: 1px solid var(--line);
 }
 .study-row {
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   gap: 13px;
@@ -177,6 +178,8 @@
 }
 /* One journal entry exposes the question, audience and each saved alternative. */
 .study-main {
+  flex: 1 1 calc(100% - 40px);
+  min-width: 0;
   display: grid;
   align-items: center;
   width: 100%;
@@ -365,4 +368,8 @@
 .study-tags i.origin.worse {
   color: #985f22;
   background: #fff1db;
+}
+
+.study-next {
+  margin: 0 20px 16px auto;
 }

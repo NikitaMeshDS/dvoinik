@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import Composer from "./Composer";
+import ReportHeader from "./features/reports/ReportHeader";
 import OriginBanner, {
   hypothesisVerdict,
 } from "./features/reports/OriginBanner";
@@ -98,7 +99,7 @@ it("states whether the hypothesis won and links back", () => {
       onCompare={onCompare}
     />,
   );
-  expect(screen.getByText("Гипотеза подтвердилась в симуляции")).toBeTruthy();
+  expect(screen.getByText("В симуляции чаще выбирали B")).toBeTruthy();
   expect(screen.getByText(/\+12,0 п\.п\./)).toBeTruthy();
   expect(screen.getByText(/97% повторных выборок/)).toBeTruthy();
   expect(screen.getByText(/≈ 270 оценок/)).toBeTruthy();
@@ -121,6 +122,42 @@ it("states whether the hypothesis won and links back", () => {
   expect(screen.getByText(/Основа — исследование «Исходное»/)).toBeTruthy();
   fireEvent.click(screen.getByText("Сравнить с исходным"));
   expect(onCompare).toHaveBeenCalledWith("parent");
+});
+it("opens survey preparation and reflects a saved survey", () => {
+  const onValidation = vi.fn();
+  const child = abRecord(40, 40);
+  const view = render(
+    <OriginBanner record={child} onValidation={onValidation} />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Подготовить проверку" }));
+  expect(onValidation).toHaveBeenCalledOnce();
+  view.rerender(
+    <OriginBanner
+      record={{
+        ...child,
+        validation: {
+          created_at: "2026-11-13",
+          cells: [],
+          result: {
+            actual_winners: ["A"],
+            predicted_winners: ["A"],
+            winner_match: null,
+            survey_n: 3,
+            matched_cells: 1,
+            cells: [],
+            mae_conversion: 0,
+            spearman_variants: null,
+          },
+        },
+      }}
+      onValidation={onValidation}
+    />,
+  );
+  expect(screen.getByText(/Сопоставить лидеров пока невозможно/)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Посмотреть ответы опроса" }),
+  );
+  expect(onValidation).toHaveBeenCalledTimes(2);
 });
 it("shows nothing for studies without a source", () => {
   const { container } = render(<OriginBanner record={record} />);
@@ -147,4 +184,37 @@ it("lets a hypothesis check run straight from the composer", () => {
   expect(screen.getByText("Проверка гипотезы «Цена»")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Запустить проверку" }));
   expect(onRun).toHaveBeenCalledOnce();
+});
+
+it("discloses corrected probabilities even before insights load", () => {
+  const props = {
+    base: null,
+    onBack: vi.fn(),
+    onReuse: vi.fn(),
+    onCompare: vi.fn(),
+    onExport: vi.fn(),
+  };
+  const view = render(
+    <ReportHeader
+      {...props}
+      record={{
+        ...record,
+        report: {
+          ...record.report,
+          A: { ...record.report.A, inconsistent_n: 7 },
+        },
+      }}
+    />,
+  );
+  expect(
+    screen.getByText("Модель неоднозначно указала вероятность согласия."),
+  ).toBeTruthy();
+  expect(
+    screen.getByLabelText("Корректировки вероятностей по вариантам")
+      .textContent,
+  ).toContain("Вариант A: 7");
+  view.rerender(<ReportHeader {...props} record={record} />);
+  expect(
+    screen.queryByText("Модель неоднозначно указала вероятность согласия."),
+  ).toBeNull();
 });

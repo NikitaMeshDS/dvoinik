@@ -106,6 +106,7 @@ def _parse_response(content, scenario):
     yes_probability, inconsistent = yes_probability_from(out["decision"], probability)
     return {
         "stated": out["decision"],
+        "raw_probability": probability,
         "probability": yes_probability,
         "inconsistent": inconsistent,
         "objection": objection,
@@ -162,8 +163,8 @@ async def _ask_llm(
     )
     system = SSR_SYSTEM if references is not None else SYSTEM
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
-    # «|draw»: решение по вероятности; старые записи кэша с решением модели не подходят.
-    identity = f"{model}|draw" if references is None else f"{model}|ssr:{ssr.embed_model()}"
+    # Original probabilities cannot be recovered from the older corrected-only cache.
+    identity = f"{model}|draw|raw-probability" if references is None else f"{model}|ssr:{ssr.embed_model()}"
     cache_key = llm_cache.key(identity, messages, 0.8)
     async with sem:
         # Check after waiting for capacity and outside the provider-error handler.
@@ -556,6 +557,7 @@ def aggregate(rows) -> dict:
     objections, quote_groups, failures, probabilities = Counter(), defaultdict(list), [], []
     seg_objections = defaultdict(Counter)
     likerts = []
+    raw_probabilities = []
     inconsistent = 0
     by_digital = defaultdict(list)
     for tw, out in rows:
@@ -563,6 +565,10 @@ def aggregate(rows) -> dict:
             failures.append(out.get("error", "Некорректный ответ модели."))
             continue
         inconsistent += bool(out.get("inconsistent"))
+        raw_probability = out.get("raw_probability")
+        if isinstance(raw_probability, (int, float)) and not isinstance(raw_probability, bool):
+            if math.isfinite(raw_probability) and 0 <= raw_probability <= 1:
+                raw_probabilities.append(float(raw_probability))
         probability = out.get("probability")
         if isinstance(probability, (int, float)) and not isinstance(probability, bool):
             if math.isfinite(probability) and 0 <= probability <= 1:
@@ -624,6 +630,10 @@ def aggregate(rows) -> dict:
     }
     if inconsistent:
         result["inconsistent_n"] = inconsistent
+        # Only report the original aggregate when every valid answer supplied it.
+        # SSR, demo and historical rows must not acquire inferred originals.
+        if len(raw_probabilities) == n:
+            result["raw_probability"] = _probability_summary(raw_probabilities)
     if by_digital:
         # Проверка, что двойники учитывают атрибуты профиля: средняя вероятность «да» по их значениям.
         result["by_trait"] = {

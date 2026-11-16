@@ -23,11 +23,13 @@ export default function OriginBanner({
   plan,
   onOpen,
   onCompare,
+  onValidation,
 }: {
   record: Experiment;
   stability?: Stability | null;
   plan?: LivePlan;
   onOpen?: (id: string) => void;
+  onValidation?: () => void;
   onCompare?: (id: string) => void;
 }) {
   const origin = record.scenario.origin;
@@ -50,15 +52,15 @@ export default function OriginBanner({
           <>
             <h2>
               {verdict.kind === "better"
-                ? "Гипотеза подтвердилась в симуляции"
+                ? "В симуляции чаще выбирали B"
                 : verdict.kind === "same"
-                  ? "Симуляция не различает варианты"
-                  : "Гипотеза не подтвердилась в симуляции"}
+                  ? "В симуляции оценки A и B близки"
+                  : "В симуляции чаще выбирали A"}
             </h2>
             <p>
               B (новый текст) — {percent(verdict.b)}, A (текущий вариант{" "}
               {origin.variant}) — {percent(verdict.a)}:{" "}
-              {verdict.gap > 0 ? "+" : "−"}
+              {verdict.gap > 0 ? "+" : verdict.gap < 0 ? "−" : ""}
               {decimal(Math.abs(verdict.gap))} п.п.
               {verdict.kind === "better" &&
               stability &&
@@ -69,16 +71,36 @@ export default function OriginBanner({
                 : ""}
             </p>
             <p className="origin-next">
-              {verdict.kind === "better"
-                ? needed
-                  ? "Дальше — живой тест: ≈ " +
-                    needed.toLocaleString("ru-RU") +
-                    " оценок на каждый вариант, план во вкладке «Проверка опросом»."
-                  : "Дальше — живой тест, план во вкладке «Проверка опросом»."
-                : verdict.kind === "same"
-                  ? "Разница меньше 2 п.п.: изменение не стоит отдельного живого теста. Попробуйте другую гипотезу."
-                  : "Оставьте текущий текст и попробуйте другую гипотезу из исходного исследования."}
+              {record.validation ? (
+                <>
+                  В загруженном опросе оценок:{" "}
+                  {record.validation.result.survey_n}.
+                  {record.validation.result.winner_match === null
+                    ? " Сопоставить лидеров пока невозможно."
+                    : record.validation.result.winner_match
+                      ? " По составу загруженной выборки наибольшая доля согласий в опросе и симуляции у варианта " +
+                        record.validation.result.actual_winners[0] +
+                        "."
+                      : " По составу загруженной выборки опрос и симуляция дают разный порядок вариантов."}
+                </>
+              ) : (
+                <>
+                  Ответы людей пока не загружены. Какой текст получит больше
+                  согласий в опросе?
+                  {needed
+                    ? " Для проверки разницы из симуляции ориентир — ≈ " +
+                      needed.toLocaleString("ru-RU") +
+                      " оценок на каждый вариант."
+                    : ""}
+                </>
+              )}
             </p>
+            {plan?.focus_segments.map((s) => (
+              <p key={s.segment}>
+                В сегменте «{s.name}» симуляция отдаёт преимущество варианту{" "}
+                {s.leader} ({decimal(s.gap_pp)} п.п.).
+              </p>
+            ))}
           </>
         ) : (
           <p>
@@ -88,6 +110,13 @@ export default function OriginBanner({
         )}
       </div>
       <div className="origin-actions">
+        {verdict && onValidation && (
+          <button className="text-link with-icon" onClick={onValidation}>
+            {record.validation
+              ? "Посмотреть ответы опроса"
+              : "Подготовить проверку"}
+          </button>
+        )}
         {onCompare && origin.kind === "iteration" && (
           <button
             className="text-link with-icon"

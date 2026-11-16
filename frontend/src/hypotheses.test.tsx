@@ -159,7 +159,7 @@ it("marks hypotheses that were already checked and links to the check", () => {
     />,
   );
   expect(screen.getByText(/Уже проверено/).textContent).toContain(
-    "не подтвердилась",
+    "в симуляции выше A",
   );
   fireEvent.click(screen.getByText("Открыть проверку"));
   expect(onOpen).toHaveBeenCalledWith("check-1");

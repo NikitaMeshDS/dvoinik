@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { api, ignored, message } from "../api";
 import type { Experiment } from "../types";
 import { RequestScope } from "../shared/requests";
-export function useRecord(route: string) {
+export function useRecord(location: string) {
+  const route = location.split("?")[0];
   const [record, setRecord] = useState<Experiment | null>(null),
     [error, setError] = useState("");
   const scope = useRef(new RequestScope());

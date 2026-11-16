@@ -50,3 +50,28 @@ def test_summary_starts_with_a_method_passport():
         },
     }
     assert "проверка гипотезы «Цена» исследования «Исходное»" in team_summary(child)
+
+
+def test_summary_discloses_probability_corrections():
+    record = run_experiment("senior_deposit", SCENARIOS["senior_deposit"], RunSettings(n=100, seed=1))
+    record["report"]["A"]["inconsistent_n"] = 7
+    html = team_summary(record)
+    assert "Корректировки вероятностей — вариант A" in html
+    assert "7 из 100 ответов" in html
+    assert "p на 1 − p" in html
+
+
+def test_summary_exports_probability_before_and_after_correction():
+    record = run_experiment("senior_deposit", SCENARIOS["senior_deposit"], RunSettings(n=100, seed=1))
+    record["report"]["A"].update(
+        inconsistent_n=7,
+        raw_probability={"mean": 0.8, "sd": 0.1, "n": 100},
+        probability={"mean": 0.4, "sd": 0.3, "n": 100},
+    )
+    html = team_summary(record)
+    assert "до корректировки: 80" in html
+    assert "после: 40" in html
+    del record["report"]["A"]["raw_probability"]
+    html = team_summary(record)
+    assert "Исходные значения не сохранены" in html
+    assert "до корректировки: 80" not in html

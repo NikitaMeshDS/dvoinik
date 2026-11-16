@@ -47,7 +47,7 @@ export default function LivePlan({
                         <td>
                           <strong>
                             {c.n_per_variant === null
-                              ? "не различить"
+                              ? "без расчёта при разнице < 2 п.п."
                               : "≈ " + c.n_per_variant.toLocaleString("ru-RU")}
                           </strong>
                         </td>

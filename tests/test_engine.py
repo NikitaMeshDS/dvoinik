@@ -245,3 +245,77 @@ def test_objection_matching_is_forgiving_only_when_unambiguous(given, expected):
     from dvoinik.engine import _match_objection
 
     assert _match_objection(given, SCENARIOS["senior_deposit"]["objections"]) == expected
+
+
+def test_llm_aggregate_preserves_probability_before_correction():
+    import json
+
+    from dvoinik.engine import _decide, _parse_response
+
+    twins = build_population(3, {"senior": 1})
+    rows = []
+    for twin, decision, probability in [(twins[0], False, 0.9), (twins[1], True, 0.7)]:
+        parsed = _parse_response(
+            json.dumps({"decision": decision, "probability": probability, "quote": "Ответ"}),
+            SCENARIOS["senior_deposit"],
+        )
+        rows.append((twin, _decide(parsed, twin, "Предложение")))
+    rows.append((twins[2], {"error": "invalid JSON"}))
+    result = aggregate(rows)
+    assert result["inconsistent_n"] == 1
+    assert result["raw_probability"] == {"mean": 0.8, "sd": 0.1, "n": 2}
+    assert result["probability"] == {"mean": 0.4, "sd": 0.3, "n": 2}
+    assert result["failed_n"] == 1
+
+
+def test_aggregate_does_not_invent_missing_raw_probabilities():
+    twins = build_population(2, {"senior": 1})
+    rows = [
+        (twins[0], {"decision": False, "probability": 0.1, "inconsistent": True, "raw_probability": 0.9}),
+        (twins[1], {"decision": True, "probability": 0.7}),
+    ]
+    assert "raw_probability" not in aggregate(rows)
+    assert all(
+        "raw_probability" not in r for r in simulate(twins, SCENARIOS["senior_deposit"], mock=True).values()
+    )
+
+
+def test_probability_generation_does_not_reuse_cache_without_originals(monkeypatch, tmp_path):
+    import json
+
+    from dvoinik import engine, llm_cache
+
+    monkeypatch.setenv("DVOINIK_LLM_CACHE", "1")
+    monkeypatch.setenv("DVOINIK_LLM_CACHE_PATH", str(tmp_path / "cache.sqlite3"))
+    twin = build_population(1, {"senior": 1})[0]
+    scenario = {"description": "", "question": "Да?", "objections": ["плата"]}
+    messages = [
+        {"role": "system", "content": engine.SYSTEM},
+        {
+            "role": "user",
+            "content": (
+                f"Ты: {twin.profile()}\n\nБанк предлагает: предложение\n\n"
+                "Контекст исследования: \nВопрос: Да?\nКатегории отказа: плата"
+            ),
+        },
+    ]
+    legacy_key = llm_cache.key("test|draw", messages, 0.8)
+    legacy = {"decision": False, "probability": 0.1, "inconsistent": True, "quote": "Нет"}
+    llm_cache.put(legacy_key, legacy)
+
+    class Completions:
+        async def create(self, **kwargs):
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content=json.dumps({"decision": False, "probability": 0.9, "quote": "Нет"})
+                        )
+                    )
+                ]
+            )
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=Completions()))
+    answer = asyncio.run(engine._ask_llm(client, "test", twin, scenario, "предложение", asyncio.Semaphore(1)))
+    assert aggregate([(twin, answer)])["raw_probability"] == {"mean": 0.9, "sd": 0.0, "n": 1}
+    assert llm_cache.get(legacy_key) == legacy

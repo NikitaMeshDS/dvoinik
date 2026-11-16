@@ -15,7 +15,7 @@ from .population import SEGMENTS
 
 Z = NormalDist()
 STABILITY_DRAWS = 4000
-# Порог «заметной» разницы для расчёта выборки: меньшую опросом обычно не различить.
+# Минимальный эффект для автоматического расчёта; это продуктовый порог, не предел статистики.
 MIN_DIFFERENCE = 0.02
 # Разброс заявленной вероятности ниже этого порога — признак одинаковых ответов для разных профилей.
 HOMOGENEOUS_SD = 0.05
@@ -72,7 +72,7 @@ def sample_size(p1: float, p2: float, alpha: float = 0.05, power: float = 0.8) -
     if not 0 < alpha < 1 or not 0 < power < 1:
         raise ValueError("Уровень значимости и мощность должны быть строго между 0 и 1.")
     delta = abs(p1 - p2)
-    if delta < MIN_DIFFERENCE:
+    if delta < MIN_DIFFERENCE and not math.isclose(delta, MIN_DIFFERENCE, rel_tol=0, abs_tol=1e-12):
         return None
     za, zb = Z.inv_cdf(1 - alpha / 2), Z.inv_cdf(power)
     pooled = (p1 + p2) / 2
@@ -140,16 +140,16 @@ def live_check_plan(record: dict) -> dict:
                 for v, r in valid.items()
                 if r["segments"].get(sid, {}).get("n")
             }
-            if not seg_rates:
+            if overall not in seg_rates or len(seg_rates) < 2:
                 continue
             best = max(seg_rates, key=seg_rates.get)
-            if best != overall and seg_rates[best] - seg_rates.get(overall, 0) >= MIN_DIFFERENCE:
+            if best != overall and seg_rates[best] - seg_rates[overall] >= MIN_DIFFERENCE:
                 focus_segments.append(
                     {
                         "segment": sid,
                         "name": SEGMENTS[sid]["name"],
                         "leader": best,
-                        "gap_pp": (seg_rates[best] - seg_rates.get(overall, 0)) * 100,
+                        "gap_pp": (seg_rates[best] - seg_rates[overall]) * 100,
                     }
                 )
     return {

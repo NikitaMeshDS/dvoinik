@@ -208,3 +208,26 @@ def test_segment_objections_sum_to_segment_refusals_and_are_validated():
     broken["report"]["A"]["segments"][sid]["objections"] = {"плата и условия": 10_000}
     with pytest.raises(ValueError):
         load_experiment(json.dumps(broken))
+
+
+def test_focus_segments_require_observed_rates_for_both_variants():
+    record = {
+        "scenario": {"population": {"senior": 1.0}},
+        "report": {"A": result(8, 10), "B": result(2, 10)},
+    }
+    record["report"]["A"]["segments"] = {"senior": {"yes": 0, "n": 0}}
+    record["report"]["B"]["segments"] = {"senior": {"yes": 2, "n": 10}}
+    assert live_check_plan(record)["focus_segments"] == []
+    # An observed zero is a valid comparator, unlike missing observations.
+    record["report"]["A"]["segments"]["senior"]["n"] = 10
+    focus = live_check_plan(record)["focus_segments"]
+    assert len(focus) == 1
+    assert focus[0]["leader"] == "B"
+    assert focus[0]["gap_pp"] == pytest.approx(20)
+
+
+@pytest.mark.parametrize("left,right", [(0.22, 0.20), (0.42, 0.40), (0.52, 0.50)])
+def test_sample_size_includes_exact_two_percentage_point_boundary(left, right):
+    assert sample_size(left, right) is not None
+    assert sample_size(right, left) == sample_size(left, right)
+    assert sample_size(right + 0.01999, right) is None

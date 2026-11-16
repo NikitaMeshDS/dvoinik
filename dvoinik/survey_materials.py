@@ -87,7 +87,9 @@ def _sample_guide(record):
     for item in plan["comparisons"]:
         left, right = item["pair"]
         if item["n_per_variant"] is None:
-            lines.append(f"{left} и {right}: разница в симуляции меньше 2 п.п., опросом её не различить.")
+            lines.append(
+                f"{left} и {right}: разница в симуляции меньше 2 п.п., задайте минимальный эффект для планирования опроса."
+            )
         else:
             lines.append(
                 f"{left} против {right} (разница в симуляции {_pp(item['gap_pp'])} п.п.): "

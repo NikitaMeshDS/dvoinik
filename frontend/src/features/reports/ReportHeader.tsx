@@ -40,6 +40,9 @@ export default function ReportHeader({
   const variants = Object.keys(record.report),
     segments = Object.keys(record.scenario.population),
     summary = base?.summary;
+  const corrected = Object.entries(record.report).filter(
+    ([, result]) => (result.inconsistent_n ?? 0) > 0,
+  );
   return (
     <>
       <Back onClick={onBack} />
@@ -93,6 +96,33 @@ export default function ReportHeader({
               Скачать полный JSON
             </button>
           </div>
+        </Notice>
+      )}
+      {corrected.length > 0 && (
+        <Notice kind="warning">
+          <strong>Модель неоднозначно указала вероятность согласия.</strong>
+          <p>
+            Ответ «да/нет» расходился с вероятностью. При обработке таких
+            ответов приложение заменило вероятность p на 1 − p. Итоговые
+            показатели включают эту корректировку.
+          </p>
+          <ul aria-label="Корректировки вероятностей по вариантам">
+            {corrected.map(([variant, result]) => (
+              <li key={variant}>
+                Вариант {variant}: {result.inconsistent_n} из {result.n} ответов
+                {result.n > 0
+                  ? " (" + percent(result.inconsistent_n! / result.n) + ")"
+                  : ""}
+                {result.raw_probability && result.probability
+                  ? ` — Средняя вероятность по всем ${result.n} валидным ответам до корректировки: ${percent(result.raw_probability.mean)}; после: ${percent(result.probability.mean)}.`
+                  : " — Исходные значения не сохранены; среднее до корректировки неизвестно."}
+              </li>
+            ))}
+          </ul>
+          <p>
+            Проверьте формулировку запроса и повторите запуск с однозначным
+            форматом ответа перед интерпретацией различий.
+          </p>
         </Notice>
       )}
       {base && (

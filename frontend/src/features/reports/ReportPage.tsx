@@ -4,6 +4,7 @@ import { Notice, Button } from "../../components";
 import type { Catalog, Experiment } from "../../types";
 import type { ExportAction, Hypothesis } from "./types";
 import { useInsights } from "./useInsights";
+import { useUnsavedSurvey } from "./useUnsavedSurvey";
 import ReportHeader from "./ReportHeader";
 import ReportTabs, { type ReportTab } from "./ReportTabs";
 import Overview from "./Overview";
@@ -21,6 +22,9 @@ function leaderOf(record: Experiment) {
 }
 export default function ReportPage({
   record,
+  initialTab = "overview",
+  selectedTab,
+  onTabChange,
   catalog,
   onBack,
   onReuse,
@@ -35,6 +39,9 @@ export default function ReportPage({
   onRetry,
 }: {
   record: Experiment;
+  initialTab?: ReportTab;
+  selectedTab?: ReportTab;
+  onTabChange?: (tab: ReportTab) => void;
   catalog: Catalog;
   onBack: () => void;
   onReuse: () => void;
@@ -48,10 +55,24 @@ export default function ReportPage({
   pending?: string;
   onRetry?: () => void;
 }) {
-  const [tab, setTab] = useState<ReportTab>("overview"),
+  const [localTab, setLocalTab] = useState<ReportTab>(initialTab),
     [segment, setSegment] = useState("all"),
     [variant, setVariant] = useState(() => leaderOf(record)),
     [decision, setDecision] = useState("all");
+  const [surveyDirty, setSurveyDirty] = useState(false);
+  const leave = useUnsavedSurvey(record.id, surveyDirty);
+  const openRecord = onOpenRecord
+    ? (id: string) => leave(() => onOpenRecord(id))
+    : undefined;
+  const testHypothesis = onTestHypothesis
+    ? (hypothesis: Hypothesis, proposal: string) =>
+        leave(() => onTestHypothesis(hypothesis, proposal))
+    : undefined;
+  const tab = selectedTab ?? localTab;
+  const setTab = (value: ReportTab) => {
+    setLocalTab(value);
+    onTabChange?.(value);
+  };
   const insights = useInsights(record, segment);
   const exportFile: ExportAction = (format, kind = "record", preview_id) => {
     void download("/export", {
@@ -66,8 +87,8 @@ export default function ReportPage({
       <ReportHeader
         record={record}
         base={insights.base}
-        onBack={onBack}
-        onReuse={onReuse}
+        onBack={() => leave(onBack)}
+        onReuse={() => leave(onReuse)}
         onCompare={onCompare}
         pending={pending}
         onRetry={onRetry}
@@ -87,7 +108,8 @@ export default function ReportPage({
         record={record}
         stability={insights.base?.stability}
         plan={insights.base?.plan}
-        onOpen={onOpenRecord}
+        onOpen={openRecord}
+        onValidation={() => setTab("validation")}
         onCompare={onCompareWith}
       />
       <ReportTabs tab={tab} setTab={setTab} />
@@ -129,11 +151,11 @@ export default function ReportPage({
           <Hypotheses
             record={record}
             data={insights.base?.hypotheses}
-            onTest={onTestHypothesis}
+            onTest={testHypothesis}
             checks={related.filter(
               (r) => r.scenario.origin?.record_id === record.id,
             )}
-            onOpen={onOpenRecord}
+            onOpen={openRecord}
           />
         )}
         <div hidden={tab !== "validation"}>
@@ -143,6 +165,7 @@ export default function ReportPage({
             onUpdated={onUpdated}
             onExport={exportFile}
             plan={insights.base?.plan}
+            onDirtyChange={setSurveyDirty}
           />
         </div>
       </section>

@@ -183,3 +183,72 @@ def test_duplicate_key_error_can_be_rendered_as_utf8():
     with pytest.raises(ValueError) as error:
         load_experiment(b'{"\\ud800":1,"\\ud800":2}')
     assert str(error.value).encode("utf-8")
+
+
+@pytest.mark.parametrize("count", [-1, 51, True, "7", 1.5])
+def test_import_rejects_invalid_probability_correction_count(count):
+    data = record()
+    data["report"]["A"]["inconsistent_n"] = count
+    with pytest.raises(ValueError):
+        load_experiment(export_json(data))
+
+
+def test_import_preserves_probability_correction_count():
+    data = record()
+    data["report"]["A"]["inconsistent_n"] = 7
+    assert load_experiment(export_json(data))["report"]["A"]["inconsistent_n"] == 7
+
+
+def test_raw_probability_survives_json_export_and_import():
+    data = record()
+    data["report"]["A"].update(inconsistent_n=7, raw_probability={"mean": 0.8, "sd": 0.1, "n": 50})
+    restored = load_experiment(export_json(data))
+    assert restored["report"]["A"]["raw_probability"] == {"mean": 0.8, "sd": 0.1, "n": 50}
+    legacy = record()
+    legacy["report"]["A"]["inconsistent_n"] = 7
+    assert "raw_probability" not in load_experiment(export_json(legacy))["report"]["A"]
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        None,
+        [],
+        "0.8",
+        {},
+        {"mean": True, "sd": 0.1, "n": 50},
+        {"mean": -0.1, "sd": 0.1, "n": 50},
+        {"mean": 1.1, "sd": 0.1, "n": 50},
+        {"mean": float("inf"), "sd": 0.1, "n": 50},
+        {"mean": 0.8, "sd": float("nan"), "n": 50},
+        {"mean": 0.8, "sd": -0.1, "n": 50},
+        {"mean": 0.8, "sd": 0.6, "n": 50},
+        {"mean": 0.8, "sd": True, "n": 50},
+        *[{"mean": 0.8, "sd": 0.1, "n": n} for n in [True, 0, -1, 49, 51, 50.0, "50"]],
+    ],
+)
+def test_import_rejects_invalid_raw_probability(raw):
+    data = record()
+    data["report"]["A"]["raw_probability"] = raw
+    # Go through the public importer, including its non-finite JSON checks.
+    with pytest.raises(ValueError):
+        load_experiment(json.dumps(data))
+
+
+@pytest.mark.parametrize("mean,sd", [(0, 0), (1, 0), (0.5, 0.5)])
+def test_import_accepts_raw_probability_boundaries(mean, sd):
+    data = record()
+    raw = {"mean": mean, "sd": sd, "n": 50}
+    data["report"]["A"]["raw_probability"] = raw
+    assert load_experiment(export_json(data))["report"]["A"]["raw_probability"] == raw
+
+
+def test_import_rejects_raw_probability_without_observations():
+    from dvoinik.engine import aggregate
+
+    data = record()
+    twins = build_population(50, {"senior": 1})
+    data["report"]["A"] = aggregate((twin, {"error": "failed"}) for twin in twins)
+    data["report"]["A"]["raw_probability"] = {"mean": 0, "sd": 0, "n": 0}
+    with pytest.raises(ValueError):
+        load_experiment(export_json(data))

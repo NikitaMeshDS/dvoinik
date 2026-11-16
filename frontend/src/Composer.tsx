@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   ArrowLeft,
@@ -7,7 +7,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { api, ignored, message } from "./api";
-import { draftError, runPayload } from "./draft";
+import { draftError, draftIssue, type DraftIssue, runPayload } from "./draft";
 import { Button, Heading, Notice, decimal } from "./components";
 import {
   VARIANTS,
@@ -29,6 +29,10 @@ export default function Composer({
   demo,
   busy,
   activeRun = false,
+  step: controlledStep,
+  onStepChange,
+  draftStatus,
+  onReset,
 }: {
   catalog: Catalog;
   draft: Draft;
@@ -38,21 +42,64 @@ export default function Composer({
   demo: boolean;
   busy: boolean;
   activeRun?: boolean;
+  step?: number;
+  onStepChange?: (step: number) => void;
+  draftStatus?: string;
+  onReset?: () => void;
 }) {
-  const [step, setStep] = useState(0),
-    [error, setError] = useState(""),
+  const [localStep, setLocalStep] = useState(0),
+    [error, setError] = useState<DraftIssue | null>(null),
     [preview, setPreview] = useState<Preview | null>(null),
     [previewError, setPreviewError] = useState(""),
     [loading, setLoading] = useState(false),
     [estimate, setEstimate] = useState<Estimate | null>(null);
+  const step = controlledStep ?? localStep;
+  const setStep = (value: number) => {
+    setLocalStep(value);
+    onStepChange?.(value);
+  };
+  const errorId = useId();
   const stage = useRef<HTMLElement>(null);
+  const fieldProps = (field: string) => ({
+    "data-draft-field": field,
+    "aria-label": (
+      {
+        title: "Название исследования",
+        question: "Вопрос двойникам",
+        objections: "Категории отказа — одна на строку",
+        n: "Размер аудитории",
+        seed: "Seed популяции и демо",
+        concurrency: "Параллельных запросов LLM",
+      } as Record<string, string>
+    )[field],
+    "aria-invalid": error?.field === field || undefined,
+    "aria-describedby": error?.field === field ? errorId : undefined,
+  });
+  const fieldError = (field: string) =>
+    error?.field === field ? (
+      <span id={errorId} className="field-error" role="alert">
+        {error.message}
+      </span>
+    ) : null;
+
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     stage.current?.focus({ preventScroll: true });
   }, [step]);
+  useLayoutEffect(() => {
+    if (!error) return;
+    const input = stage.current?.querySelector<HTMLElement>(
+      `[data-draft-field="${error.field}"]`,
+    );
+    if (!input) return;
+    const details = input.closest("details");
+    if (details) details.open = true;
+    input.focus({ preventScroll: true });
+    input.scrollIntoView?.({ block: "center", behavior: "instant" });
+  }, [error, step]);
   const patch = (value: Partial<Draft>) => {
     onChange({ ...draft, ...value });
-    setError("");
+    setError(null);
   };
   const weights = JSON.stringify(draft.weights);
   const payload = draftError(draft) ? null : runPayload(draft);
@@ -120,18 +167,20 @@ export default function Composer({
     };
   }, [step, draft.n, weights]);
   const next = () => {
-    const problem = draftError({ ...draft, weights: { audience: 1 } });
+    const problem = draftIssue(draft, true);
     if (problem) {
       setError(problem);
+      setStep(problem.step);
       return;
     }
     setStep(1);
-    setError("");
+    setError(null);
   };
   const start = () => {
-    const problem = draftError(draft);
+    const problem = draftIssue(draft);
     if (problem) {
       setError(problem);
+      setStep(problem.step);
       return;
     }
     onRun();
@@ -159,7 +208,23 @@ export default function Composer({
           <b>3</b>Результат
         </span>
       </div>
-      {error && <Notice kind="error">{error}</Notice>}
+      {(draftStatus || onReset) && (
+        <div className="draft-status">
+          {draftStatus && <span role="status">{draftStatus}</span>}
+          {onReset && (
+            <button
+              className="text-link"
+              onClick={() => {
+                onReset();
+                setError(null);
+              }}
+              disabled={busy}
+            >
+              Начать заново
+            </button>
+          )}
+        </div>
+      )}
       {draft.origin && (
         <div className="origin-note" role="status">
           {draft.origin.kind === "hypothesis" ? (
@@ -209,7 +274,7 @@ export default function Composer({
                 value={draft.key}
                 onChange={(e) => {
                   onTemplate(e.target.value);
-                  setError("");
+                  setError(null);
                 }}
               >
                 {Object.keys(catalog.scenarios).map((key) => (
@@ -225,18 +290,22 @@ export default function Composer({
             <label className="field">
               <span>Название исследования</span>
               <input
+                {...fieldProps("title")}
                 maxLength={200}
                 value={draft.title}
                 onChange={(e) => patch({ title: e.target.value })}
               />
+              {fieldError("title")}
             </label>
             <label className="field">
               <span>Вопрос двойникам</span>
               <input
+                {...fieldProps("question")}
                 maxLength={1000}
                 value={draft.question}
                 onChange={(e) => patch({ question: e.target.value })}
               />
+              {fieldError("question")}
             </label>
           </div>
           <div className="section-heading">
@@ -263,6 +332,7 @@ export default function Composer({
                   <b>{v}</b>Предложение {v}
                 </span>
                 <textarea
+                  {...fieldProps("variant-" + v)}
                   aria-label={"Предложение " + v}
                   maxLength={3000}
                   placeholder={
@@ -277,6 +347,7 @@ export default function Composer({
                     })
                   }
                 />
+                {fieldError("variant-" + v)}
               </label>
             ))}
           </div>
@@ -297,12 +368,14 @@ export default function Composer({
               <label className="field">
                 <span>Категории отказа — одна на строку</span>
                 <textarea
+                  {...fieldProps("objections")}
                   maxLength={1500}
                   value={draft.objections.join("\n")}
                   onChange={(e) =>
                     patch({ objections: e.target.value.split("\n") })
                   }
                 />
+                {fieldError("objections")}
               </label>
             </div>
           </details>
@@ -333,6 +406,7 @@ export default function Composer({
             <label className="field">
               <span>Размер аудитории</span>
               <select
+                {...fieldProps("n")}
                 value={draft.n}
                 onChange={(e) => patch({ n: Number(e.target.value) })}
               >
@@ -344,6 +418,7 @@ export default function Composer({
                     </option>
                   ))}
               </select>
+              {fieldError("n")}
             </label>
           </div>
           <div className="section-heading">
@@ -354,6 +429,7 @@ export default function Composer({
             Нулевая доля исключает сегмент. Сумму нормирует движок; справа
             показано точное число профилей.
           </p>
+          {fieldError("weights")}
           <div className="segment-editor">
             {Object.entries(catalog.segments).map(([sid, s]) => (
               <label
@@ -371,6 +447,7 @@ export default function Composer({
                   </small>
                 </span>
                 <input
+                  {...fieldProps("weights")}
                   aria-label={"Доля: " + s.name}
                   type="number"
                   min={0}
@@ -430,9 +507,11 @@ export default function Composer({
                   type="number"
                   min={0}
                   max={999999}
+                  {...fieldProps("seed")}
                   value={draft.seed}
                   onChange={(e) => patch({ seed: Number(e.target.value) })}
                 />
+                {fieldError("seed")}
               </label>
               <label className="field">
                 <span>Параллельных запросов LLM</span>
@@ -440,11 +519,13 @@ export default function Composer({
                   type="number"
                   min={1}
                   max={64}
+                  {...fieldProps("concurrency")}
                   value={draft.concurrency}
                   onChange={(e) =>
                     patch({ concurrency: Number(e.target.value) })
                   }
                 />
+                {fieldError("concurrency")}
               </label>
               <p className="help">
                 {draft.mock
@@ -511,7 +592,12 @@ export default function Composer({
               </span>
               <Button
                 kind="primary"
-                disabled={busy || (!activeRun && (loading || !!previewError))}
+                disabled={
+                  busy ||
+                  (!activeRun &&
+                    !draftError(draft) &&
+                    (loading || !!previewError))
+                }
                 onClick={activeRun ? onRun : start}
               >
                 {busy

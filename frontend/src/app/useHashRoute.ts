@@ -8,6 +8,15 @@ export function useHashRoute() {
     return () => window.removeEventListener("hashchange", changed);
   }, []);
   const navigate = useCallback((path: string) => {
+    if (
+      !window.dispatchEvent(
+        new CustomEvent("dvoinik:before-leave", {
+          cancelable: true,
+          detail: { path },
+        }),
+      )
+    )
+      return;
     window.location.hash = "/" + path;
     setRoute(path);
   }, []);

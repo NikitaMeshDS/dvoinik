@@ -420,3 +420,24 @@
     margin-top: 0;
   }
 }
+
+.field-error {
+  display: block;
+  color: #9b3527;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+[aria-invalid="true"] {
+  border-color: #b34a36;
+}
+.draft-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+}

@@ -7,9 +7,9 @@ import type { Hypotheses as Data, Hypothesis } from "./types";
 import { hypothesisVerdict } from "./OriginBanner";
 
 const VERDICT = {
-  better: "подтвердилась",
-  same: "без разницы",
-  worse: "не подтвердилась",
+  better: "в симуляции выше B",
+  same: "оценки симуляции близки",
+  worse: "в симуляции выше A",
 };
 
 const EVIDENCE_SHOWN = 3;

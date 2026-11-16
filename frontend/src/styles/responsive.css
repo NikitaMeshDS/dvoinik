@@ -641,3 +641,73 @@
     justify-content: center;
   }
 }
+
+/* Touch controls and device insets must remain usable across all mobile screens. */
+@media (max-width: 760px) {
+  :root {
+    --mobile-nav-height: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  html {
+    scroll-padding-bottom: calc(var(--mobile-nav-height) + 20px);
+  }
+  .app-nav {
+    height: var(--mobile-nav-height);
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+  }
+  .workspace {
+    padding-bottom: calc(var(--mobile-nav-height) + 20px);
+    padding-left: max(18px, env(safe-area-inset-left, 0px));
+    padding-right: max(18px, env(safe-area-inset-right, 0px));
+  }
+  .workspace
+    :is(input, textarea, select):not([type="checkbox"]):not([type="radio"]):not(
+      [type="file"]
+    ),
+  .modal
+    :is(input, textarea, select):not([type="checkbox"]):not([type="radio"]):not(
+      [type="file"]
+    ) {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .workspace :is(button, summary),
+  .modal :is(button, summary) {
+    min-height: 44px;
+  }
+  .workspace .menu > summary,
+  .modal .icon-button {
+    min-width: 44px;
+  }
+  .modal {
+    max-height: calc(
+      100dvh - 32px - env(safe-area-inset-top, 0px) -
+        env(safe-area-inset-bottom, 0px)
+    );
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .toast {
+    bottom: calc(var(--mobile-nav-height) + 12px);
+  }
+}
+
+@media (max-width: 400px) {
+  .stepper {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .stepper > i {
+    display: none;
+  }
+  .stepper button,
+  .stepper .future-step {
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+    min-width: 0;
+    text-align: center;
+  }
+}

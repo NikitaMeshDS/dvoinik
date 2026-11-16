@@ -143,6 +143,8 @@ def _check_result(result, population, objections, requested):
     if not isinstance(result, dict):
         raise ValueError("Результат варианта должен быть объектом.")
     n = _integer(result.get("n"), "Валидных ответов", maximum=requested)
+    if "inconsistent_n" in result:
+        _integer(result["inconsistent_n"], "Корректировок вероятности", maximum=n)
     known = {*objections, OTHER_OBJECTION}
     yes = _integer(result.get("yes"), "Согласий", maximum=n)
     failed = _integer(result.get("failed_n"), "Ошибок", maximum=requested)
@@ -195,13 +197,16 @@ def _check_result(result, population, objections, requested):
         _text(quote.get("who"), "Профиль ответа", 500)
         _text(quote.get("quote"), "Реплика", 1000)
         quote["segment"] = SEGMENTS[quote["segment_id"]]["name"]
-    probability = result.get("probability")
-    if probability is not None:
+    for field in ("probability", "raw_probability"):
+        if field not in result or (field == "probability" and result[field] is None):
+            continue
+        probability = result[field]
         if not isinstance(probability, dict):
             raise ValueError("Сводка заявленной вероятности должна быть объектом.")
         _number(probability.get("mean"), "Средняя вероятность")
         _number(probability.get("sd"), "Разброс вероятности", maximum=0.5)
-        if _integer(probability.get("n"), "Ответов с вероятностью", maximum=n) != n:
+        minimum = 1 if field == "raw_probability" else 0
+        if _integer(probability.get("n"), "Ответов с вероятностью", minimum=minimum, maximum=n) != n:
             raise ValueError("Сводка вероятности не соответствует числу ответов.")
     likert = result.get("likert")
     if likert is not None:

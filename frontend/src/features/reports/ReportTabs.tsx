@@ -13,6 +13,10 @@ const TABS = [
   { id: "validation", label: "Проверка опросом", icon: ClipboardCheck },
 ] as const;
 export type ReportTab = (typeof TABS)[number]["id"];
+export function reportTabFromRoute(route: string): ReportTab {
+  const value = new URLSearchParams(route.split("?")[1] ?? "").get("tab");
+  return TABS.find(({ id }) => id === value)?.id ?? "overview";
+}
 export default function ReportTabs({
   tab,
   setTab,

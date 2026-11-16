@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Download, FileJson, ClipboardCheck } from "lucide-react";
 import { api, ignored, message } from "../../api";
 import { Button, Menu, Notice, date } from "../../components";
@@ -14,7 +14,9 @@ export default function ValidationPanel({
   onUpdated,
   onExport,
   plan,
+  onDirtyChange,
 }: {
+  onDirtyChange?: (dirty: boolean) => void;
   plan?: Plan;
   record: Experiment;
   catalog: Catalog;
@@ -32,6 +34,16 @@ export default function ValidationPanel({
     [phase, setPhase] = useState<"read" | "preview" | "save" | null>(null),
     [error, setError] = useState("");
   const busy = phase !== null;
+  useEffect(() => {
+    onDirtyChange?.(preview !== null);
+    return () => onDirtyChange?.(false);
+  }, [preview, onDirtyChange]);
+  const discard = () => {
+    setPreview(null);
+    setCsv("");
+    setFilename("");
+    setError("");
+  };
   const inspect = async (content: string) => {
     setPhase("preview");
     setError("");
@@ -128,6 +140,13 @@ export default function ValidationPanel({
               const file = e.target.files?.[0];
               if (!file || busy) return;
               e.currentTarget.value = "";
+              if (
+                preview &&
+                !window.confirm(
+                  "Заменить несохранённый предпросмотр другим файлом?",
+                )
+              )
+                return;
               setPreview(null);
               setError("");
               setCsv("");
@@ -180,11 +199,37 @@ export default function ValidationPanel({
         )}
         {preview ? (
           <>
+            {preview.base_validation && (
+              <Notice kind="warning">
+                <strong>
+                  Будет заменена проверка от{" "}
+                  {date(preview.base_validation.created_at)}.
+                </strong>
+                <p>
+                  Было: {preview.base_validation.result.survey_n} оценок. Будет:{" "}
+                  {preview.record.validation!.result.survey_n} оценок.
+                </p>
+                <p>
+                  Предыдущая проверка не хранится в истории. Скачайте
+                  сохранённый снимок, если хотите оставить копию.
+                </p>
+                <button className="text-link" onClick={() => onExport("json")}>
+                  Скачать сохранённый снимок
+                </button>
+              </Notice>
+            )}
             <div className="selection-bar">
               <span>Предпросмотр · ещё не сохранён</span>
               <Button kind="primary" disabled={busy} onClick={save}>
-                {phase === "save" ? "Сохраняем…" : "Сохранить проверку"}
+                {phase === "save"
+                  ? "Сохраняем…"
+                  : preview.base_validation
+                    ? "Заменить проверку"
+                    : "Сохранить проверку"}
               </Button>
+              <button className="text-link" disabled={busy} onClick={discard}>
+                Отменить предпросмотр
+              </button>
             </div>
             <ValidationMetrics
               result={preview.record.validation!.result}

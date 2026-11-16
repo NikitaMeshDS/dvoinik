@@ -62,6 +62,22 @@ def _objections(record) -> str:
 def _checks(record) -> str:
     report = record["report"]
     lines = []
+    for variant, result in report.items():
+        corrected = result.get("inconsistent_n", 0)
+        if corrected:
+            raw, adjusted = result.get("raw_probability"), result.get("probability")
+            means = (
+                f"Средняя вероятность по всем {result['n']} валидным ответам "
+                f"до корректировки: {_pct(raw['mean'])}; после: {_pct(adjusted['mean'])}."
+                if raw is not None and adjusted is not None
+                else "Исходные значения не сохранены; среднее до корректировки неизвестно."
+            )
+            lines.append(
+                f"<li><b>Корректировки вероятностей — вариант {escape(variant)}:</b> "
+                f"{corrected} из {result['n']} ответов. Ответ «да/нет» расходился с вероятностью. "
+                "Приложение заменило вероятность p на 1 − p. "
+                f"Итоговые показатели включают эту корректировку. {means}</li>"
+            )
     stability = leader_stability(report)
     if stability:
         lines.append(
@@ -100,7 +116,11 @@ def _plan(record) -> str:
     plan = live_check_plan(record)
     rows = []
     for item in plan["comparisons"]:
-        needed = "не различить" if item["n_per_variant"] is None else f"≈ {item['n_per_variant']}"
+        needed = (
+            "без расчёта при разнице < 2 п.п."
+            if item["n_per_variant"] is None
+            else f"≈ {item['n_per_variant']}"
+        )
         left, right = (escape(v) for v in item["pair"])
         rows.append(
             f"<tr><td>{left} против {right}</td><td>{_num(item['gap_pp'])} п.п.</td><td>{needed}</td></tr>"

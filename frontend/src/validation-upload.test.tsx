@@ -7,6 +7,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { api } from "./api";
 import ValidationPanel from "./features/reports/ValidationPanel";
 import sample from "../../examples/senior-deposit.demo.json";
 import type { Experiment } from "./types";
@@ -64,4 +65,104 @@ it("a file read failure leaves an actionable error and an enabled picker for ret
     "Выберите файл ещё раз",
   );
   expect(screen.getByText("unreadable.csv")).toBeTruthy();
+});
+
+const savedValidation = {
+  created_at: "2026-11-10T12:00:00Z",
+  cells: [],
+  result: {
+    survey_n: 20,
+    matched_cells: 2,
+    mae_conversion: 0.1,
+    spearman_variants: null,
+    winner_match: null,
+    cells: [],
+    actual_winners: [],
+    predicted_winners: [],
+  },
+};
+async function replacementPanel(failSave = false) {
+  const original = { ...record, validation: savedValidation };
+  const next = {
+    ...original,
+    validation: {
+      ...savedValidation,
+      result: { ...savedValidation.result, survey_n: 30 },
+    },
+  };
+  const updated = vi.fn(),
+    exported = vi.fn(),
+    dirty = vi.fn();
+  vi.spyOn(api, "request").mockImplementation(
+    <T,>(path: string, method?: string) => {
+      if (method === "PUT")
+        return (
+          failSave
+            ? Promise.reject(new Error("Проверка уже изменена"))
+            : Promise.resolve(next)
+        ) as Promise<T>;
+      return Promise.resolve({
+        record: next,
+        base_validation: savedValidation,
+        preview_id: "preview-one",
+      }) as Promise<T>;
+    },
+  );
+  render(
+    <ValidationPanel
+      record={original}
+      catalog={{ scenarios: {}, segments: {} }}
+      onUpdated={updated}
+      onExport={exported}
+      onDirtyChange={dirty}
+    />,
+  );
+  const file = new File(["test"], "answers.csv");
+  Object.defineProperty(file, "text", { value: () => Promise.resolve("test") });
+  await act(async () =>
+    fireEvent.change(screen.getByLabelText("CSV живого опроса"), {
+      target: { files: [file] },
+    }),
+  );
+  return { original, updated, exported, dirty };
+}
+it("makes replacement explicit, offers the saved snapshot and can discard without changing it", async () => {
+  const { original, updated, exported } = await replacementPanel();
+  expect(screen.getByText(/Было: 20 оценок/)).toBeTruthy();
+  expect(screen.getByText(/Будет: 30 оценок/)).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Заменить проверку" }),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Скачать сохранённый снимок" }),
+  );
+  expect(exported).toHaveBeenCalledWith("json");
+  fireEvent.click(
+    screen.getByRole("button", { name: "Отменить предпросмотр" }),
+  );
+  expect(screen.queryByText("Предпросмотр · ещё не сохранён")).toBeNull();
+  expect(updated).not.toHaveBeenCalled();
+  expect(original.validation.result.survey_n).toBe(20);
+});
+it("retains replacement preview on a conflicting save and clears it only after success", async () => {
+  const { updated } = await replacementPanel(true);
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Заменить проверку" })),
+  );
+  expect(screen.getByRole("alert").textContent).toContain(
+    "Проверка уже изменена",
+  );
+  expect(screen.getByText("Предпросмотр · ещё не сохранён")).toBeTruthy();
+  expect(updated).not.toHaveBeenCalled();
+});
+
+it("clears the dirty preview after a successful save", async () => {
+  const { updated, dirty } = await replacementPanel();
+  expect(dirty).toHaveBeenLastCalledWith(true);
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Заменить проверку" })),
+  );
+  expect(updated.mock.calls[0][0].validation.result.survey_n).toBe(30);
+  expect(screen.queryByText("Предпросмотр · ещё не сохранён")).toBeNull();
+  expect(dirty).toHaveBeenLastCalledWith(false);
 });

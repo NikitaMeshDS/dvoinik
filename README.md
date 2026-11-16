@@ -46,6 +46,7 @@
 ```bash
 docker compose up -d
 docker compose exec ollama ollama pull qwen2.5:7b-instruct
+docker compose exec ollama ollama pull bge-m3
 docker compose exec app python manage.py create-user --username analyst --name "Аналитик"
 ```
 

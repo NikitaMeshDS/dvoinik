@@ -234,11 +234,10 @@ export default function Overview({
                   </p>
                   {plan?.comparisons[0] && (
                     <p className="plan-hint">
-                      Чтобы различить {plan.comparisons[0].pair.join(" и ")}{" "}
-                      опросом, нужно{" "}
+                      {plan.comparisons[0].pair.join(" и ")}:{" "}
                       {plan.comparisons[0].n_per_variant === null
-                        ? "больше, чем разумная выборка: разница меньше 2 п.п."
-                        : "≈ " +
+                        ? "разница в симуляции меньше 2 п.п. Для планирования опроса задайте практически значимый эффект."
+                        : "ориентир для проверки разницы из симуляции — ≈ " +
                           plan.comparisons[0].n_per_variant.toLocaleString(
                             "ru-RU",
                           ) +

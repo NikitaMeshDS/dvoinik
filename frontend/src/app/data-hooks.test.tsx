@@ -139,3 +139,25 @@ it("a failed refresh retains the readable archive and a successful retry clears 
   expect(result.current.records.map((r) => r.id)).toEqual(["one", "two"]);
   expect(result.current.error).toBe("");
 });
+
+it("saving a survey on a linked tab updates the visible record without reloading it", async () => {
+  const original = record("A");
+  let reads = 0;
+  vi.spyOn(api, "request").mockImplementation(<T,>(path: string) => {
+    if (path !== "/experiments/A")
+      return Promise.reject(new Error("Wrong record path"));
+    reads++;
+    return Promise.resolve(original) as Promise<T>;
+  });
+  const { result, rerender } = renderHook(({ route }) => useRecord(route), {
+    initialProps: { route: "report/A?tab=validation" },
+  });
+  await act(async () => {});
+  const saved = { ...original, model: "updated" };
+  await act(async () => result.current.updated(saved));
+  expect(result.current.record).toBe(saved);
+  rerender({ route: "report/A?tab=people" });
+  await act(async () => {});
+  expect(result.current.record).toBe(saved);
+  expect(reads).toBe(1);
+});

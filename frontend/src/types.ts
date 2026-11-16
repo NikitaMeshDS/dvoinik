@@ -75,7 +75,9 @@ export type ReportItem = {
   objections: Record<string, number>;
   quotes: Quote[];
   failure_examples?: string[];
+  inconsistent_n?: number;
   probability?: { mean: number; sd: number; n: number };
+  raw_probability?: { mean: number; sd: number; n: number };
   likert?: number[];
 };
 export type Profile = {

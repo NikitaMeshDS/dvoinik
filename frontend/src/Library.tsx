@@ -1,24 +1,16 @@
 import { useRef } from "react";
 import {
   Plus,
+  Check,
   ArrowUpRight,
   Upload,
   GitCompare,
-  Check,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
   FlaskConical,
 } from "lucide-react";
-import {
-  Button,
-  Heading,
-  Empty,
-  Menu,
-  Notice,
-  date,
-  percent,
-} from "./components";
+import { Button, Heading, Empty, Menu, Notice, date } from "./components";
 import { type Experiment } from "./types";
 import { chronological, plural } from "./data";
 import ResponsePreview from "./features/research/ResponsePreview";
@@ -36,11 +28,11 @@ function originTag(r: Experiment) {
     origin.lever +
     "»" +
     (verdict === "better"
-      ? " · подтвердилась"
+      ? " · в симуляции выше B"
       : verdict === "worse"
-        ? " · не подтвердилась"
+        ? " · в симуляции выше A"
         : verdict === "same"
-          ? " · без разницы"
+          ? " · оценки симуляции близки"
           : "")
   );
 }
@@ -77,7 +69,7 @@ export default function Library({
   state: LibraryState;
   onState: (s: LibraryState) => void;
   onNew: () => void;
-  onOpen: (id: string) => void;
+  onOpen: (id: string, tab?: "validation") => void;
   onImport: () => void;
   onSample: () => void;
   onCompare: (ids: string[]) => void;
@@ -283,18 +275,19 @@ export default function Library({
                 <div className="study-list-head" aria-hidden="true">
                   <span>Исследование</span>
                   <span>Согласия по предложениям</span>
-                  <span>Лидер</span>
+                  <span>Проверка</span>
                 </div>
                 {filtered.slice(page * 8, page * 8 + 8).map((r) => {
-                  const valid = Object.entries(r.report).filter(
-                      ([, v]) => v.n > 0,
-                    ),
-                    best = valid.length
-                      ? Math.max(...valid.map(([, v]) => v.conversion!))
-                      : null,
-                    leaders = valid
-                      .filter(([, v]) => Math.abs(v.conversion! - best!) < 1e-9)
-                      .map(([v]) => v);
+                  const hasAnswers = Object.values(r.report).some(
+                    (v) => v.n > 0 && v.conversion !== null,
+                  );
+                  const status = r.validation
+                    ? "Опрос загружен"
+                    : r.mock
+                      ? "Демонстрация"
+                      : hasAnswers
+                        ? "Только симуляция"
+                        : "Нет валидных ответов";
                   return (
                     <div className="study-row" key={r.id}>
                       {state.compare && (
@@ -352,12 +345,6 @@ export default function Library({
                                 {originTag(r)}
                               </i>
                             )}
-                            {r.validation && (
-                              <i>
-                                <Check size={12} />
-                                Опрос загружен
-                              </i>
-                            )}
                             {pending.has(r.id) && (
                               <i className="warning">Ожидает записи</i>
                             )}
@@ -365,15 +352,31 @@ export default function Library({
                         </span>
                         <ResponsePreview report={r.report} />
                         <span className="study-result">
-                          <b>{percent(best)}</b>
-                          <small>
-                            {leaders.length
-                              ? "Вариант " + leaders.join(" / ")
-                              : "Нет ответов"}
-                          </small>
+                          <small>{status}</small>
                         </span>
                         <ArrowUpRight size={19} />
                       </button>
+                      {hasAnswers && !pending.has(r.id) && (
+                        <button
+                          className="text-link study-next"
+                          aria-label={
+                            (r.validation
+                              ? "Посмотреть расхождения"
+                              : r.mock
+                                ? "Открыть пример проверки"
+                                : "Подготовить опрос") +
+                            " — " +
+                            r.scenario.title
+                          }
+                          onClick={() => onOpen(r.id, "validation")}
+                        >
+                          {r.validation
+                            ? "Посмотреть расхождения"
+                            : r.mock
+                              ? "Открыть пример проверки"
+                              : "Подготовить опрос"}
+                        </button>
+                      )}
                     </div>
                   );
                 })}

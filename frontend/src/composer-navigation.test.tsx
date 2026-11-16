@@ -50,3 +50,126 @@ it("changing wizard steps focuses the new stage while editing its parameters pre
   rerender(page(100));
   expect(document.activeElement).toBe(size);
 });
+
+it.each([
+  ["title", "Название исследования"],
+  ["question", "Вопрос двойникам"],
+  ["offer", "Предложение B"],
+  ["objections", "Категории отказа — одна на строку"],
+])("focuses and describes the invalid %s field", (field, label) => {
+  vi.useFakeTimers();
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const draft = draftFromScenario(sample.scenario, "custom", true);
+  if (field === "title") draft.title = "";
+  if (field === "question") draft.question = "";
+  if (field === "offer") draft.variants.B = "";
+  if (field === "objections") draft.objections = [];
+  const run = vi.fn();
+  render(
+    <Composer
+      catalog={catalog}
+      draft={draft}
+      onChange={() => {}}
+      onTemplate={() => {}}
+      onRun={run}
+      demo
+      busy={false}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Далее: аудитория" }));
+  const input = screen.getByRole("textbox", { name: label });
+  expect(document.activeElement).toBe(input);
+  expect(input.getAttribute("aria-invalid")).toBe("true");
+  expect(
+    document.getElementById(input.getAttribute("aria-describedby")!)
+      ?.textContent,
+  ).toBeTruthy();
+  if (field === "objections") expect(input.closest("details")?.open).toBe(true);
+  expect(run).not.toHaveBeenCalled();
+  expect(
+    (
+      screen.getByRole("textbox", {
+        name: "Предложение A",
+      }) as HTMLTextAreaElement
+    ).value,
+  ).toBe(draft.variants.A);
+});
+
+it("focuses audience selection when all weights are zero", () => {
+  vi.useFakeTimers();
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const draft = draftFromScenario(sample.scenario, "custom", true);
+  draft.weights = { senior: 0 };
+  render(
+    <Composer
+      catalog={catalog}
+      draft={draft}
+      onChange={() => {}}
+      onTemplate={() => {}}
+      onRun={() => {}}
+      demo
+      busy={false}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Далее: аудитория" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Запустить исследование" }),
+  );
+  const input = screen.getByRole("spinbutton", { name: "Доля: Пенсионеры" });
+  expect(document.activeElement).toBe(input);
+  expect(input.getAttribute("aria-invalid")).toBe("true");
+});
+
+it("reveals invalid advanced settings on the audience stage", () => {
+  vi.useFakeTimers();
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const draft = draftFromScenario(sample.scenario, "custom", true);
+  draft.seed = -1;
+  render(
+    <Composer
+      catalog={catalog}
+      draft={draft}
+      onChange={() => {}}
+      onTemplate={() => {}}
+      onRun={() => {}}
+      demo
+      busy={false}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Далее: аудитория" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Запустить исследование" }),
+  );
+  const input = screen.getByRole("spinbutton", {
+    name: "Seed популяции и демо",
+  });
+  expect(document.activeElement).toBe(input);
+  expect(input.closest("details")?.open).toBe(true);
+});
+
+it("clears an obsolete field error after resetting the draft", () => {
+  vi.useFakeTimers();
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const draft = draftFromScenario(sample.scenario, "custom", true);
+  const view = (title: string) => (
+    <Composer
+      catalog={catalog}
+      draft={{ ...draft, title }}
+      onChange={() => {}}
+      onTemplate={() => {}}
+      onRun={() => {}}
+      onReset={() => rerender(view(draft.title))}
+      demo
+      busy={false}
+    />
+  );
+  const { rerender } = render(view(""));
+  fireEvent.click(screen.getByRole("button", { name: "Далее: аудитория" }));
+  fireEvent.click(screen.getByRole("button", { name: "Начать заново" }));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(
+    screen
+      .getByRole("textbox", { name: "Название исследования" })
+      .getAttribute("aria-invalid"),
+  ).toBeNull();
+});

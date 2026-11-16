@@ -33,10 +33,11 @@ export default function WorkspaceShell({
   children: ReactNode;
 }) {
   const main = useRef<HTMLElement>(null);
+  const pageRoute = route.split("?")[0];
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     main.current?.focus({ preventScroll: true });
-  }, [route]);
+  }, [pageRoute]);
   const section = route.startsWith("report/")
     ? "Отчёт"
     : route.startsWith("job/")

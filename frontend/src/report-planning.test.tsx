@@ -45,7 +45,7 @@ it("shows sample size, exploratory limit and interview questions", () => {
     />,
   );
   expect(screen.getByText("≈ 250")).toBeTruthy();
-  expect(screen.getByText("не различить")).toBeTruthy();
+  expect(screen.getByText("без расчёта при разнице < 2 п.п.")).toBeTruthy();
   expect(screen.getByText("34,3 п.п.")).toBeTruthy();
   expect(screen.getByText("Вспомните последний раз?")).toBeTruthy();
   expect(screen.getByText(/механизм планирования/)).toBeTruthy();

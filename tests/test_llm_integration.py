@@ -240,6 +240,7 @@ def test_decision_follows_stated_probability_and_unknown_objection_is_kept(monke
     # Противоречие решения и вероятности: вероятность перевёрнута, ответ помечен.
     assert report["B"]["failed_n"] == 0 and report["B"]["conversion"] < 0.2
     assert report["B"]["inconsistent_n"] == 200 and report["B"]["probability"]["mean"] == pytest.approx(0.1)
+    assert report["B"]["raw_probability"] == {"mean": 0.9, "sd": 0.0, "n": 200}
     assert set(report["B"]["objections"]) == {engine.OTHER_OBJECTION}
     # Отчёт с причиной «другое» сохраняется и загружается.
     from dvoinik.experiments import load_experiment
@@ -250,3 +251,4 @@ def test_decision_follows_stated_probability_and_unknown_objection_is_kept(monke
     record = make_record("custom", full, 200, False, 0, report, twins)
     loaded = load_experiment(json.dumps(record))["report"]["B"]
     assert set(loaded["objections"]) == {"другое"} and loaded["inconsistent_n"] == 200
+    assert loaded["raw_probability"] == {"mean": 0.9, "sd": 0.0, "n": 200}

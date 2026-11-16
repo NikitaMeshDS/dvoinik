@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import Library, { INITIAL_LIBRARY } from "./Library";
 import type { Experiment } from "./types";
 import sample from "../../examples/senior-deposit.demo.json";
@@ -151,4 +151,28 @@ it("resetting an empty result returns keyboard focus to search", () => {
   reset.focus();
   fireEvent.click(reset);
   expect(document.activeElement).toBe(search);
+});
+
+it("opens survey preparation directly and hides it for missing answers", () => {
+  const onOpen = vi.fn();
+  const record = makeRecord("llm", false);
+  const props = {
+    state: INITIAL_LIBRARY,
+    onState: vi.fn(),
+    onNew: vi.fn(),
+    onOpen,
+    onImport: vi.fn(),
+    onSample: vi.fn(),
+    onCompare: vi.fn(),
+    pending: new Set<string>(),
+  };
+  const view = render(<Library {...props} records={[record]} />);
+  expect(screen.getByText("Только симуляция")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Подготовить опрос/ }));
+  expect(onOpen).toHaveBeenCalledWith("llm", "validation");
+  view.rerender(<Library {...props} records={[{ ...record, report: {} }]} />);
+  expect(screen.getByText("Нет валидных ответов")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: /Подготовить опрос/ }),
+  ).toBeNull();
 });

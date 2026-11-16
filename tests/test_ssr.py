@@ -140,6 +140,7 @@ def test_ssr_run_rates_by_meaning_and_records_the_scale(monkeypatch):
     assert report["A"]["likert"][4] > 0.9 and report["B"]["likert"][0] > 0.9
     assert report["B"]["objections"] == {"не доверяю": report["B"]["n"] - report["B"]["yes"]}
     assert report["A"]["probability"]["n"] == 20
+    assert all("raw_probability" not in result for result in report.values())
     assert report["A"]["quotes"][0]["quote"].startswith("Да, точно оформлю")
     # Эталоны считаются один раз на запуск, ответы — по одному запросу на ответ.
     assert seen["embeddings"] == 1 + 40
