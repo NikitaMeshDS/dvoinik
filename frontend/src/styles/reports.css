@@ -1358,3 +1358,29 @@
     margin-bottom: 10px;
   }
 }
+
+.hypothesis-runs {
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8faff;
+}
+.hypothesis-runs article + article {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.hypothesis-runs p {
+  font-size: 13px;
+}
+.hypothesis-runs summary {
+  color: var(--blue);
+  padding: 10px 0;
+}
+.hypothesis-runs dd {
+  margin: 6px 0 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}

@@ -12,6 +12,7 @@ export type Origin = {
   record_id: string;
   title: string;
   lever?: string;
+  hypothesis_id?: string;
   change?: string;
   variant?: string;
 };

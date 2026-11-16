@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { FlaskConical, Sparkles } from "lucide-react";
 import { api } from "../../api";
-import { Button, Notice, decimal, percent } from "../../components";
+import { Button, Notice, date, decimal, percent } from "../../components";
 import type { Experiment } from "../../types";
 import type { Hypotheses as Data, Hypothesis } from "./types";
+import { hypothesisChecks, sameHypothesisSetup } from "./hypothesisChecks";
 import { hypothesisVerdict } from "./OriginBanner";
 
 const VERDICT = {
@@ -149,26 +150,73 @@ export default function Hypotheses({
                   </div>
                 </dl>
                 {(() => {
-                  const done = checks.find(
-                    (c) =>
-                      c.scenario.origin?.kind === "hypothesis" &&
-                      c.scenario.origin.lever === h.lever,
-                  );
-                  const verdict = done && hypothesisVerdict(done);
-                  if (!done || !verdict) return null;
+                  const runs = hypothesisChecks(record, h, checks);
+                  if (!runs.length) return null;
                   return (
-                    <p className={"hypothesis-status " + verdict.kind}>
-                      Уже проверено: B — {percent(verdict.b)}, A —{" "}
-                      {percent(verdict.a)}, {VERDICT[verdict.kind]}.
-                      {onOpen && (
-                        <button
-                          className="text-link"
-                          onClick={() => onOpen(done.id)}
-                        >
-                          Открыть проверку
-                        </button>
-                      )}
-                    </p>
+                    <section
+                      className="hypothesis-runs"
+                      aria-label={"Запуски гипотезы «" + h.change + "»"}
+                    >
+                      <h4>Связанные запуски: {runs.length}</h4>
+                      {runs.map((done) => {
+                        const verdict = hypothesisVerdict(done);
+                        const same = sameHypothesisSetup(record, h, done);
+                        return (
+                          <article key={done.id}>
+                            <p>
+                              {date(done.created_at)} ·{" "}
+                              {done.mock ? "Демо" : done.model} · {done.n}{" "}
+                              профилей · сегментов:{" "}
+                              {
+                                Object.values(done.scenario.population).filter(
+                                  (w) => w > 0,
+                                ).length
+                              }
+                            </p>
+                            <p className="help">
+                              {done.scenario.origin?.hypothesis_id
+                                ? "Связь по идентификатору гипотезы."
+                                : "Старый снимок: связь по сохранённым условиям."}{" "}
+                              {same
+                                ? "Исходный текст A и состав аудитории сохранены."
+                                : "Текст A или состав аудитории изменены. Сверьте условия запуска."}
+                            </p>
+                            <p>
+                              {verdict ? (
+                                <>
+                                  В симуляции: B — {percent(verdict.b)}, A —{" "}
+                                  {percent(verdict.a)}, {VERDICT[verdict.kind]}.
+                                </>
+                              ) : (
+                                "Недостаточно валидных ответов для сравнения A/B."
+                              )}
+                            </p>
+                            <details>
+                              <summary>Тексты этого запуска</summary>
+                              <dl>
+                                <dt>A</dt>
+                                <dd>{done.scenario.variants.A}</dd>
+                                <dt>B</dt>
+                                <dd>{done.scenario.variants.B}</dd>
+                              </dl>
+                            </details>
+                            {onOpen && (
+                              <button
+                                className="text-link"
+                                onClick={() => onOpen(done.id)}
+                              >
+                                Открыть проверку
+                              </button>
+                            )}
+                          </article>
+                        );
+                      })}
+                      <p className="help">
+                        Результаты относятся к этим текстам и параметрам
+                        симуляции. Ответы людей и ограничения смотрите в каждом
+                        отчёте.
+                      </p>
+                    </section>
                   );
                 })()}
                 <div className="hypothesis-actions">

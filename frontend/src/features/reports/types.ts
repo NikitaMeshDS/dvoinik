@@ -15,6 +15,7 @@ export type Insights = {
 };
 export type Hypothesis = {
   id: string;
+  stable_id?: string;
   kind: "objection" | "segment_offer";
   lever_id: string;
   lever: string;

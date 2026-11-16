@@ -55,6 +55,12 @@ function validDraft(value: unknown, key: string): value is Draft {
     )
       return false;
     if (
+      origin.hypothesis_id !== undefined &&
+      (typeof origin.hypothesis_id !== "string" ||
+        !/^[a-f0-9]{64}$/.test(origin.hypothesis_id))
+    )
+      return false;
+    if (
       !["lever", "change", "variant"].every(
         (field) =>
           origin[field] === undefined || typeof origin[field] === "string",

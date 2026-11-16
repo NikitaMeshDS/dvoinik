@@ -163,3 +163,39 @@ def test_rewrite_offer_rejects_unchanged_text(monkeypatch):
     _llm(monkeypatch, json.dumps({"proposal": hypothesis["base_text"]}))
     with pytest.raises(ValueError, match="без изменений"):
         engine.rewrite_offer(SAMPLE["scenario"], hypothesis)
+
+
+def test_stable_hypothesis_identity_survives_ranking_and_evidence_changes(monkeypatch):
+    from dvoinik import hypotheses
+
+    first = copy.deepcopy(suggest(SAMPLE)["items"][0])
+    second = {**first, "change": first["change"] + " — другое изменение", "audience_pp": 0}
+    monkeypatch.setattr(hypotheses, "_segment_items", lambda *args: [])
+    monkeypatch.setattr(hypotheses, "_objection_items", lambda *args: [first, second])
+    before = {item["change"]: item for item in suggest(SAMPLE)["items"]}
+    first.update(
+        audience_pp=-1, ceiling_pp=0.1, evidence=["Другое объяснение"], proposal="Переписанный текст"
+    )
+    after = {item["change"]: item for item in suggest(SAMPLE)["items"]}
+    assert before[first["change"]]["id"] != after[first["change"]]["id"]
+    assert before[first["change"]]["stable_id"] == after[first["change"]]["stable_id"]
+    assert before[first["change"]]["stable_id"] != before[second["change"]]["stable_id"]
+    assert len(before[first["change"]]["stable_id"]) == 64
+    assert set(before[first["change"]]["stable_id"]) <= set("0123456789abcdef")
+
+
+def test_stable_hypothesis_identity_tracks_semantics_and_not_segment_order(monkeypatch):
+    from dvoinik import hypotheses
+
+    candidate = copy.deepcopy(suggest(SAMPLE)["items"][0])
+    candidate["segments"] = ["senior", "young_family"]
+    monkeypatch.setattr(hypotheses, "_segment_items", lambda *args: [])
+    monkeypatch.setattr(hypotheses, "_objection_items", lambda *args: [candidate])
+    original = suggest(SAMPLE)["items"][0]["stable_id"]
+    candidate["segments"].reverse()
+    assert suggest(SAMPLE)["items"][0]["stable_id"] == original
+    for field, value in [("segments", ["senior"]), ("base_text", "Другой исходный текст"), ("variant", "A")]:
+        previous = candidate[field]
+        candidate[field] = value
+        assert suggest(SAMPLE)["items"][0]["stable_id"] != original
+        candidate[field] = previous

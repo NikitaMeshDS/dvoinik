@@ -293,3 +293,42 @@ def test_invalid_validation_protocol_is_rejected_on_attach_and_import(protocol):
     saved["validation"]["protocol"] = protocol
     with pytest.raises(ValueError):
         load_experiment(export_json(saved))
+
+
+def hypothesis_origin():
+    return {
+        "kind": "hypothesis",
+        "record_id": "parent",
+        "title": "Исходное",
+        "lever": "Цена",
+        "change": "Убрать плату",
+        "variant": "A",
+    }
+
+
+def test_import_preserves_optional_hypothesis_identity_and_legacy_origin():
+    data = record()
+    data["scenario"]["origin"] = {**hypothesis_origin(), "hypothesis_id": "ab" * 32}
+    assert load_experiment(export_json(data))["scenario"]["origin"]["hypothesis_id"] == "ab" * 32
+    data["scenario"]["origin"] = hypothesis_origin()
+    assert "hypothesis_id" not in load_experiment(export_json(data))["scenario"]["origin"]
+
+
+@pytest.mark.parametrize("identity", [None, True, 42, "h1", "a" * 63, "a" * 65, "AB" * 32, "g" * 64])
+def test_hypothesis_identity_rejects_malformed_values(identity):
+    scenario = custom()
+    scenario["origin"] = {**hypothesis_origin(), "hypothesis_id": identity}
+    with pytest.raises(ValueError):
+        normalize_scenario(scenario)
+
+
+def test_iteration_cannot_claim_hypothesis_identity():
+    scenario = custom()
+    scenario["origin"] = {
+        "kind": "iteration",
+        "record_id": "parent",
+        "title": "Исходное",
+        "hypothesis_id": "a" * 64,
+    }
+    with pytest.raises(ValueError):
+        normalize_scenario(scenario)

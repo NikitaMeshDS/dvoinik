@@ -100,13 +100,18 @@ def _origin(value):
         "title": _text(value.get("title"), "Название исходного исследования", 200),
     }
     if value["kind"] == "hypothesis":
-        allowed |= {"lever", "change", "variant"}
+        allowed |= {"lever", "change", "variant", "hypothesis_id"}
         origin["lever"] = _text(value.get("lever"), "Рычаг гипотезы", 80)
         origin["change"] = _text(value.get("change"), "Изменение гипотезы", 300)
         variant = value.get("variant")
         if variant not in set("ABCDE"):
             raise ValueError("Гипотеза: исходный вариант должен быть A–E.")
         origin["variant"] = variant
+        if "hypothesis_id" in value:
+            identity = value["hypothesis_id"]
+            if not isinstance(identity, str) or not re.fullmatch(r"[0-9a-f]{64}", identity):
+                raise ValueError("Гипотеза: некорректный стабильный идентификатор.")
+            origin["hypothesis_id"] = identity
     if set(value) - allowed:
         raise ValueError("Источник исследования содержит лишние поля.")
     return origin

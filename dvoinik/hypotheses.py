@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 
 from .planning import MIN_DIFFERENCE, sample_size
@@ -292,6 +294,22 @@ def _segment_items(record: dict, leader: str, total: int) -> list[dict]:
     return items
 
 
+def stable_identity(item: dict) -> str:
+    """Identity of a proposed change, independent of its current rank or evidence.
+
+    The parent record ID scopes this fingerprint at the consumer. A rewritten
+    proposal remains a version of the same hypothesis, while source text,
+    target segments and the proposed change define distinct hypotheses.
+    """
+    semantic = {
+        field: item.get(field)
+        for field in ("kind", "lever_id", "variant", "alternative", "change", "base_text")
+    }
+    semantic["segments"] = sorted(item["segments"])
+    encoded = json.dumps(semantic, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 def suggest(record: dict, limit: int = MAX_HYPOTHESES) -> dict:
     """Гипотезы для следующей итерации, по убыванию потолка эффекта на всю аудиторию."""
     report = record.get("report") or {}
@@ -301,5 +319,8 @@ def suggest(record: dict, limit: int = MAX_HYPOTHESES) -> dict:
     total = report[leader]["n"]
     candidates = _segment_items(record, leader, total) + _objection_items(record, leader, total)
     candidates.sort(key=lambda h: (-h["audience_pp"], -h["ceiling_pp"], h["lever_id"], h["segments"]))
-    items = [{"id": f"h{i}", **item} for i, item in enumerate(candidates[:limit], 1)]
+    items = [
+        {**item, "id": f"h{i}", "stable_id": stable_identity(item)}
+        for i, item in enumerate(candidates[:limit], 1)
+    ]
     return {"leader": leader, "items": items}

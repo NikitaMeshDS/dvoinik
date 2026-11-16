@@ -44,6 +44,7 @@ export function draftFromRecord(record: Experiment, demo = false): Draft {
 export function draftFromHypothesis(
   record: Experiment,
   hypothesis: {
+    stable_id?: string;
     lever: string;
     change: string;
     variant: string;
@@ -64,6 +65,7 @@ export function draftFromHypothesis(
       record_id: record.id,
       title: record.scenario.title,
       lever: hypothesis.lever,
+      ...(hypothesis.stable_id ? { hypothesis_id: hypothesis.stable_id } : {}),
       change: hypothesis.change.slice(0, 300),
       variant: hypothesis.variant,
     },

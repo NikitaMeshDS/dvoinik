@@ -139,6 +139,7 @@ it("marks hypotheses that were already checked and links to the check", () => {
     id: "check-1",
     scenario: {
       ...record.scenario,
+      variants: { A: hypothesis.base_text, B: "Новый текст" },
       origin: {
         kind: "hypothesis",
         record_id: record.id,
@@ -158,9 +159,63 @@ it("marks hypotheses that were already checked and links to the check", () => {
       onOpen={onOpen}
     />,
   );
-  expect(screen.getByText(/Уже проверено/).textContent).toContain(
+  expect(screen.getByText(/В симуляции: B/).textContent).toContain(
     "в симуляции выше A",
   );
   fireEvent.click(screen.getByText("Открыть проверку"));
   expect(onOpen).toHaveBeenCalledWith("check-1");
+});
+
+it("does not link a different change just because its lever has the same name", () => {
+  const child = {
+    ...record,
+    id: "different",
+    scenario: {
+      ...runPayload(
+        draftFromHypothesis(
+          record,
+          { ...hypothesis, change: "Снизить плату вдвое" },
+          "Другой текст",
+          true,
+        ),
+      ).scenario,
+    },
+  } as Experiment;
+  render(
+    <Hypotheses
+      record={record}
+      data={{ leader: "C", items: [hypothesis] }}
+      checks={[child]}
+      onOpen={() => {}}
+    />,
+  );
+  expect(screen.queryByText("Открыть проверку")).toBeNull();
+});
+it("lists all runs of the same stable hypothesis and distinguishes rewritten B texts", () => {
+  const h = { ...hypothesis, stable_id: "a".repeat(64) };
+  const one = {
+    ...record,
+    id: "run-one",
+    scenario: runPayload(draftFromHypothesis(record, h, "Первый текст B", true))
+      .scenario,
+  };
+  const two = {
+    ...one,
+    id: "run-two",
+    scenario: {
+      ...one.scenario,
+      variants: { A: h.base_text, B: "Второй текст B" },
+    },
+  };
+  render(
+    <Hypotheses
+      record={record}
+      data={{ leader: "C", items: [h] }}
+      checks={[one, two]}
+      onOpen={() => {}}
+    />,
+  );
+  expect(screen.getAllByText("Открыть проверку")).toHaveLength(2);
+  expect(screen.getByText("Первый текст B")).toBeTruthy();
+  expect(screen.getByText("Второй текст B")).toBeTruthy();
 });
