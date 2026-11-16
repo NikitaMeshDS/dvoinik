@@ -59,6 +59,49 @@ def _objections(record) -> str:
     return f"<ul>{''.join(items)}</ul>"
 
 
+def _survey_coverage(record, result) -> str:
+    variants = list(record["scenario"]["variants"])
+    selected = [sid for sid, weight in record["scenario"]["population"].items() if weight > 0]
+    counts = {(cell["variant"], cell["segment"]): cell["survey_n"] for cell in result["cells"]}
+    totals = {vid: sum(counts.get((vid, sid), 0) for sid in selected) for vid in variants}
+    covered = sum(counts.get((vid, sid), 0) > 0 for vid in variants for sid in selected)
+    expected = len(variants) * len(selected)
+    complete = expected > 0 and covered == expected
+    lines = [f"<li><b>Покрытие опроса:</b> {covered} из {expected} пар «предложение — сегмент».</li>"]
+    missing = [escape(vid) for vid in variants if not totals[vid]]
+    if missing:
+        lines.append(
+            f"<li>Нет оценок предложений: {', '.join(missing)}. Сравнение всех предложений невозможно.</li>"
+        )
+    if not complete:
+        lines.append(
+            "<li>Часть выбранной аудитории не покрыта. Метрики относятся только к загруженным парам; отсутствие ответов не означает отказ.</li>"
+        )
+    elif len(variants) > 1:
+        first = variants[0]
+        same = all(
+            abs(counts[(vid, sid)] / totals[vid] - counts[(first, sid)] / totals[first]) < 1e-9
+            for vid in variants
+            for sid in selected
+        )
+        lines.append(
+            "<li>Доли сегментов одинаковы у всех предложений, число оценок может различаться.</li>"
+            if same
+            else "<li>Состав аудитории различается между предложениями. Разница долей согласий может быть связана с составом групп; проверьте схему набора и распределения участников.</li>"
+        )
+    for vid in variants:
+        parts = []
+        for sid in selected:
+            count = counts.get((vid, sid), 0)
+            share = f"{count} ({_pct(count / totals[vid])})" if count else "нет ответов"
+            parts.append(f"{escape(SEGMENTS[sid]['name'])}: {share}")
+        lines.append(f"<li><b>Предложение {escape(vid)}</b> — {totals[vid]} оценок; {'; '.join(parts)}.</li>")
+    lines.append(
+        "<li>Проценты — доля сегмента среди оценок каждого предложения. Полное покрытие не подтверждает репрезентативность, независимость ответов или достаточный размер выборки. Число уникальных людей и способ распределения нужно сверить с протоколом исследования.</li>"
+    )
+    return "".join(lines)
+
+
 def _checks(record) -> str:
     report = record["report"]
     lines = []
@@ -107,6 +150,25 @@ def _checks(record) -> str:
                 f"простого подхода {_num(base['baseline_mae_variants'] * 100)} п.п."
             )
         lines.append(line + ". Источник ответов предоставлен пользователем.</li>")
+        lines.append(_survey_coverage(record, result))
+        from .experiments import PROTOCOL_ASSIGNMENTS, normalize_protocol
+
+        protocol = normalize_protocol(validation.get("protocol"))
+        if not protocol:
+            lines.append(
+                "<li><b>Происхождение опроса:</b> сведения о наборе, периоде и распределении не указаны.</li>"
+            )
+        else:
+            recruitment = escape(protocol.get("recruitment", "не указан"))
+            first = escape(protocol.get("collected_from", "не указано"))
+            last = escape(protocol.get("collected_to", "не указано"))
+            assignment = escape(PROTOCOL_ASSIGNMENTS.get(protocol.get("assignment", "unknown"), "Не указано"))
+            lines.append(
+                f"<li><b>Происхождение опроса:</b> набор — {recruitment}; начало — {first}; окончание — {last}; распределение — {assignment}.</li>"
+            )
+            if protocol.get("notes"):
+                lines.append(f"<li><b>Заметки исследователя:</b> {escape(protocol['notes'])}</li>")
+
     else:
         lines.append("<li><b>Живой опрос:</b> ещё не загружен.</li>")
     return f"<ul>{''.join(lines)}</ul>"

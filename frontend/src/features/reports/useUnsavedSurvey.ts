@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-const WARNING = "Предпросмотр опроса ещё не сохранён. Уйти и потерять его?";
+const WARNING = "Данные опроса ещё не сохранены. Уйти и потерять изменения?";
 const path = (hash: string) => hash.replace(/^#\/?/, "").split("?")[0];
 
 /** Keep the report mounted when a user declines to discard its survey preview. */

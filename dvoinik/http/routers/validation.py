@@ -13,9 +13,9 @@ router = APIRouter()
 
 @router.post("/api/experiments/{record_id}/validation/preview")
 def preview_validation(record_id: str, body: Survey, access=Depends(identity), runtime=Depends(get_runtime)):
-    return runtime.survey_preview(access[0], record_id, body.csv)
+    return runtime.survey_preview(access[0], record_id, body.csv, body.protocol)
 
 
 @router.put("/api/experiments/{record_id}/validation")
 def save_validation(record_id: str, body: Validation, access=Depends(identity), runtime=Depends(get_runtime)):
-    return runtime.save_validation(access[0], record_id, body.csv, body.base_validation)
+    return runtime.save_validation(access[0], record_id, body.csv, body.base_validation, body.protocol)

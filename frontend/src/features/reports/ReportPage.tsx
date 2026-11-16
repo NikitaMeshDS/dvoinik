@@ -90,6 +90,7 @@ export default function ReportPage({
         onBack={() => leave(onBack)}
         onReuse={() => leave(onReuse)}
         onCompare={onCompare}
+        onValidation={() => setTab("validation")}
         pending={pending}
         onRetry={onRetry}
         onExport={exportFile}

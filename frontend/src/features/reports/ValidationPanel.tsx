@@ -2,8 +2,15 @@ import { useEffect, useId, useState } from "react";
 import { Download, FileJson, ClipboardCheck } from "lucide-react";
 import { api, ignored, message } from "../../api";
 import { Button, Menu, Notice, date } from "../../components";
-import type { Catalog, Experiment, Validation } from "../../types";
+import type {
+  Catalog,
+  Experiment,
+  Validation,
+  SurveyProtocol,
+} from "../../types";
 import type { ExportAction } from "./types";
+import ProtocolEditor, { ProtocolSummary } from "./SurveyProtocol";
+import SurveyCoverage from "./SurveyCoverage";
 import ValidationMetrics from "./ValidationMetrics";
 import SurveyPreparation from "./SurveyPreparation";
 import LivePlan from "./LivePlan";
@@ -33,11 +40,12 @@ export default function ValidationPanel({
     } | null>(null),
     [phase, setPhase] = useState<"read" | "preview" | "save" | null>(null),
     [error, setError] = useState("");
+  const [protocol, setProtocol] = useState<SurveyProtocol>({});
   const busy = phase !== null;
   useEffect(() => {
-    onDirtyChange?.(preview !== null);
+    onDirtyChange?.(preview !== null || Object.keys(protocol).length > 0);
     return () => onDirtyChange?.(false);
-  }, [preview, onDirtyChange]);
+  }, [preview, protocol, onDirtyChange]);
   const discard = () => {
     setPreview(null);
     setCsv("");
@@ -52,7 +60,10 @@ export default function ValidationPanel({
         await api.request(
           "/experiments/" + record.id + "/validation/preview",
           "POST",
-          { csv: content },
+          {
+            csv: content,
+            ...(Object.keys(protocol).length ? { protocol } : {}),
+          },
         ),
       );
     } catch (e) {
@@ -69,10 +80,15 @@ export default function ValidationPanel({
       const result = await api.request<Experiment>(
         "/experiments/" + record.id + "/validation",
         "PUT",
-        { csv, base_validation: preview.base_validation },
+        {
+          csv,
+          base_validation: preview.base_validation,
+          ...(Object.keys(protocol).length ? { protocol } : {}),
+        },
       );
       onUpdated(result);
       setPreview(null);
+      setProtocol({});
     } catch (e) {
       if (!ignored(e)) setError(message(e));
     } finally {
@@ -120,6 +136,11 @@ export default function ValidationPanel({
           decision — 0 (нет) или 1 (да). Заполните шаблон настоящими ответами,
           удалите незаполненные строки и не добавляйте персональные данные.
         </p>
+        <ProtocolEditor
+          value={protocol}
+          onChange={setProtocol}
+          disabled={busy || preview !== null}
+        />
         <label className="upload-area">
           <ClipboardCheck size={24} />
           <strong id={uploadId + "-name"}>
@@ -231,6 +252,12 @@ export default function ValidationPanel({
                 Отменить предпросмотр
               </button>
             </div>
+            <ProtocolSummary protocol={preview.record.validation!.protocol} />
+            <SurveyCoverage
+              record={record}
+              result={preview.record.validation!.result}
+              segments={catalog.segments}
+            />
             <ValidationMetrics
               result={preview.record.validation!.result}
               segments={catalog.segments}
@@ -242,6 +269,12 @@ export default function ValidationPanel({
               Сохранено {date(record.validation.created_at)} · ответы
               предоставлены пользователем.
             </p>
+            <ProtocolSummary protocol={record.validation.protocol} />
+            <SurveyCoverage
+              record={record}
+              result={record.validation.result}
+              segments={catalog.segments}
+            />
             <ValidationMetrics
               result={record.validation.result}
               segments={catalog.segments}

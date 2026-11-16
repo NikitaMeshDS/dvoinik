@@ -75,3 +75,71 @@ def test_summary_exports_probability_before_and_after_correction():
     html = team_summary(record)
     assert "Исходные значения не сохранены" in html
     assert "до корректировки: 80" not in html
+
+
+def test_summary_discloses_protocol_without_executing_user_text():
+    record = run_experiment("senior_deposit", SCENARIOS["senior_deposit"], RunSettings(n=20))
+    survey = SurveyRates({("A", "senior"): 0.5}, {("A", "senior"): 2})
+    html = team_summary(
+        attach_validation(
+            record,
+            survey,
+            protocol={
+                "recruitment": "<script>bad</script>",
+                "assignment": "random_one",
+                "collected_from": "2026-11-01",
+            },
+        )
+    )
+    assert "&lt;script&gt;bad&lt;/script&gt;" in html and "<script>bad" not in html
+    assert "2026-11-01" in html and "случайно" in html
+    assert "не указаны" in team_summary(attach_validation(record, survey))
+
+
+def coverage_record(counts):
+    scenario = {
+        **SCENARIOS["senior_deposit"],
+        "population": {"senior": 0.5, "student_msk": 0.5},
+        "variants": {"A": "Текст A", "B": "Текст B"},
+    }
+    record = run_experiment("senior_deposit", scenario, RunSettings(n=100, seed=1))
+    return attach_validation(record, SurveyRates({key: 0.5 for key in counts}, counts))
+
+
+def test_summary_exposes_missing_variants_and_partial_survey_coverage():
+    html = team_summary(coverage_record({("A", "senior"): 4}))
+    assert "1 из 4 пар «предложение — сегмент»" in html
+    assert "Нет оценок предложений: B" in html
+    assert "отсутствие ответов не означает отказ" in html
+
+
+def test_summary_warns_when_equal_totals_hide_different_segment_composition():
+    html = team_summary(
+        coverage_record(
+            {
+                ("A", "senior"): 9,
+                ("A", "student_msk"): 1,
+                ("B", "senior"): 1,
+                ("B", "student_msk"): 9,
+            }
+        )
+    )
+    assert "4 из 4 пар «предложение — сегмент»" in html
+    assert "Состав аудитории различается" in html
+    assert "90,0%" in html
+
+
+def test_summary_equal_composition_is_not_a_validity_claim():
+    html = team_summary(
+        coverage_record(
+            {
+                ("A", "senior"): 2,
+                ("A", "student_msk"): 2,
+                ("B", "senior"): 4,
+                ("B", "student_msk"): 4,
+            }
+        )
+    )
+    assert "Доли сегментов одинаковы" in html
+    assert "не подтверждает репрезентативность" in html
+    assert "Состав аудитории различается" not in html

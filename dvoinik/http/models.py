@@ -43,6 +43,7 @@ class Compare(Body):
 
 class Survey(Body):
     csv: StrictStr
+    protocol: dict | None = None
 
 
 class Validation(Survey):

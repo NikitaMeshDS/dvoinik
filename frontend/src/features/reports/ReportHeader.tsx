@@ -16,6 +16,7 @@ import {
   decimal,
   percent,
 } from "../../components";
+import { nextStep } from "./nextStep";
 import type { Experiment } from "../../types";
 import type { Insights, ExportAction } from "./types";
 export default function ReportHeader({
@@ -24,6 +25,7 @@ export default function ReportHeader({
   onBack,
   onReuse,
   onCompare,
+  onValidation,
   pending,
   onRetry,
   onExport: exportFile,
@@ -33,6 +35,7 @@ export default function ReportHeader({
   onBack: () => void;
   onReuse: () => void;
   onCompare: () => void;
+  onValidation?: () => void;
   pending?: string;
   onRetry?: () => void;
   onExport: ExportAction;
@@ -43,6 +46,13 @@ export default function ReportHeader({
   const corrected = Object.entries(record.report).filter(
     ([, result]) => (result.inconsistent_n ?? 0) > 0,
   );
+  const next = nextStep(record, pending);
+  const nextAction =
+    next.action === "save"
+      ? (onRetry ?? (() => exportFile("json")))
+      : next.action === "reuse"
+        ? onReuse
+        : (onValidation ?? onReuse);
   return (
     <>
       <Back onClick={onBack} />
@@ -57,7 +67,7 @@ export default function ReportHeader({
         }
         action={
           <div className="heading-actions">
-            <Button kind="primary" onClick={onReuse}>
+            <Button onClick={onReuse}>
               Следующая итерация
               <ArrowRight size={18} />
             </Button>
@@ -82,6 +92,21 @@ export default function ReportHeader({
           </div>
         }
       />
+      <section
+        className="report-next-step"
+        aria-label="Следующий шаг исследования"
+      >
+        <div>
+          <h2>{next.title}</h2>
+          <p>{next.detail}</p>
+        </div>
+        <Button kind="primary" onClick={nextAction}>
+          {next.action === "save" && !onRetry
+            ? "Скачать полный JSON"
+            : next.label}
+          <ArrowRight size={18} />
+        </Button>
+      </section>
       {pending && (
         <Notice kind="error">
           <strong>Результат пока не записан в архив.</strong> {pending}

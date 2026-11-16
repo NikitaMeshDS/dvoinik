@@ -252,3 +252,44 @@ def test_import_rejects_raw_probability_without_observations():
     data["report"]["A"]["raw_probability"] = {"mean": 0, "sd": 0, "n": 0}
     with pytest.raises(ValueError):
         load_experiment(export_json(data))
+
+
+def test_validation_protocol_is_normalized_preserved_and_optional():
+    survey = load_survey(io.StringIO("segment,variant,decision\nsenior,A,1\n"))
+    protocol = {
+        "recruitment": "  Интервью в отделении  ",
+        "collected_from": "2026-11-01",
+        "collected_to": "2026-11-02",
+        "assignment": "random_one",
+        "notes": " ",
+    }
+    saved = attach_validation(record(), survey, protocol=protocol)
+    expected = {k: v.strip() for k, v in protocol.items() if v.strip()}
+    assert saved["validation"]["protocol"] == expected
+    assert load_experiment(export_json(saved))["validation"]["protocol"] == expected
+    assert "protocol" not in attach_validation(record(), survey)["validation"]
+
+
+@pytest.mark.parametrize(
+    "protocol",
+    [
+        [],
+        "x",
+        {"unknown": "x"},
+        {"recruitment": 4},
+        {"notes": "\ud800"},
+        {"notes": "x" * 1001},
+        {"assignment": "random"},
+        {"collected_from": "2026-02-30"},
+        {"collected_to": "2026-1-1"},
+        {"collected_from": "2026-11-02", "collected_to": "2026-11-01"},
+    ],
+)
+def test_invalid_validation_protocol_is_rejected_on_attach_and_import(protocol):
+    survey = load_survey(io.StringIO("segment,variant,decision\nsenior,A,1\n"))
+    with pytest.raises(ValueError):
+        attach_validation(record(), survey, protocol=protocol)
+    saved = attach_validation(record(), survey)
+    saved["validation"]["protocol"] = protocol
+    with pytest.raises(ValueError):
+        load_experiment(export_json(saved))

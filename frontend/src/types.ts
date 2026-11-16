@@ -123,7 +123,15 @@ export type ValidationResult = {
     }[];
   };
 };
+export type SurveyProtocol = {
+  recruitment?: string;
+  collected_from?: string;
+  collected_to?: string;
+  assignment?: "unknown" | "random_one" | "one_nonrandom" | "all_variants";
+  notes?: string;
+};
 export type Validation = {
+  protocol?: SurveyProtocol;
   created_at: string;
   cells: { variant: string; segment: string; n: number; yes: number }[];
   result: ValidationResult;

@@ -928,3 +928,74 @@ def test_runs_keep_their_source_study_for_iterations_and_hypotheses(app):
     ok = start(client, scenario_key="custom", scenario={**SCENARIOS[KEY], "origin": iteration})
     assert ok.status_code == 202
     completed(client, ok.json()["id"])
+
+
+def test_survey_protocol_preview_save_export_and_conflict(app):
+    client = login(app)
+    record = run(client)["record"]
+    endpoint = f"/api/experiments/{record['id']}/validation"
+    protocol = {
+        "recruitment": "  приглашение в отделении ",
+        "assignment": "random_one",
+        "collected_from": "2026-11-01",
+    }
+    payload = {"csv": csv_for(record), "protocol": protocol}
+    preview = client.post(endpoint + "/preview", json=payload)
+    assert preview.status_code == 200
+    value = preview.json()
+    normalized = {**protocol, "recruitment": "приглашение в отделении"}
+    assert value["record"]["validation"]["protocol"] == normalized
+    assert "validation" not in client.get(f"/api/experiments/{record['id']}").json()
+    link = client.post(
+        "/api/export",
+        json={
+            "record_id": record["id"],
+            "kind": "preview",
+            "format": "json",
+            "preview_id": value["preview_id"],
+        },
+    ).json()["url"]
+    assert client.get(link).json()["validation"]["protocol"] == normalized
+    saved = client.put(endpoint, json={**payload, "base_validation": None})
+    assert saved.status_code == 200
+    assert saved.json()["validation"]["protocol"] == normalized
+    stale = client.put(endpoint, json={**payload, "protocol": {"notes": "other"}, "base_validation": None})
+    assert stale.status_code == 409
+    assert client.get(f"/api/experiments/{record['id']}").json()["validation"]["protocol"] == normalized
+    link = client.post(
+        "/api/export", json={"record_id": record["id"], "kind": "record", "format": "json"}
+    ).json()["url"]
+    assert client.get(link).json()["validation"]["protocol"] == normalized
+    link = client.post(
+        "/api/export", json={"record_id": record["id"], "kind": "validation", "format": "json"}
+    ).json()["url"]
+    metrics = client.get(link).json()
+    assert metrics["protocol"] == normalized and metrics["survey_n"] == 1
+    assert login(app, "bob").post(endpoint + "/preview", json=payload).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "protocol",
+    [
+        {"assignment": "bad"},
+        {"recruitment": 5},
+        {"extra": "forbidden"},
+        {"collected_from": "2026-11-20", "collected_to": "2026-11-10"},
+        ["bad"],
+    ],
+)
+def test_invalid_survey_protocol_never_saves_validation(app, protocol):
+    client = login(app)
+    record = run(client)["record"]
+    endpoint = f"/api/experiments/{record['id']}/validation"
+    assert (
+        client.post(endpoint + "/preview", json={"csv": csv_for(record), "protocol": protocol}).status_code
+        == 422
+    )
+    assert (
+        client.put(
+            endpoint, json={"csv": csv_for(record), "protocol": protocol, "base_validation": None}
+        ).status_code
+        == 422
+    )
+    assert "validation" not in client.get(f"/api/experiments/{record['id']}").json()

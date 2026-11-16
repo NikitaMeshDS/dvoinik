@@ -263,7 +263,51 @@ def _check_baseline(baseline, variants):
         _text(baseline.get("error"), "Ошибка простого подхода", 1000)
 
 
-def attach_validation(record, survey):
+PROTOCOL_ASSIGNMENTS = {
+    "unknown": "Не указано",
+    "random_one": "Один вариант на человека, назначен случайно",
+    "one_nonrandom": "Один вариант на человека, без случайного назначения",
+    "all_variants": "Каждый участник оценивал все варианты",
+}
+
+
+def normalize_protocol(protocol):
+    """User-declared survey context; never inferred from response rows."""
+    if protocol is None:
+        return {}
+    fields = {"recruitment", "collected_from", "collected_to", "assignment", "notes"}
+    if not isinstance(protocol, dict) or set(protocol) - fields:
+        raise ValueError("Некорректные сведения о происхождении опроса.")
+    cleaned = {}
+    for key, value in protocol.items():
+        if not isinstance(value, str):
+            raise ValueError("Сведения об опросе должны быть текстом.")
+        value = value.strip()
+        try:
+            value.encode("utf-8")
+        except UnicodeError as exc:
+            raise ValueError("Сведения об опросе: требуется корректный UTF-8.") from exc
+        if not value:
+            continue
+        maximum = 1000 if key in {"recruitment", "notes"} else 40
+        _text(value, "Сведения об опросе", maximum)
+        if key in {"collected_from", "collected_to"}:
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+                raise ValueError("Дата сбора опроса: требуется ГГГГ-ММ-ДД.")
+            try:
+                datetime.strptime(value, "%Y-%m-%d")
+            except ValueError as exc:
+                raise ValueError("Некорректная дата сбора опроса.") from exc
+        if key == "assignment" and value not in PROTOCOL_ASSIGNMENTS:
+            raise ValueError("Неизвестный способ распределения вариантов.")
+        cleaned[key] = value
+    if cleaned.get("collected_from", "") > cleaned.get("collected_to", "9999-12-31"):
+        raise ValueError("Начало сбора опроса не может быть позже окончания.")
+    return cleaned
+
+
+def attach_validation(record, survey, protocol=None):
+    protocol = normalize_protocol(protocol)
     result = compare(record["report"], survey, baseline=_baseline_rates(record))
     counts = getattr(survey, "counts", None)
     if counts is None:
@@ -278,6 +322,8 @@ def attach_validation(record, survey):
         ],
         "result": result,
     }
+    if protocol:
+        saved["validation"]["protocol"] = protocol
     return saved
 
 
@@ -425,6 +471,12 @@ def load_experiment(source):
                     "cells": migrated,
                 }
                 record["validation"] = validation
+            if "protocol" in validation:
+                protocol = normalize_protocol(validation["protocol"])
+                if protocol:
+                    validation["protocol"] = protocol
+                else:
+                    validation.pop("protocol")
             _timestamp(validation.get("created_at"))
             survey = _survey_from_cells(validation.get("cells"))
             validation["result"] = compare(report, survey, baseline=_baseline_rates(record))

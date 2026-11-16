@@ -10,6 +10,8 @@
 
 [Онлайн-витрина](https://nikitameshds.github.io/dvoinik/) · [Маршрут локального демо](docs/demo.md) · [Пример полного отчёта](examples/senior-deposit.demo.json) · [Запуск и настройка](docs/development.md) · [Архитектура](docs/architecture.md) · [Проверки CI](https://github.com/NikitaMeshDS/dvoinik/actions/workflows/checks.yml)
 
+[Второй спринт: материалы и доказательства](docs/sprint-2-evidence.md) · [Финансовая модель](docs/financial-model.md) · [Показ защиты данных](docs/security-demo.md) · [Карточка пилота](docs/pilot-intake.md)
+
 Лицензия: [MIT](LICENSE).
 
 > Демо основано на правилах и ключевых словах. Его проценты показывают работу продукта,

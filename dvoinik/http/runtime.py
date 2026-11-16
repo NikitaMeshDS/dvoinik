@@ -89,9 +89,11 @@ class Runtime:
             raise ValueError(f"{label}: максимальный размер — 5 МБ.")
         return value.lstrip("\ufeff")
 
-    def checked_validation(self, token, record_id, content):
+    def checked_validation(self, token, record_id, content, protocol=None):
         record = self.accessible(token, record_id)
-        preview = attach_validation(record, load_survey(io.StringIO(self.checked_text(content, "CSV"))))
+        preview = attach_validation(
+            record, load_survey(io.StringIO(self.checked_text(content, "CSV"))), protocol=protocol
+        )
         self.auth.resolve(token)
         return {"record": preview, "base_validation": copy.deepcopy(record.get("validation"))}
 
@@ -108,8 +110,8 @@ class Runtime:
                 samples[key] = record
             return copy.deepcopy(samples[key])
 
-    def survey_preview(self, token, record_id, content):
-        result = self.checked_validation(token, record_id, content)
+    def survey_preview(self, token, record_id, content, protocol=None):
+        result = self.checked_validation(token, record_id, content, protocol)
         preview_id = uuid.uuid4().hex
         with self.snapshots.lock:
             previews = self.snapshots.state(token)["previews"]
@@ -129,8 +131,8 @@ class Runtime:
                 raise ValueError("Предпросмотр относится к другому исследованию.")
             return copy.deepcopy(preview)
 
-    def save_validation(self, token, record_id, content, base_validation):
-        preview = self.checked_validation(token, record_id, content)["record"]
+    def save_validation(self, token, record_id, content, base_validation, protocol=None):
+        preview = self.checked_validation(token, record_id, content, protocol)["record"]
         record = self.auth.workspace(token).save(preview, expected_validation=base_validation)
         self.jobs.reconcile_saved(token, record)
         with self.snapshots.lock:
@@ -177,7 +179,9 @@ class Runtime:
                 raise ValueError("Сначала загрузите опрос.")
             result = validation["result"]
             if options.format == "json":
-                data = export_json(result)
+                data = export_json(
+                    {**result, **({"protocol": validation["protocol"]} if validation.get("protocol") else {})}
+                )
             else:
                 stream = io.StringIO()
                 writer = csv.DictWriter(
