@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { FlaskConical, Sparkles } from "lucide-react";
 import { api } from "../../api";
-import { Button, Notice, date, decimal, percent } from "../../components";
+import {
+  Button,
+  Notice,
+  LoadingState,
+  date,
+  decimal,
+  percent,
+} from "../../components";
 import type { Experiment } from "../../types";
 import type { Hypotheses as Data, Hypothesis } from "./types";
 import { hypothesisChecks, sameHypothesisSetup } from "./hypothesisChecks";
@@ -34,12 +41,10 @@ export default function Hypotheses({
     [busy, setBusy] = useState(""),
     [error, setError] = useState("");
   if (!data)
-    return (
-      <p className="help">
-        {analyticsError
-          ? "Гипотезы недоступны. Повторите загрузку аналитики."
-          : "Готовим гипотезы…"}
-      </p>
+    return analyticsError ? (
+      <p className="help">Гипотезы недоступны. Повторите загрузку аналитики.</p>
+    ) : (
+      <LoadingState label="Готовим гипотезы…" />
     );
   const rewrite = async (h: Hypothesis) => {
     setBusy(h.id);

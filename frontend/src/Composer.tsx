@@ -17,6 +17,8 @@ import {
   type Estimate,
 } from "./types";
 import LaunchReview from "./features/composer/LaunchReview";
+import RespondentPreview from "./features/composer/RespondentPreview";
+import AudienceDistribution from "./features/composer/AudienceDistribution";
 type Preview = {
   requestKey: string;
   counts: Record<string, number>;
@@ -365,6 +367,7 @@ export default function Composer({
               </label>
             ))}
           </div>
+          <RespondentPreview draft={draft} />
           <details className="disclosure">
             <summary>
               <SlidersHorizontal size={16} />
@@ -489,6 +492,15 @@ export default function Composer({
               </label>
             ))}
           </div>
+          <AudienceDistribution
+            preview={
+              !loading && !previewError
+                ? (activePreview ?? undefined)
+                : undefined
+            }
+            segments={catalog.segments}
+            error={previewError}
+          />
           {previewError && <Notice kind="error">{previewError}</Notice>}
           {!loading &&
             activePreview &&

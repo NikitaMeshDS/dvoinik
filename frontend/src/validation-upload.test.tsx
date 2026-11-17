@@ -154,6 +154,9 @@ it("retains replacement preview on a conflicting save and clears it only after s
   );
   expect(screen.getByText("Предпросмотр · ещё не сохранён")).toBeTruthy();
   expect(updated).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("status", { name: "Проверка сохранена" }),
+  ).toBeNull();
 });
 
 it("clears the dirty preview after a successful save", async () => {
@@ -165,4 +168,25 @@ it("clears the dirty preview after a successful save", async () => {
   expect(updated.mock.calls[0][0].validation.result.survey_n).toBe(30);
   expect(screen.queryByText("Предпросмотр · ещё не сохранён")).toBeNull();
   expect(dirty).toHaveBeenLastCalledWith(false);
+});
+
+it("announces a persisted survey and keeps save actions after the metrics", async () => {
+  await replacementPanel();
+  const button = screen.getByRole("button", { name: "Заменить проверку" });
+  const table = document.querySelector(".survey-results .data-table")!;
+  expect(
+    table.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  await act(async () => fireEvent.click(button));
+  expect(
+    screen.getByRole("status", { name: "Проверка сохранена" }).textContent,
+  ).toContain("30 оценок");
+  const savedMessage = screen.getByRole("status", {
+    name: "Проверка сохранена",
+  });
+  const savedTable = document.querySelector(".survey-results .data-table")!;
+  expect(
+    savedTable.compareDocumentPosition(savedMessage) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
 });

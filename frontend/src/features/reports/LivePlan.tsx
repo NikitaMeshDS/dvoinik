@@ -1,4 +1,4 @@
-import { decimal, percent } from "../../components";
+import { decimal, percent, LoadingState } from "../../components";
 import type { LivePlan as Plan } from "./types";
 export default function LivePlan({
   plan,
@@ -21,11 +21,14 @@ export default function LivePlan({
         <span>Ориентир для исследователя</span>
       </div>
       {!plan ? (
-        <p className="help">
-          {analyticsError
-            ? "План недоступен. Повторите загрузку аналитики. Подготовка анкеты и загрузка ответов доступны ниже."
-            : "Готовим план…"}
-        </p>
+        analyticsError ? (
+          <p className="help">
+            План недоступен. Повторите загрузку аналитики. Подготовка анкеты и
+            загрузка ответов доступны ниже.
+          </p>
+        ) : (
+          <LoadingState label="Готовим план…" />
+        )
       ) : (
         <div className="live-plan-grid">
           <div>

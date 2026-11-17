@@ -17,6 +17,7 @@ import {
   percent,
 } from "../../components";
 import { nextStep } from "./nextStep";
+import ResearchBrief from "./ResearchBrief";
 import type { Experiment } from "../../types";
 import type { Insights, ExportAction } from "./types";
 export default function ReportHeader({
@@ -94,21 +95,18 @@ export default function ReportHeader({
           </div>
         }
       />
-      <section
-        className="report-next-step"
-        aria-label="Следующий шаг исследования"
-      >
-        <div>
-          <h2>{next.title}</h2>
-          <p>{next.detail}</p>
-        </div>
-        <Button kind="primary" onClick={nextAction}>
-          {next.action === "save" && !onRetry
+      <ResearchBrief
+        record={record}
+        base={base}
+        analyticsError={analyticsError}
+        next={next}
+        actionLabel={
+          next.action === "save" && !onRetry
             ? "Скачать полный JSON"
-            : next.label}
-          <ArrowRight size={18} />
-        </Button>
-      </section>
+            : next.label
+        }
+        onAction={nextAction}
+      />
       {pending && (
         <Notice kind="error">
           <strong>Результат пока не записан в архив.</strong> {pending}

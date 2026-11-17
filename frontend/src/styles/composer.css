@@ -489,3 +489,220 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* The editor and neutral participant preview share the same offer vocabulary. */
+.composer .offer-input {
+  border-radius: 14px;
+  box-shadow: 0 4px 14px #263b5b06;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.composer .offer-input:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px #315cf312;
+}
+.composer .offer-input > span {
+  padding: 17px 18px 13px;
+  background: linear-gradient(110deg, #f1f4ff, #fff);
+  border-bottom: 1px solid #e8edf5;
+  font-size: 14px;
+}
+.composer .offer-input.variant-B > span {
+  background: linear-gradient(110deg, #edf7f4, #fff);
+}
+.composer .offer-input textarea {
+  padding: 18px;
+  font-size: 15px;
+  line-height: 1.7;
+}
+.respondent-preview {
+  margin: 24px 0;
+  border: 1px solid #d7e1ef;
+  border-radius: 12px;
+  background: #f8faff;
+}
+.respondent-preview > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 17px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  list-style: none;
+}
+.respondent-preview > summary::-webkit-details-marker {
+  display: none;
+}
+.respondent-preview > summary::after {
+  content: "+";
+  margin-left: auto;
+  font-size: 20px;
+  color: var(--muted);
+}
+.respondent-preview[open] > summary::after {
+  content: "−";
+}
+.respondent-preview > section {
+  padding: 0 18px 4px;
+}
+.respondent-preview h3 {
+  max-width: 65ch;
+  line-height: 1.55;
+}
+.respondent-offers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.respondent-offers article {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+}
+.respondent-letter {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: var(--blue);
+  background: #edf2ff;
+  font-size: 13px;
+  font-weight: 650;
+}
+.respondent-offers p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  margin: 12px 0;
+}
+.respondent-answer {
+  display: block;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.audience-distribution {
+  padding: 22px;
+  margin: 22px 0;
+  background: linear-gradient(110deg, #f0f5ff, #fafcfd);
+  border: 1px solid #d7e1ef;
+  border-radius: 12px;
+}
+.audience-distribution h3 {
+  margin-bottom: 16px;
+}
+.audience-distribution ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+.audience-distribution li > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  font-size: 13px;
+}
+.audience-distribution strong {
+  font-weight: 600;
+}
+.audience-distribution li > div > span {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.audience-share-track {
+  display: block;
+  margin-top: 9px;
+  height: 6px;
+  border-radius: 4px;
+  background: #dfe7f3;
+  overflow: hidden;
+}
+.audience-share-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-gradient);
+}
+.audience-distribution > .help:last-child {
+  margin-bottom: 0;
+}
+@media (max-width: 760px) {
+  .composer .step-actions {
+    position: sticky;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 8px 26px #192d401c;
+    background: #fff;
+  }
+  /* While editing, keep the action bar in flow so the keyboard has priority. */
+  .composer:has(input:focus, textarea:focus, select:focus) .step-actions {
+    position: static;
+  }
+  .composer .step-actions .button {
+    white-space: normal;
+    min-width: 0;
+  }
+  .composer .step-actions > div {
+    min-width: 0;
+  }
+  .composer input,
+  .composer textarea,
+  .composer select {
+    scroll-margin-bottom: 180px;
+  }
+  .composer .respondent-offers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .composer .respondent-preview > summary {
+    font-size: 13px;
+    padding: 15px;
+  }
+  .composer .respondent-preview > section {
+    padding-inline: 15px;
+  }
+  .composer .audience-distribution {
+    padding: 18px 15px;
+  }
+  .composer .audience-distribution li > div {
+    display: block;
+  }
+  .composer .audience-distribution li > div > span {
+    display: block;
+    margin-top: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer .offer-input {
+    transition: none;
+  }
+}
+
+/* Keep the full run label readable at narrow phone widths. */
+@media (max-width: 420px) {
+  .composer .step-actions:has(> div) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 10px;
+  }
+  .composer .step-actions > div {
+    display: contents;
+  }
+  .composer .step-actions > div > span {
+    grid-column: 2;
+    grid-row: 1;
+    max-width: 95px;
+  }
+  .composer .step-actions > div > .button {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: space-between;
+  }
+}

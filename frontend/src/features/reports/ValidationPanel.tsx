@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Download, FileJson, ClipboardCheck } from "lucide-react";
+import { Download, FileJson, ClipboardCheck, CircleCheck } from "lucide-react";
 import { api, ignored, message } from "../../api";
 import { Button, Menu, Notice, date } from "../../components";
 import type {
@@ -9,6 +9,7 @@ import type {
   SurveyProtocol,
 } from "../../types";
 import type { ExportAction } from "./types";
+import { plural } from "../../data";
 import ProtocolEditor, { ProtocolSummary } from "./SurveyProtocol";
 import SurveyCoverage from "./SurveyCoverage";
 import ValidationMetrics from "./ValidationMetrics";
@@ -42,6 +43,7 @@ export default function ValidationPanel({
     } | null>(null),
     [phase, setPhase] = useState<"read" | "preview" | "save" | null>(null),
     [error, setError] = useState("");
+  const [savedNotice, setSavedNotice] = useState("");
   const [protocol, setProtocol] = useState<SurveyProtocol>({});
   const busy = phase !== null;
   useEffect(() => {
@@ -55,6 +57,7 @@ export default function ValidationPanel({
     setError("");
   };
   const inspect = async (content: string) => {
+    setSavedNotice("");
     setPhase("preview");
     setError("");
     try {
@@ -76,6 +79,7 @@ export default function ValidationPanel({
   };
   const save = async () => {
     if (!preview) return;
+    setSavedNotice("");
     setPhase("save");
     setError("");
     try {
@@ -91,6 +95,11 @@ export default function ValidationPanel({
       onUpdated(result);
       setPreview(null);
       setProtocol({});
+      setSavedNotice(
+        result.validation
+          ? `Проверка сохранена в архиве: ${result.validation.result.survey_n} ${plural(result.validation.result.survey_n, "оценка", "оценки", "оценок")}. Доступна после обновления страницы.`
+          : "Проверка сохранена в архиве.",
+      );
     } catch (e) {
       if (!ignored(e)) setError(message(e));
     } finally {
@@ -175,6 +184,7 @@ export default function ValidationPanel({
               )
                 return;
               setPreview(null);
+              setSavedNotice("");
               setError("");
               setCsv("");
               setFilename(file.name);
@@ -245,7 +255,17 @@ export default function ValidationPanel({
                 </button>
               </Notice>
             )}
-            <div className="selection-bar">
+            <ProtocolSummary protocol={preview.record.validation!.protocol} />
+            <SurveyCoverage
+              record={record}
+              result={preview.record.validation!.result}
+              segments={catalog.segments}
+            />
+            <ValidationMetrics
+              result={preview.record.validation!.result}
+              segments={catalog.segments}
+            />
+            <div className="selection-bar survey-save-actions">
               <span>Предпросмотр · ещё не сохранён</span>
               <Button kind="primary" disabled={busy} onClick={save}>
                 {phase === "save"
@@ -258,16 +278,6 @@ export default function ValidationPanel({
                 Отменить предпросмотр
               </button>
             </div>
-            <ProtocolSummary protocol={preview.record.validation!.protocol} />
-            <SurveyCoverage
-              record={record}
-              result={preview.record.validation!.result}
-              segments={catalog.segments}
-            />
-            <ValidationMetrics
-              result={preview.record.validation!.result}
-              segments={catalog.segments}
-            />
           </>
         ) : record.validation ? (
           <>
@@ -291,6 +301,16 @@ export default function ValidationPanel({
             Живая проверка ещё не проведена. Добавьте ответы, чтобы измерить
             расхождение с симуляцией.
           </Notice>
+        )}
+        {savedNotice && (
+          <div
+            className="save-confirmation"
+            role="status"
+            aria-label="Проверка сохранена"
+          >
+            <CircleCheck size={20} aria-hidden="true" />
+            <p>{savedNotice}</p>
+          </div>
         )}
         <p className="help">
           Ошибка взвешивается по числу ответов. Ранги сравниваются на составе

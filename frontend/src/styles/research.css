@@ -504,3 +504,122 @@
 .study-next {
   margin: 0 20px 16px auto;
 }
+
+/* The question and the next action lead; provenance stays available separately. */
+.library-surface .study-main {
+  padding-bottom: 17px;
+}
+.library-surface .study-main strong {
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.library-surface .study-question {
+  font-size: 13px;
+  color: #526a82;
+  line-height: 1.65;
+  margin-top: 7px;
+}
+.library-surface .study-tags i {
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 4px 7px;
+}
+.study-child .study-icon {
+  background: #e9edf8;
+  border: 1px solid #d6def0;
+}
+.study-footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 0 24px 20px 89px;
+}
+.study-lineage {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
+}
+.study-source {
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+  color: #4a5f9a;
+}
+.study-source svg,
+.study-related-count svg {
+  flex-shrink: 0;
+}
+.study-source span,
+.study-source-unavailable {
+  overflow-wrap: anywhere;
+}
+.study-related-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #526a82;
+}
+.study-source-unavailable {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.study-metadata {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.study-metadata summary {
+  width: fit-content;
+  padding: 2px 0;
+}
+.study-metadata p {
+  margin: 8px 0 0;
+  max-width: 65ch;
+  overflow-wrap: anywhere;
+}
+.study-footer .study-next {
+  flex-shrink: 0;
+  min-height: 36px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #d3def7;
+  border-radius: 7px;
+  color: #304fb0;
+  background: #f2f5ff;
+  line-height: 1.5;
+  text-align: left;
+}
+.study-footer .study-next:hover {
+  border-color: #9eb6ef;
+  background: #e9efff;
+  text-decoration: none;
+}
+@media (max-width: 1100px) {
+  .study-footer {
+    padding-left: 24px;
+  }
+}
+@media (max-width: 760px) {
+  .library-surface .study-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 0 18px 20px;
+  }
+  .study-footer .study-next {
+    justify-content: space-between;
+    min-height: 44px;
+  }
+  .study-metadata summary {
+    min-height: 32px;
+    padding-block: 5px;
+  }
+}

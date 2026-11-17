@@ -191,6 +191,18 @@ export function Notice({
     </div>
   );
 }
+export function LoadingState({ label }: { label: string }) {
+  return (
+    <div className="content-loading" role="status" aria-busy="true">
+      <p className="help">{label}</p>
+      <div className="content-skeleton" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
+    </div>
+  );
+}
 export { date } from "./data";
 const formats = new Map<number, Intl.NumberFormat>();
 export function decimal(value: number, digits = 1) {

@@ -318,8 +318,23 @@ export default function Library({
                       : hasAnswers
                         ? "Только симуляция"
                         : "Нет валидных ответов";
+                  const origin = r.scenario.origin;
+                  const source = origin
+                    ? records.find(
+                        (item) =>
+                          item.id === origin.record_id && item.id !== r.id,
+                      )
+                    : undefined;
+                  const relatedCount = records.filter(
+                    (item) =>
+                      item.id !== r.id &&
+                      item.scenario.origin?.record_id === r.id,
+                  ).length;
                   return (
-                    <div className="study-row" key={r.id}>
+                    <div
+                      className={"study-row" + (origin ? " study-child" : "")}
+                      key={r.id}
+                    >
                       {state.compare && (
                         <input
                           type="checkbox"
@@ -351,11 +366,6 @@ export default function Library({
                           <span className="study-question">
                             {r.scenario.question}
                           </span>
-                          <small>
-                            {date(r.created_at)} · {r.n.toLocaleString("ru-RU")}{" "}
-                            {plural(r.n, "профиль", "профиля", "профилей")} ·{" "}
-                            {r.model}
-                          </small>
                           <span className="study-tags">
                             <i className={r.mock ? "demo" : "llm"}>
                               {r.mock ? "Демо" : "LLM"}
@@ -386,27 +396,69 @@ export default function Library({
                         </span>
                         <ArrowUpRight size={19} />
                       </button>
-                      {hasAnswers && !pending.has(r.id) && (
-                        <button
-                          className="text-link study-next"
-                          aria-label={
-                            (r.validation
+                      <div className="study-footer">
+                        <div className="study-lineage">
+                          {source ? (
+                            <button
+                              className="text-link study-source"
+                              aria-label={
+                                "Исходное исследование — " +
+                                source.scenario.title
+                              }
+                              onClick={() => onOpen(source.id)}
+                            >
+                              <GitCompare size={15} aria-hidden="true" />
+                              <span>Из «{source.scenario.title}»</span>
+                            </button>
+                          ) : origin ? (
+                            <span className="study-source-unavailable">
+                              Источник недоступен в архиве: «{origin.title}»
+                            </span>
+                          ) : relatedCount > 0 ? (
+                            <span className="study-related-count">
+                              <GitCompare size={15} aria-hidden="true" />
+                              {relatedCount}{" "}
+                              {plural(
+                                relatedCount,
+                                "связанный запуск",
+                                "связанных запуска",
+                                "связанных запусков",
+                              )}
+                            </span>
+                          ) : null}
+                          <details className="study-metadata">
+                            <summary>Параметры снимка</summary>
+                            <p>
+                              {date(r.created_at)} ·{" "}
+                              {r.n.toLocaleString("ru-RU")}{" "}
+                              {plural(r.n, "профиль", "профиля", "профилей")} ·{" "}
+                              {r.model}
+                            </p>
+                          </details>
+                        </div>
+                        {hasAnswers && !pending.has(r.id) && (
+                          <button
+                            className="text-link study-next"
+                            aria-label={
+                              (r.validation
+                                ? "Посмотреть расхождения"
+                                : r.mock
+                                  ? "Открыть пример проверки"
+                                  : "Подготовить опрос") +
+                              " — " +
+                              r.scenario.title
+                            }
+                            onClick={() => onOpen(r.id, "validation")}
+                          >
+                            {r.validation
                               ? "Посмотреть расхождения"
                               : r.mock
                                 ? "Открыть пример проверки"
-                                : "Подготовить опрос") +
-                            " — " +
-                            r.scenario.title
-                          }
-                          onClick={() => onOpen(r.id, "validation")}
-                        >
-                          {r.validation
-                            ? "Посмотреть расхождения"
-                            : r.mock
-                              ? "Открыть пример проверки"
-                              : "Подготовить опрос"}
-                        </button>
-                      )}
+                                : "Подготовить опрос"}
+                            <ArrowUpRight size={15} aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

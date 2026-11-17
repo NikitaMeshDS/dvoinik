@@ -1,5 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import { Notice, decimal, percent } from "../../components";
+import { Notice, LoadingState, decimal, percent } from "../../components";
 import { COLORS, type Catalog, type Experiment } from "../../types";
 import type { BaselineAgreement, Insights, LivePlan } from "./types";
 import ConversionChart from "./ConversionChart";
@@ -164,12 +164,12 @@ export default function Overview({
           </div>
           {focus ? (
             <ConversionChart report={focus.report} />
-          ) : (
+          ) : error ? (
             <p className="help">
-              {error
-                ? "Разбор недоступен. Повторите загрузку аналитики."
-                : "Готовим разбор…"}
+              Разбор недоступен. Повторите загрузку аналитики.
             </p>
+          ) : (
+            <LoadingState label="Готовим разбор…" />
           )}
           <p className="help">
             Линии — 95% интервалы ответов симуляции. Они не измеряют точность
