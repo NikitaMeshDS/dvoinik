@@ -69,4 +69,70 @@ def compare_runs(left, right):
             left.get("signature", "Не сохранена"),
             right.get("signature", "Не сохранена"),
         )
-    return {"changes": changes, "variants": variants, "segments": segments}
+    warnings = []
+
+    def warn(code, text):
+        warnings.append({"code": code, "text": text})
+
+    fields = {item["field"] for item in changes}
+    if "mode" in fields:
+        warn("mode", "Режимы различаются: демо и LLM формируют ответы разными способами.")
+    if "model" in fields:
+        warn(
+            "model",
+            "Модели различаются. Разница результатов может зависеть от модели, а не только от предложения.",
+        )
+    if fields & {"question", "description", "objections"}:
+        warn(
+            "question_context",
+            "Вопрос, контекст или категории отказа изменены. Условия получения ответов различаются.",
+        )
+    if "population" in fields:
+        warn(
+            "population",
+            "Состав или доли целевой аудитории изменены. Общие доли согласий относятся к разным аудиториям.",
+        )
+    if fields & {"seed", "n", "population_counts"}:
+        warn(
+            "profile_sample",
+            "Размер, распределение или seed выборки профилей изменены. Разница может зависеть от состава симуляции.",
+        )
+    if set(a["variants"]) != set(b["variants"]):
+        warn("variant_set", "Набор предложений различается. Не все варианты имеют пару для сравнения.")
+    if any(a["variants"][vid] != b["variants"][vid] for vid in set(a["variants"]) & set(b["variants"])):
+        warn(
+            "variant_text",
+            "Тексты предложений изменены. Одинаковые буквы не гарантируют одинаковых условий; сверьте тексты перед интерпретацией дельт.",
+        )
+    incomplete = any(row["left"] is None or row["right"] is None for row in variants + segments)
+    for current in (left, right):
+        for vid in current["scenario"]["variants"]:
+            result = current["report"].get(vid)
+            if not result or not result["n"]:
+                incomplete = True
+                continue
+            if any(
+                weight > 0 and not result["segments"].get(sid, {}).get("n")
+                for sid, weight in current["scenario"]["population"].items()
+            ):
+                incomplete = True
+    if incomplete:
+        warn(
+            "missing_data",
+            "Для части предложений или сегментов нет валидных ответов в одном из запусков. Пропуски не означают нулевое согласие.",
+        )
+    if any(
+        result.get("failed_n", 0) > 0 or result.get("inconsistent_n", 0) > 0
+        for current in (left, right)
+        for result in current["report"].values()
+    ):
+        warn(
+            "response_quality",
+            "В одном из запусков есть ошибки ответов или корректировки вероятностей. Невалидные ответы исключены из долей, корректировки включены в результат; проверьте качество каждого запуска перед сравнением.",
+        )
+    if "configuration" in fields:
+        warn(
+            "configuration",
+            "Подписи конфигурации различаются. Сверьте параметры сервера и способ получения ответов.",
+        )
+    return {"changes": changes, "variants": variants, "segments": segments, "warnings": warnings}

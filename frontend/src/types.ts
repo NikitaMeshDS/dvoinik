@@ -220,6 +220,7 @@ export type Comparison = {
   left: Experiment;
   right: Experiment;
   comparison: {
+    warnings?: { code: string; text: string }[];
     changes: {
       field: string;
       label: string;

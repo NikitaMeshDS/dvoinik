@@ -165,7 +165,10 @@ def test_sample_cache_import_compare_and_private_download(app):
     link = client.post(
         "/api/compare/export", json={"left_id": sample["id"], "right_id": imported["id"]}
     ).json()["url"]
-    assert client.get(link).json()["left"]["id"] == sample["id"]
+    downloaded_comparison = client.get(link).json()
+    assert downloaded_comparison["left"]["id"] == sample["id"]
+    assert downloaded_comparison["comparison"] == comparison.json()["comparison"]
+    assert "warnings" in downloaded_comparison["comparison"]
     link = client.post(
         "/api/export", json={"record_id": imported["id"], "format": "csv", "kind": "record"}
     ).json()["url"]

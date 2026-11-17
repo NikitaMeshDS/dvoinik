@@ -70,3 +70,64 @@ def test_different_configuration_signatures_are_disclosed_even_with_same_model_n
     left, right = record(), record()
     right["signature"] = "different-endpoint"
     assert any(change["field"] == "configuration" for change in compare_runs(left, right)["changes"])
+
+
+def test_comparison_warnings_explain_multiple_changed_factors_in_stable_order():
+    left, right = record(), record(seed=99, n=100)
+    right["mock"] = False
+    right["model"] = "another-model"
+    right["scenario"]["question"] = "Новый вопрос?"
+    right["scenario"]["population"] = {"senior": 1}
+    right["scenario"]["variants"]["A"] = "Новый текст"
+    warnings = compare_runs(left, right)["warnings"]
+    assert [item["code"] for item in warnings] == [
+        "mode",
+        "model",
+        "question_context",
+        "population",
+        "profile_sample",
+        "variant_text",
+        "missing_data",
+    ]
+    assert all(isinstance(item["text"], str) and item["text"] for item in warnings)
+
+
+def test_equal_conditions_and_proportional_weights_do_not_warn_about_audience():
+    left, right = record(), record()
+    right["scenario"]["population"] = {
+        sid: weight * 100 for sid, weight in left["scenario"]["population"].items()
+    }
+    assert compare_runs(left, right)["warnings"] == []
+
+
+def test_missing_data_and_changed_variant_set_are_warned_without_zero_rates():
+    left, right = record(), record()
+    del right["report"]["C"]
+    del right["scenario"]["variants"]["C"]
+    del right["report"]["A"]["segments"]["student_msk"]
+    result = compare_runs(left, right)
+    codes = [warning["code"] for warning in result["warnings"]]
+    assert "variant_set" in codes and "missing_data" in codes
+    assert next(row for row in result["variants"] if row["variant"] == "C")["delta_pp"] is None
+
+
+def test_selected_segment_missing_from_both_reports_is_still_incomplete():
+    left, right = record(), record()
+    for current in (left, right):
+        for result in current["report"].values():
+            del result["segments"]["student_msk"]
+    assert "missing_data" in {warning["code"] for warning in compare_runs(left, right)["warnings"]}
+
+
+@pytest.mark.parametrize("quality_field", ["failed_n", "inconsistent_n"])
+def test_partial_failures_or_corrected_probabilities_warn_with_all_cells_present(quality_field):
+    left, right = record(), record()
+    # Every comparison still has a valid rate; a quality warning cannot rely on
+    # missing cells or null conversion alone.
+    right["report"]["A"][quality_field] = 1
+    before = copy.deepcopy(right["report"])
+    result = compare_runs(left, right)
+    assert "response_quality" in {warning["code"] for warning in result["warnings"]}
+    assert "missing_data" not in {warning["code"] for warning in result["warnings"]}
+    assert all(row["delta_pp"] == 0 for row in result["variants"])
+    assert right["report"] == before

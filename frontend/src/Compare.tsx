@@ -62,14 +62,14 @@ export function ComparisonDialog({
     <Modal title="Сравнение исследований" onClose={onClose}>
       <div className="compare-pickers">
         <label className="field">
-          <span>Исходный запуск</span>
+          <span>Запуск 1</span>
           <select value={left} onChange={(e) => setLeft(e.target.value)}>
             {options}
           </select>
         </label>
         <ArrowRight size={20} />
         <label className="field">
-          <span>Следующая итерация</span>
+          <span>Запуск 2</span>
           <select value={right} onChange={(e) => setRight(e.target.value)}>
             {options}
           </select>
@@ -84,13 +84,31 @@ export function ComparisonDialog({
             статистическую значимость. Буквы связывают предложения; проверьте их
             тексты.
           </Notice>
+          {!!result.comparison.warnings?.length && (
+            <section
+              className="comparison-limits"
+              aria-label="Ограничения сравнения"
+            >
+              <h3>Что учитывать при сравнении</h3>
+              <ul>
+                {result.comparison.warnings.map((warning) => (
+                  <li key={warning.code}>{warning.text}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <p className="help">
+            Дельта = запуск 2 минус запуск 1. Положительное значение означает
+            более высокую долю согласий во втором снимке, независимо от даты и
+            происхождения запуска.
+          </p>
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Предложение</th>
-                  <th>Исходный</th>
-                  <th>Итерация</th>
+                  <th>Запуск 1</th>
+                  <th>Запуск 2</th>
                   <th>Дельта, п.п.</th>
                   <th>Ответов</th>
                 </tr>
@@ -98,7 +116,24 @@ export function ComparisonDialog({
               <tbody>
                 {result.comparison.variants.map((r) => (
                   <tr key={r.variant}>
-                    <td>{r.variant}</td>
+                    <td>
+                      {r.variant}
+                      <details className="comparison-offers">
+                        <summary>Тексты {r.variant}</summary>
+                        <dl>
+                          <dt>Запуск 1</dt>
+                          <dd>
+                            {result.left.scenario.variants[r.variant] ??
+                              "Предложения нет"}
+                          </dd>
+                          <dt>Запуск 2</dt>
+                          <dd>
+                            {result.right.scenario.variants[r.variant] ??
+                              "Предложения нет"}
+                          </dd>
+                        </dl>
+                      </details>
+                    </td>
                     <td>{percent(r.left)}</td>
                     <td>{percent(r.right)}</td>
                     <td>
@@ -150,8 +185,8 @@ export function ComparisonDialog({
                   <tr>
                     <th>Вариант</th>
                     <th>Сегмент</th>
-                    <th>Исходный</th>
-                    <th>Итерация</th>
+                    <th>Запуск 1</th>
+                    <th>Запуск 2</th>
                     <th>Дельта, п.п.</th>
                   </tr>
                 </thead>
