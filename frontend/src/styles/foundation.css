@@ -11,12 +11,16 @@
   --nav: #142943;
   --surface-radius: 16px;
   --mint: #0f7b73;
+  --accent-gradient: linear-gradient(115deg, #315cf3, #5145ce);
+  --surface-shadow: 0 8px 30px #20385c08, 0 1px 3px #20385c06;
 }
 * {
   box-sizing: border-box;
 }
 body {
   margin: 0;
+  background:
+    radial-gradient(ellipse at 100% 0, #e4e9fc 0, transparent 55%), #f1f4f9;
 }
 button,
 input,
@@ -147,8 +151,11 @@ input::placeholder {
   color: var(--blue);
 }
 .button.primary {
-  background: var(--blue);
-  border-color: var(--blue);
+  background: var(--accent-gradient);
+  border-color: #3155df;
+  box-shadow:
+    0 4px 10px #315cf326,
+    inset 0 1px #ffffff24;
   color: #fff;
 }
 .button.primary:hover:not(:disabled) {

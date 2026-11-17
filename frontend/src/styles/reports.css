@@ -1,7 +1,8 @@
 .report-summary {
   display: grid;
   grid-template-columns: 1.2fr 1fr 0.9fr 1.2fr;
-  background: var(--paper);
+  background: linear-gradient(110deg, #f2f5ff, #fff 45%);
+  box-shadow: var(--surface-shadow);
   border: 1px solid var(--line);
   border-radius: var(--surface-radius);
   padding: 24px;
@@ -71,7 +72,8 @@
   color: #586f88;
 }
 .report-tabs > button[aria-selected="true"] {
-  background: var(--blue);
+  background: var(--accent-gradient);
+  box-shadow: 0 3px 8px #315cf322;
   color: #fff;
 }
 .matrix-scroll,
@@ -525,6 +527,7 @@
 }
 .survey-preparation,
 .survey-results {
+  box-shadow: var(--surface-shadow);
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--surface-radius);
@@ -771,7 +774,8 @@
   font-size: 22px;
 }
 .live-plan {
-  background: var(--paper);
+  background: linear-gradient(140deg, #edf6f7, #fff 55%);
+  box-shadow: var(--surface-shadow);
   border: 1px solid var(--line);
   border-radius: var(--surface-radius);
   padding: 24px;
@@ -1269,7 +1273,10 @@
   border: 1px solid #ccd9f6;
   border-left: 4px solid var(--blue);
   border-radius: 12px;
-  background: #f8faff;
+  background:
+    radial-gradient(ellipse at 100% 0, #dfefef99, transparent 60%),
+    linear-gradient(110deg, #edf1ff, #f9fbff);
+  box-shadow: var(--surface-shadow);
 }
 .report-next-step h2 {
   margin: 0 0 8px;
@@ -1383,4 +1390,10 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 14px;
+}
+
+.report-summary strong,
+.data-table td,
+.matrix td strong {
+  font-variant-numeric: tabular-nums;
 }

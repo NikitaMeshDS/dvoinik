@@ -9,6 +9,9 @@ import {
   ChevronRight,
   RefreshCw,
   FlaskConical,
+  MessageSquare,
+  Users,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button, Heading, Empty, Menu, Notice, date } from "./components";
 import { type Experiment } from "./types";
@@ -110,31 +113,58 @@ export default function Library({
     });
   return (
     <>
-      <Heading
-        title="Исследования"
-        description="Ваши гипотезы, ответы и следующие итерации — в одном месте."
-        action={
-          <div className="heading-actions">
-            <Button kind="primary" onClick={onNew}>
-              <Plus size={18} />
-              Новое исследование
-            </Button>
-            <Menu label="Действия с исследованиями">
-              <button onClick={onImport}>
-                <Upload size={17} />
-                Импорт JSON
-              </button>
-              <button
-                disabled={records.length < 2}
-                onClick={() => patch({ compare: !state.compare, selected: [] })}
-              >
-                <GitCompare size={17} />
-                {state.compare ? "Завершить выбор" : "Сравнить исследования"}
-              </button>
-            </Menu>
-          </div>
-        }
-      />
+      <section className="library-intro" aria-label="Лаборатория исследований">
+        <Heading
+          title="Исследования"
+          description="Ваши гипотезы, ответы и следующие итерации — в одном месте."
+          action={
+            <div className="heading-actions">
+              <Button kind="primary" onClick={onNew}>
+                <Plus size={18} />
+                Новое исследование
+              </Button>
+              <Menu label="Действия с исследованиями">
+                <button onClick={onImport}>
+                  <Upload size={17} />
+                  Импорт JSON
+                </button>
+                <button
+                  disabled={records.length < 2}
+                  onClick={() =>
+                    patch({ compare: !state.compare, selected: [] })
+                  }
+                >
+                  <GitCompare size={17} />
+                  {state.compare ? "Завершить выбор" : "Сравнить исследования"}
+                </button>
+              </Menu>
+            </div>
+          }
+        />
+        <ol className="research-journey" aria-label="Путь исследования">
+          <li>
+            <MessageSquare size={19} aria-hidden="true" />
+            <div>
+              <strong>Сформулируйте</strong>
+              <span>Вопрос и варианты предложения</span>
+            </div>
+          </li>
+          <li>
+            <Users size={19} aria-hidden="true" />
+            <div>
+              <strong>Исследуйте реакции</strong>
+              <span>Синтетическая аудитория и барьеры</span>
+            </div>
+          </li>
+          <li>
+            <ClipboardCheck size={19} aria-hidden="true" />
+            <div>
+              <strong>Проверьте на людях</strong>
+              <span>Живой опрос и сопоставление</span>
+            </div>
+          </li>
+        </ol>
+      </section>
       {error && (
         <Notice kind="error">
           {error}
