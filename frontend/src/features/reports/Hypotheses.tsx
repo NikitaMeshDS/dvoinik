@@ -18,12 +18,14 @@ const EVIDENCE_SHOWN = 3;
 export default function Hypotheses({
   record,
   data,
+  analyticsError = "",
   onTest,
   checks = [],
   onOpen,
 }: {
   record: Experiment;
   data?: Data;
+  analyticsError?: string;
   onTest?: (hypothesis: Hypothesis, proposal: string) => void;
   checks?: Experiment[];
   onOpen?: (id: string) => void;
@@ -31,7 +33,14 @@ export default function Hypotheses({
   const [rewritten, setRewritten] = useState<Record<string, string>>({}),
     [busy, setBusy] = useState(""),
     [error, setError] = useState("");
-  if (!data) return <p className="help">Готовим гипотезы…</p>;
+  if (!data)
+    return (
+      <p className="help">
+        {analyticsError
+          ? "Гипотезы недоступны. Повторите загрузку аналитики."
+          : "Готовим гипотезы…"}
+      </p>
+    );
   const rewrite = async (h: Hypothesis) => {
     setBusy(h.id);
     setError("");

@@ -10,6 +10,7 @@ export default function Overview({
   record,
   catalog,
   focus,
+  error = "",
   segment,
   setSegment,
   variant,
@@ -28,6 +29,7 @@ export default function Overview({
   record: Experiment;
   catalog: Catalog;
   focus: Insights | null;
+  error?: string;
   segment: string;
   setSegment: (s: string) => void;
   variant: string;
@@ -149,7 +151,7 @@ export default function Overview({
           </a>
         </Notice>
       )}
-      <div className="analysis-grid" aria-busy={!focus}>
+      <div className="analysis-grid" aria-busy={!focus && !error}>
         <section className="analysis-chart">
           <div className="section-heading">
             <h2>Готовность подключить</h2>
@@ -163,7 +165,11 @@ export default function Overview({
           {focus ? (
             <ConversionChart report={focus.report} />
           ) : (
-            <p className="help">Готовим разбор…</p>
+            <p className="help">
+              {error
+                ? "Разбор недоступен. Повторите загрузку аналитики."
+                : "Готовим разбор…"}
+            </p>
           )}
           <p className="help">
             Линии — 95% интервалы ответов симуляции. Они не измеряют точность
@@ -174,7 +180,11 @@ export default function Overview({
         <aside className="next-step">
           <span className="mini-label">Что проверить дальше</span>
           {!focus ? (
-            <p>Готовим разбор…</p>
+            <p>
+              {error
+                ? "Для следующего шага нужен разбор выбранной аудитории. Повторите загрузку аналитики."
+                : "Готовим разбор…"}
+            </p>
           ) : !candidate ? (
             <p>
               Нет валидных ответов. Проверьте покрытие и подключение модели.

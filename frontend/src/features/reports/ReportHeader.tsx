@@ -22,6 +22,7 @@ import type { Insights, ExportAction } from "./types";
 export default function ReportHeader({
   record,
   base,
+  analyticsError = "",
   onBack,
   onReuse,
   onCompare,
@@ -32,6 +33,7 @@ export default function ReportHeader({
 }: {
   record: Experiment;
   base: Insights | null;
+  analyticsError?: string;
   onBack: () => void;
   onReuse: () => void;
   onCompare: () => void;
@@ -208,7 +210,11 @@ export default function ReportHeader({
           <small>
             {summary?.leaders.length
               ? "Вариант " + summary.leaders.join(" / ")
-              : "Нет валидных ответов"}{" "}
+              : summary
+                ? "Нет валидных ответов"
+                : analyticsError
+                  ? "Аналитика недоступна"
+                  : "Загружаем аналитику…"}{" "}
             · вся аудитория
           </small>
         </div>

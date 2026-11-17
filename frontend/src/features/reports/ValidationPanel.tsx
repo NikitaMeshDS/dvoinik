@@ -21,10 +21,12 @@ export default function ValidationPanel({
   onUpdated,
   onExport,
   plan,
+  analyticsError,
   onDirtyChange,
 }: {
   onDirtyChange?: (dirty: boolean) => void;
   plan?: Plan;
+  analyticsError?: string;
   record: Experiment;
   catalog: Catalog;
   onUpdated: (r: Experiment) => void;
@@ -97,7 +99,11 @@ export default function ValidationPanel({
   };
   return (
     <>
-      <LivePlan plan={plan} mock={record.mock} />
+      <LivePlan
+        plan={plan}
+        mock={record.mock}
+        analyticsError={analyticsError}
+      />
       <SurveyPreparation record={record} catalog={catalog} />
       <section
         className="survey-results"

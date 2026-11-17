@@ -87,6 +87,7 @@ export default function ReportPage({
       <ReportHeader
         record={record}
         base={insights.base}
+        analyticsError={insights.baseError}
         onBack={() => leave(onBack)}
         onReuse={() => leave(onReuse)}
         onCompare={onCompare}
@@ -97,7 +98,15 @@ export default function ReportPage({
       />
       {insights.error && (
         <Notice kind="error">
+          <strong>
+            {insights.baseError
+              ? "Не удалось загрузить общий разбор. "
+              : "Не удалось загрузить разбор выбранного сегмента. "}
+          </strong>
           {insights.error}
+          <p>
+            Сохранённые ответы доступны. Повтор загрузки не запускает модель.
+          </p>
           <div>
             <Button onClick={insights.retry}>
               Повторить загрузку аналитики
@@ -124,6 +133,7 @@ export default function ReportPage({
             record={record}
             catalog={catalog}
             focus={insights.focus}
+            error={insights.focusError}
             segment={segment}
             setSegment={setSegment}
             variant={variant}
@@ -152,6 +162,7 @@ export default function ReportPage({
           <Hypotheses
             record={record}
             data={insights.base?.hypotheses}
+            analyticsError={insights.baseError}
             onTest={testHypothesis}
             checks={related.filter(
               (r) => r.scenario.origin?.record_id === record.id,
@@ -166,6 +177,7 @@ export default function ReportPage({
             onUpdated={onUpdated}
             onExport={exportFile}
             plan={insights.base?.plan}
+            analyticsError={insights.baseError}
             onDirtyChange={setSurveyDirty}
           />
         </div>

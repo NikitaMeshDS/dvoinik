@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, ArrowRight } from "lucide-react";
 import { api, download, ignored, message } from "./api";
 import { Button, Modal, Notice, decimal, percent, date } from "./components";
@@ -236,8 +236,17 @@ export function ImportDialog({
   const [content, setContent] = useState(""),
     [name, setName] = useState(""),
     [busy, setBusy] = useState(false),
+    [reading, setReading] = useState(false),
     [error, setError] = useState("");
+  const readVersion = useRef(0);
+  useEffect(
+    () => () => {
+      readVersion.current += 1;
+    },
+    [],
+  );
   const save = async () => {
+    if (!content || reading || busy) return;
     setBusy(true);
     setError("");
     try {
@@ -265,21 +274,42 @@ export function ImportDialog({
           disabled={busy}
           onChange={async (e) => {
             const file = e.target.files?.[0];
-            if (!file) return;
+            if (!file || busy) return;
+            e.currentTarget.value = "";
+            const version = ++readVersion.current;
             setError("");
             setContent("");
+            setName(file.name);
+            setReading(false);
             if (file.size > 5 * 1024 * 1024) {
               setError("Максимальный размер JSON — 5 МБ.");
               return;
             }
-            setName(file.name);
-            setContent(await file.text());
+            setReading(true);
+            try {
+              const text = await file.text();
+              if (version === readVersion.current) setContent(text);
+            } catch {
+              if (version === readVersion.current)
+                setError("Не удалось прочитать JSON. Выберите файл ещё раз.");
+            } finally {
+              if (version === readVersion.current) setReading(false);
+            }
           }}
         />
       </label>
+      {reading && (
+        <p className="help" role="status">
+          Читаем JSON…
+        </p>
+      )}
       {error && <Notice kind="error">{error}</Notice>}
       <div className="modal-actions">
-        <Button kind="primary" disabled={!content || busy} onClick={save}>
+        <Button
+          kind="primary"
+          disabled={!content || busy || reading}
+          onClick={save}
+        >
           {busy ? "Импортируем…" : "Импортировать"}
         </Button>
       </div>
