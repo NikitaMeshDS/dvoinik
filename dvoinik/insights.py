@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import copy
 
-from .engine import _interval
 from .population import SEGMENTS
+from .report_stats import wilson_interval
 
 
 def matrix_rows(record: dict) -> list[dict]:
@@ -45,7 +45,7 @@ def segment_report(record: dict, sid: str) -> dict:
             "conversion": yes / n if n else None,
             "requested_n": requested,
             "failed_n": requested - n,
-            "confidence_interval": _interval(yes, n),
+            "confidence_interval": wilson_interval(yes, n),
             # Старые снимки не содержат распределения причин по сегментам.
             "objections": copy.deepcopy(segment.get("objections", {})),
             "quotes": copy.deepcopy([q for q in result["quotes"] if q["segment_id"] == sid]),

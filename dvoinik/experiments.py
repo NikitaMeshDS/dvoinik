@@ -13,8 +13,8 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from .engine import OTHER_OBJECTION, _interval
 from .population import SEGMENTS
+from .report_stats import OTHER_OBJECTION, wilson_interval
 from .reporting import PROFILES_PER_SEGMENT
 from .validate import SurveyRates, compare
 
@@ -171,7 +171,7 @@ def _check_result(result, population, objections, requested):
         ):
             raise ValueError("Конверсия сегмента не соответствует числу согласий.")
         segment["name"] = SEGMENTS[sid]["name"]
-        segment["confidence_interval"] = _interval(syes, sn)
+        segment["confidence_interval"] = wilson_interval(syes, sn)
         seg_reasons = segment.get("objections")
         if seg_reasons is not None:
             if not isinstance(seg_reasons, dict) or any(o not in known for o in seg_reasons):
@@ -226,7 +226,7 @@ def _check_result(result, population, objections, requested):
         raise ValueError("Некорректные сведения об ошибках модели.")
     for error in examples:
         _text(error, "Ошибка модели", 1000)
-    result["confidence_interval"] = _interval(yes, n)
+    result["confidence_interval"] = wilson_interval(yes, n)
 
 
 def _survey_from_cells(cells):

@@ -94,7 +94,7 @@ async function replacementPanel(failSave = false) {
     exported = vi.fn(),
     dirty = vi.fn();
   vi.spyOn(api, "request").mockImplementation(
-    <T,>(path: string, method?: string) => {
+    <T,>(_path: string, method?: string) => {
       if (method === "PUT")
         return (
           failSave

@@ -7,3 +7,12 @@ frontend/dist-showcase
 frontend/showcase-data.json
 .data
 *.sqlite3
+.env
+.env.*
+.streamlit/secrets.toml
+.pitch-design
+outputs
+artifacts
+.worktrees
+.pytest_cache
+.ruff_cache

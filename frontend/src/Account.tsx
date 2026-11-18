@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, ShieldCheck, UserRound } from "lucide-react";
-import { api, ignored, message } from "./api";
+import { api, ignored } from "./api";
 import { Brand, Button, Heading, Notice } from "./components";
 import type { User } from "./types";
 export function Login({
