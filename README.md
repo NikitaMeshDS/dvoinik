@@ -133,9 +133,15 @@ DVOINIK_AUTH_MODE=demo python serve.py
 
 ## Для разработки
 
-Сервер разделён на схемы запросов, сервисы приложения, защиту доступа и группы маршрутов.
-React разделяет время жизни сессии, загрузку данных и панели отчёта. Стили сгруппированы по функциям.
-[Границы модулей и поток данных](docs/architecture.md) описывают, где добавлять новые возможности.
+| Что нужно изменить | Где начать |
+| --- | --- |
+| Запуск веб-приложения или консольного исследования | [`serve.py`](serve.py) и [`cli.py`](cli.py) |
+| HTTP API и обработка запросов | [`dvoinik/api.py`](dvoinik/api.py) и [`dvoinik/http/routers`](dvoinik/http/routers) |
+| Симуляция и сбор результатов | [`dvoinik/engine.py`](dvoinik/engine.py) и [`dvoinik/runs.py`](dvoinik/runs.py) |
+| Рабочее пространство и загрузка данных | [`frontend/src/app`](frontend/src/app) |
+| Конструктор, архив и отчёты | [`frontend/src/features`](frontend/src/features) и [`frontend/src/styles`](frontend/src/styles) |
+
+[Запуск и команды проверки](docs/development.md#разработка-и-проверки) · [Границы модулей и поток данных](docs/architecture.md)
 
 
 ## Что ещё предстоит подтвердить

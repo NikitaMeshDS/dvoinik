@@ -83,8 +83,19 @@ export default function Library({
 }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const patch = (p: Partial<LibraryState>) => onState({ ...state, ...p });
-  const llmCount = records.filter((r) => !r.mock).length;
-  const surveyCount = records.filter((r) => r.validation).length;
+  const recordsById = new Map<string, Experiment>();
+  const relatedCounts = new Map<string, number>();
+  let llmCount = 0;
+  let surveyCount = 0;
+  for (const record of records) {
+    recordsById.set(record.id, record);
+    if (!record.mock) llmCount++;
+    if (record.validation) surveyCount++;
+    const sourceId = record.scenario.origin?.record_id;
+    if (sourceId && sourceId !== record.id) {
+      relatedCounts.set(sourceId, (relatedCounts.get(sourceId) ?? 0) + 1);
+    }
+  }
   const filtered = chronological(records).filter((r) => {
     const text = [
       r.scenario.title,
@@ -319,17 +330,11 @@ export default function Library({
                         ? "Только симуляция"
                         : "Нет валидных ответов";
                   const origin = r.scenario.origin;
-                  const source = origin
-                    ? records.find(
-                        (item) =>
-                          item.id === origin.record_id && item.id !== r.id,
-                      )
-                    : undefined;
-                  const relatedCount = records.filter(
-                    (item) =>
-                      item.id !== r.id &&
-                      item.scenario.origin?.record_id === r.id,
-                  ).length;
+                  const source =
+                    origin && origin.record_id !== r.id
+                      ? recordsById.get(origin.record_id)
+                      : undefined;
+                  const relatedCount = relatedCounts.get(r.id) ?? 0;
                   return (
                     <div
                       className={"study-row" + (origin ? " study-child" : "")}

@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   ArrowLeft,
@@ -6,24 +6,13 @@ import {
   Check,
   SlidersHorizontal,
 } from "lucide-react";
-import { api, ignored, message } from "./api";
-import { draftError, draftIssue, type DraftIssue, runPayload } from "./draft";
+import { draftError, draftIssue, type DraftIssue } from "./draft";
 import { Button, Heading, Notice, decimal } from "./components";
-import {
-  VARIANTS,
-  TITLES,
-  type Catalog,
-  type Draft,
-  type Estimate,
-} from "./types";
+import { VARIANTS, TITLES, type Catalog, type Draft } from "./types";
 import LaunchReview from "./features/composer/LaunchReview";
 import RespondentPreview from "./features/composer/RespondentPreview";
 import AudienceDistribution from "./features/composer/AudienceDistribution";
-type Preview = {
-  requestKey: string;
-  counts: Record<string, number>;
-  shares: Record<string, number>;
-};
+import { useLaunchPreview } from "./features/composer/useLaunchPreview";
 export default function Composer({
   catalog,
   draft,
@@ -51,14 +40,8 @@ export default function Composer({
   draftStatus?: string;
   onReset?: () => void;
 }) {
-  const [localStep, setLocalStep] = useState(0),
-    [error, setError] = useState<DraftIssue | null>(null),
-    [preview, setPreview] = useState<Preview | null>(null),
-    [previewError, setPreviewError] = useState(""),
-    [loading, setLoading] = useState(false),
-    [estimate, setEstimate] = useState<
-      (Estimate & { requestKey: string }) | null
-    >(null);
+  const [localStep, setLocalStep] = useState(0);
+  const [error, setError] = useState<DraftIssue | null>(null);
   const step = controlledStep ?? localStep;
   const setStep = (value: number) => {
     setLocalStep(value);
@@ -107,81 +90,8 @@ export default function Composer({
     onChange({ ...draft, ...value });
     setError(null);
   };
-  const weights = JSON.stringify(draft.weights);
-  const payload = draftError(draft) ? null : runPayload(draft);
-  const estimateKey = payload
-    ? JSON.stringify([payload.scenario, payload.n, payload.concurrency])
-    : "";
-  const previewKey = JSON.stringify([draft.weights, draft.n]);
-  const activePreview = preview?.requestKey === previewKey ? preview : null;
-  const activeEstimate = estimate?.requestKey === estimateKey ? estimate : null;
-  useEffect(() => {
-    if (step !== 1 || !payload) {
-      setEstimate(null);
-      return;
-    }
-    const controller = new AbortController();
-    setEstimate(null);
-    let current = true;
-    const timer = window.setTimeout(() => {
-      api
-        .request<Estimate>(
-          "/estimate",
-          "POST",
-          {
-            scenario: payload.scenario,
-            n: payload.n,
-            concurrency: payload.concurrency,
-          },
-          controller.signal,
-        )
-        .then((value) => {
-          if (current) setEstimate({ ...value, requestKey: estimateKey });
-        })
-        .catch(() => {
-          if (current) setEstimate(null);
-        });
-    }, 300);
-    return () => {
-      current = false;
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-    // payload пересчитывается из draft; ключ фиксирует только значимые поля.
-  }, [step, estimateKey]);
-  useEffect(() => {
-    if (step !== 1) return;
-    const controller = new AbortController();
-    let alive = true;
-    setLoading(true);
-    setPreviewError("");
-    const timer = window.setTimeout(() => {
-      api
-        .request<Preview>(
-          "/preview",
-          "POST",
-          { population: draft.weights, n: draft.n },
-          controller.signal,
-        )
-        .then((p) => {
-          if (alive) setPreview({ ...p, requestKey: previewKey });
-        })
-        .catch((e) => {
-          if (alive && !ignored(e)) {
-            setPreview(null);
-            setPreviewError(message(e));
-          }
-        })
-        .finally(() => {
-          if (alive) setLoading(false);
-        });
-    }, 200);
-    return () => {
-      alive = false;
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [step, draft.n, weights]);
+  const { activePreview, activeEstimate, previewError, loading } =
+    useLaunchPreview(draft, step);
   const next = () => {
     const problem = draftIssue(draft, true);
     if (problem) {
