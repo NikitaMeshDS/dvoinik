@@ -1,0 +1,1334 @@
+{
+  "model": "qwen/qwen3-30b-a3b-2507",
+  "n": 16,
+  "seed": 42,
+  "source": "https://www.bis.org/publications/working-paper-1147-central-bank-digital-currency-and-privacy-randomized-survey-experiment.pdf",
+  "human": {
+    "cr": {
+      "sensitive_offline": 0.223,
+      "sensitive_online": 0.338,
+      "ordinary_offline": 0.24,
+      "ordinary_online": 0.265
+    },
+    "cr_pcu": {
+      "sensitive_offline": 0.296,
+      "sensitive_online": 0.376,
+      "ordinary_offline": 0.296,
+      "ordinary_online": 0.294
+    },
+    "sr": {
+      "sensitive_offline": 0.307,
+      "sensitive_online": 0.446,
+      "ordinary_offline": 0.282,
+      "ordinary_online": 0.285
+    },
+    "sr_pcu": {
+      "sensitive_offline": 0.355,
+      "sensitive_online": 0.481,
+      "ordinary_offline": 0.29,
+      "ordinary_online": 0.318
+    },
+    "voucher": {
+      "sensitive_offline": 0.289,
+      "sensitive_online": 0.422,
+      "ordinary_offline": 0.257,
+      "ordinary_online": 0.294
+    },
+    "voucher_pcu": {
+      "sensitive_offline": 0.328,
+      "sensitive_online": 0.458,
+      "ordinary_offline": 0.274,
+      "ordinary_online": 0.328
+    }
+  },
+  "protocol": {
+    "audience": "An online survey of adults in South Korea about a new digital currency issued by the central bank (CBDC). Around 51% women, 18% in Seoul, 62% married, 47% with a college degree. Age breakdown: 16% ages 19–29, 26% ages 30–45, 29% ages 46–59, 29% age 60+. Before CBDC is offered, for a private purchase in person about 39% choose cash, 34% card, 8% mobile, and the rest have no preference.",
+    "designs": {
+      "cr": "CBDC stores identity and transaction records together at one public institution, which may link them.",
+      "sr": "CBDC stores identity and transaction records at separate public institutions so the records cannot readily be linked.",
+      "voucher": "For small payments, a CBDC anonymity voucher leaves no personal or transaction record, including for AML/CFT checks."
+    },
+    "pcu": "Using CBDC can prevent financial firms and big technology companies from using your personal and transaction data commercially.",
+    "question": "Imagine buying something private, such as a mental health service, and something ordinary, such as food. Consider both in-person and online purchases, weighing convenience and privacy. For each of sensitive_offline, sensitive_online, ordinary_offline, ordinary_online, the choices are cbdc (the central bank digital currency above), card (credit or debit), mobile (a fast mobile payment service), no_preference, and cash (in person only). Cash can generally be used without linking payment records to your identity; card and mobile payments leave linked records.",
+    "systems": {
+      "baseline": "You are a survey researcher. Predict the share choosing CBDC in each setting.",
+      "twins": "You are a participant in this survey. Choose one payment method in each setting for the person described."
+    },
+    "profiles": [
+      "man; age 46–59; lives outside Seoul; not married; college degree or higher; had no preference in that preceding scenario",
+      "woman; age 30–45; lives outside Seoul; married; college degree or higher; chose a debit or credit card in that preceding scenario",
+      "woman; age 30–45; lives outside Seoul; married; college degree or higher; had no preference in that preceding scenario",
+      "woman; age 19–29; lives outside Seoul; not married; no college degree; chose a debit or credit card in that preceding scenario",
+      "man; age 19–29; lives outside Seoul; married; no college degree; chose a debit or credit card in that preceding scenario",
+      "man; age 30–45; lives outside Seoul; married; no college degree; usually chose cash in the preceding private in-store scenario without CBDC",
+      "man; age 60+; lives outside Seoul; not married; college degree or higher; had no preference in that preceding scenario",
+      "man; age 60+; lives in Seoul; not married; no college degree; chose a debit or credit card in that preceding scenario",
+      "man; age 60+; lives in Seoul; married; college degree or higher; usually chose cash in the preceding private in-store scenario without CBDC",
+      "woman; age 46–59; lives outside Seoul; married; college degree or higher; usually chose cash in the preceding private in-store scenario without CBDC",
+      "man; age 60+; lives outside Seoul; married; college degree or higher; usually chose cash in the preceding private in-store scenario without CBDC",
+      "woman; age 60+; lives outside Seoul; not married; college degree or higher; chose a mobile payment service in that preceding scenario",
+      "woman; age 46–59; lives outside Seoul; married; no college degree; usually chose cash in the preceding private in-store scenario without CBDC",
+      "woman; age 46–59; lives in Seoul; not married; no college degree; usually chose cash in the preceding private in-store scenario without CBDC",
+      "man; age 46–59; lives outside Seoul; married; no college degree; chose a debit or credit card in that preceding scenario",
+      "woman; age 30–45; lives outside Seoul; married; no college degree; chose a debit or credit card in that preceding scenario"
+    ],
+    "temperature": 0
+  },
+  "matched_n": 16,
+  "estimates": {
+    "baseline": {
+      "cr": {
+        "sensitive_offline": 0.12,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.38,
+        "ordinary_online": 0.35
+      },
+      "cr_pcu": {
+        "sensitive_offline": 0.62,
+        "sensitive_online": 0.58,
+        "ordinary_offline": 0.41,
+        "ordinary_online": 0.39
+      },
+      "sr": {
+        "sensitive_offline": 0.32,
+        "sensitive_online": 0.28,
+        "ordinary_offline": 0.41,
+        "ordinary_online": 0.39
+      },
+      "sr_pcu": {
+        "sensitive_offline": 0.62,
+        "sensitive_online": 0.68,
+        "ordinary_offline": 0.39,
+        "ordinary_online": 0.44
+      },
+      "voucher": {
+        "sensitive_offline": 0.42,
+        "sensitive_online": 0.38,
+        "ordinary_offline": 0.29,
+        "ordinary_online": 0.26
+      },
+      "voucher_pcu": {
+        "sensitive_offline": 0.58,
+        "sensitive_online": 0.62,
+        "ordinary_offline": 0.39,
+        "ordinary_online": 0.41
+      }
+    },
+    "twins": {
+      "cr": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.125,
+        "ordinary_online": 0.25
+      },
+      "cr_pcu": {
+        "sensitive_offline": 0.25,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.75,
+        "ordinary_online": 0.75
+      },
+      "sr": {
+        "sensitive_offline": 0.5625,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.4375,
+        "ordinary_online": 0.4375
+      },
+      "sr_pcu": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.25,
+        "ordinary_online": 0.375
+      },
+      "voucher": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.125
+      },
+      "voucher_pcu": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0625,
+        "ordinary_online": 0.4375
+      }
+    }
+  },
+  "metrics": {
+    "baseline": {
+      "sensitive_offline": {
+        "level_mae_pp": 18.133,
+        "effect_mae_pp": 30.0,
+        "combined_effect_pp": 50.0,
+        "observed_combined_effect_pp": 13.2
+      },
+      "sensitive_online": {
+        "level_mae_pp": 16.85,
+        "effect_mae_pp": 30.94,
+        "combined_effect_pp": 58.0,
+        "observed_combined_effect_pp": 14.3
+      },
+      "ordinary_offline": {
+        "level_mae_pp": 10.517,
+        "effect_mae_pp": 4.18,
+        "combined_effect_pp": 1.0,
+        "observed_combined_effect_pp": 5.0
+      },
+      "ordinary_online": {
+        "level_mae_pp": 8.733,
+        "effect_mae_pp": 3.8,
+        "combined_effect_pp": 9.0,
+        "observed_combined_effect_pp": 5.3
+      }
+    },
+    "twins": {
+      "sensitive_offline": {
+        "level_mae_pp": 42.542,
+        "effect_mae_pp": 67.05,
+        "combined_effect_pp": 100.0,
+        "observed_combined_effect_pp": 13.2
+      },
+      "sensitive_online": {
+        "level_mae_pp": 57.983,
+        "effect_mae_pp": 9.86,
+        "combined_effect_pp": 0.0,
+        "observed_combined_effect_pp": 14.3
+      },
+      "ordinary_offline": {
+        "level_mae_pp": 20.55,
+        "effect_mae_pp": 23.06,
+        "combined_effect_pp": 12.5,
+        "observed_combined_effect_pp": 5.0
+      },
+      "ordinary_online": {
+        "level_mae_pp": 15.983,
+        "effect_mae_pp": 19.78,
+        "combined_effect_pp": 12.5,
+        "observed_combined_effect_pp": 5.3
+      }
+    }
+  },
+  "rows": [
+    {
+      "arm": "cr",
+      "profile_id": null,
+      "predictions": {
+        "sensitive_offline": 0.12,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.38,
+        "ordinary_online": 0.35
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 0,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 1,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 2,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 3,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 4,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 5,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 6,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 7,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 8,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 9,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 10,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 11,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 12,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 13,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 14,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 15,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": null,
+      "predictions": {
+        "sensitive_offline": 0.62,
+        "sensitive_online": 0.58,
+        "ordinary_offline": 0.41,
+        "ordinary_online": 0.39
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 0,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 1,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 2,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 3,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 4,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 5,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 6,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 7,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 8,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 9,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 10,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 11,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 12,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 13,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 14,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr_pcu",
+      "profile_id": 15,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": null,
+      "predictions": {
+        "sensitive_offline": 0.32,
+        "sensitive_online": 0.28,
+        "ordinary_offline": 0.41,
+        "ordinary_online": 0.39
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 0,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 1,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 2,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 3,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 4,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 5,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 6,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 7,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 8,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 9,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 10,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 11,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 12,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 13,
+      "predictions": {
+        "sensitive_offline": 0.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 14,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 15,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": null,
+      "predictions": {
+        "sensitive_offline": 0.62,
+        "sensitive_online": 0.68,
+        "ordinary_offline": 0.39,
+        "ordinary_online": 0.44
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 0,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 1,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 2,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 3,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 4,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 5,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 6,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 7,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 8,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 9,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 10,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 11,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 12,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 13,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 14,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 15,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": null,
+      "predictions": {
+        "sensitive_offline": 0.42,
+        "sensitive_online": 0.38,
+        "ordinary_offline": 0.29,
+        "ordinary_online": 0.26
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 0,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 1,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 2,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 3,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 4,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 5,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 6,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 7,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 8,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 9,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 10,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 11,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 12,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 13,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 14,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher",
+      "profile_id": 15,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": null,
+      "predictions": {
+        "sensitive_offline": 0.58,
+        "sensitive_online": 0.62,
+        "ordinary_offline": 0.39,
+        "ordinary_online": 0.41
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 0,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 1.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 1,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 2,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 3,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 4,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 5,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 6,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 7,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 8,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 9,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 10,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 11,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 12,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 13,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 1.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 14,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "voucher_pcu",
+      "profile_id": 15,
+      "predictions": {
+        "sensitive_offline": 1.0,
+        "sensitive_online": 1.0,
+        "ordinary_offline": 0.0,
+        "ordinary_online": 0.0
+      },
+      "attempts": 1
+    }
+  ]
+}

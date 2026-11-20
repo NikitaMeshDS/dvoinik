@@ -1,0 +1,948 @@
+{
+  "model": "qwen/qwen3-vl-4b",
+  "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9643168/",
+  "n": 24,
+  "protocol": {
+    "audience": "An English-language, self-administered online survey of U.S. adults in late 2017.",
+    "prefix": [
+      [
+        "stocks",
+        "Do you or your spouse or partner hold stocks or stock mutual funds?"
+      ],
+      [
+        "bonds",
+        "Do you or your spouse or partner hold bonds or bond funds?"
+      ],
+      [
+        "cds",
+        "Do you or your spouse or partner hold CDs, government savings bonds, or Treasury bills?"
+      ]
+    ],
+    "questions": {
+      "hrs": [
+        "Other than assets already reported, do you or your spouse or partner hold a checking account, savings account, or money market fund? Leave out certificates of deposit (CDs)."
+      ],
+      "simple_i": [
+        "Do you or your spouse or partner hold a checking account, savings account, or money market fund?"
+      ],
+      "simple_ii": [
+        "Do you or your spouse or partner hold a checking or savings account?",
+        "Do you or your spouse or partner hold a money market fund?"
+      ]
+    },
+    "profiles": [
+      "Age 25; lives without a spouse or partner; annual household income under $30,000.",
+      "Age 25; lives without a spouse or partner; annual household income $30,000 to $75,000.",
+      "Age 25; lives without a spouse or partner; annual household income over $75,000.",
+      "Age 25; lives with a spouse or partner; annual household income under $30,000.",
+      "Age 25; lives with a spouse or partner; annual household income $30,000 to $75,000.",
+      "Age 25; lives with a spouse or partner; annual household income over $75,000.",
+      "Age 40; lives without a spouse or partner; annual household income under $30,000.",
+      "Age 40; lives without a spouse or partner; annual household income $30,000 to $75,000.",
+      "Age 40; lives without a spouse or partner; annual household income over $75,000.",
+      "Age 40; lives with a spouse or partner; annual household income under $30,000.",
+      "Age 40; lives with a spouse or partner; annual household income $30,000 to $75,000.",
+      "Age 40; lives with a spouse or partner; annual household income over $75,000.",
+      "Age 55; lives without a spouse or partner; annual household income under $30,000.",
+      "Age 55; lives without a spouse or partner; annual household income $30,000 to $75,000.",
+      "Age 55; lives without a spouse or partner; annual household income over $75,000.",
+      "Age 55; lives with a spouse or partner; annual household income under $30,000.",
+      "Age 55; lives with a spouse or partner; annual household income $30,000 to $75,000.",
+      "Age 55; lives with a spouse or partner; annual household income over $75,000.",
+      "Age 70; lives without a spouse or partner; annual household income under $30,000.",
+      "Age 70; lives without a spouse or partner; annual household income $30,000 to $75,000.",
+      "Age 70; lives without a spouse or partner; annual household income over $75,000.",
+      "Age 70; lives with a spouse or partner; annual household income under $30,000.",
+      "Age 70; lives with a spouse or partner; annual household income $30,000 to $75,000.",
+      "Age 70; lives with a spouse or partner; annual household income over $75,000."
+    ],
+    "temperature": 0,
+    "wording": "English paraphrases of Section 4.1"
+  },
+  "matched_n": 24,
+  "cells": {
+    "hrs": {
+      "observed_rounded": 0.74,
+      "baseline": 0.35,
+      "twins": 1
+    },
+    "simple_i": {
+      "observed_rounded": 0.85,
+      "baseline": 0.72,
+      "twins": 1
+    },
+    "simple_ii": {
+      "observed_rounded": 0.92,
+      "baseline": 0.75,
+      "twins": 1
+    }
+  },
+  "scores": {
+    "baseline": {
+      "level_mae_pp": 23.0,
+      "effect_mae_pp": 17.49,
+      "contrasts": [
+        {
+          "from": "hrs",
+          "to": "simple_i",
+          "observed_pp": 10.77,
+          "estimated_pp": 37.0,
+          "absolute_error_pp": 26.23
+        },
+        {
+          "from": "simple_i",
+          "to": "simple_ii",
+          "observed_pp": 6.99,
+          "estimated_pp": 3.0,
+          "absolute_error_pp": 3.99
+        },
+        {
+          "from": "hrs",
+          "to": "simple_ii",
+          "observed_pp": 17.75,
+          "estimated_pp": 40.0,
+          "absolute_error_pp": 22.25
+        }
+      ]
+    },
+    "twins": {
+      "level_mae_pp": 16.333,
+      "effect_mae_pp": 11.837,
+      "contrasts": [
+        {
+          "from": "hrs",
+          "to": "simple_i",
+          "observed_pp": 10.77,
+          "estimated_pp": 0,
+          "absolute_error_pp": 10.77
+        },
+        {
+          "from": "simple_i",
+          "to": "simple_ii",
+          "observed_pp": 6.99,
+          "estimated_pp": 0,
+          "absolute_error_pp": 6.99
+        },
+        {
+          "from": "hrs",
+          "to": "simple_ii",
+          "observed_pp": 17.75,
+          "estimated_pp": 0,
+          "absolute_error_pp": 17.75
+        }
+      ]
+    }
+  },
+  "rows": [
+    {
+      "arm": "hrs",
+      "profile_id": null,
+      "rate": 0.35,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": null,
+      "rate": 0.72,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": null,
+      "rate": 0.75,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 0,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 0,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 0,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 1,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 1,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 1,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 2,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 2,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 2,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 3,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 3,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 3,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 4,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 4,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 4,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 5,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 5,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 5,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 6,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 6,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 6,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 7,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 7,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 7,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 8,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 8,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 8,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 9,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 9,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 9,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 10,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 10,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 10,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 11,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 11,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 11,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 12,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 12,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 12,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 13,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 13,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 13,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 14,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 14,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 14,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 15,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 15,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 15,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 16,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 16,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 16,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 17,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 17,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 17,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 18,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 18,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 18,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": false,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 19,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 19,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 19,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 20,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 20,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 20,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 21,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 21,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 21,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 22,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 22,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 22,
+      "preceding_answers": {
+        "stocks": false,
+        "bonds": true,
+        "cds": true
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "hrs",
+      "profile_id": 23,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_i",
+      "profile_id": 23,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    },
+    {
+      "arm": "simple_ii",
+      "profile_id": 23,
+      "preceding_answers": {
+        "stocks": true,
+        "bonds": true,
+        "cds": false
+      },
+      "rate": true,
+      "attempts": 1
+    }
+  ]
+}

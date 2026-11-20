@@ -1,0 +1,751 @@
+{
+  "source": "https://chriswoodruff.qeh.ox.ac.uk/wp-content/uploads/2020/06/MobileBank_RStat_Accepted_200624.pdf",
+  "reference": "Table 1; profiles: Appendix Table A.2",
+  "model": "qwen/qwen3-30b-a3b-2507",
+  "seed": 42,
+  "n": 24,
+  "protocol": {
+    "audience": "Центральная Шри-Ланка, конец 2011 года. Экономически активные взрослые из семей с дневной или недельной оплатой, ранее сказали, что им интересен процентный сберегательный счёт. Примерно 19% женщин, 85% в браке, 89% имеют телефон. 44% живут ближе 2 км к банку, 40% в 2–5 км, 16% дальше 5 км. Торговые точки для пополнения телефона обычно ближе.",
+    "offer": "Предложение приходит письмом. Можно прийти в отделение госбанка в назначенные даты, открыть сберегательный счёт под 4% годовых и получить телефон с SIM-картой. Проект покрывает минимальный остаток при открытии. Затем сотрудник на дому показывает, как пополнить счёт: приобрести карту пополнения у местного агента и перевести сумму в банк с телефона через PIN. Учебные пополнения оплачивает проект. В отделении тоже можно вносить деньги. В течение двух месяцев самостоятельные мобильные пополнения дают шанс выиграть 5 000 LKR. Комиссия за самостоятельное мобильное пополнение — {fee}% от суммы пополнения.",
+    "question": "Оцени вероятности двух событий среди всех, кому назначено это предложение, включая тех, кто откажется. accepted — человек придёт в отделение и откроет счёт. used — человек хотя бы раз сам пополнит его через телефон с момента запуска по май 2013 года включительно. Учебные пополнения не учитывай.\nОтветь JSON с полями \"accepted\" и \"used\", каждое число от 0 до 1, used не выше accepted.",
+    "systems": {
+      "baseline": "Ты банковский исследователь. Дай две доли для всей описанной аудитории.",
+      "twins": "Представь себя участником по данному профилю. Оцени две вероятности своего поведения."
+    },
+    "traits": [
+      [
+        [
+          0.192,
+          "женщина"
+        ],
+        [
+          0.808,
+          "мужчина"
+        ]
+      ],
+      [
+        [
+          0.848,
+          "в браке"
+        ],
+        [
+          0.152,
+          "не в браке"
+        ]
+      ],
+      [
+        [
+          0.892,
+          "есть собственный телефон"
+        ],
+        [
+          0.108,
+          "нет собственного телефона"
+        ]
+      ],
+      [
+        [
+          0.438,
+          "до банка менее 2 км"
+        ],
+        [
+          0.397,
+          "до банка 2–5 км"
+        ],
+        [
+          0.165,
+          "до банка более 5 км"
+        ]
+      ]
+    ],
+    "temperature": 0,
+    "json_mode": "text"
+  },
+  "matched_n": 24,
+  "cells": {
+    "0": {
+      "human_n": 656,
+      "accepted": {
+        "observed": 0.91,
+        "baseline": 0.62,
+        "twins": 0.6458333333333334
+      },
+      "used": {
+        "observed": 0.258,
+        "baseline": 0.48,
+        "twins": 0.48041666666666666
+      }
+    },
+    "2": {
+      "human_n": 300,
+      "accepted": {
+        "observed": 0.903,
+        "baseline": 0.62,
+        "twins": 0.65125
+      },
+      "used": {
+        "observed": 0.203,
+        "baseline": 0.48,
+        "twins": 0.4766666666666667
+      }
+    },
+    "4": {
+      "human_n": 292,
+      "accepted": {
+        "observed": 0.921,
+        "baseline": 0.62,
+        "twins": 0.6366666666666666
+      },
+      "used": {
+        "observed": 0.226,
+        "baseline": 0.48,
+        "twins": 0.44208333333333333
+      }
+    },
+    "8": {
+      "human_n": 292,
+      "accepted": {
+        "observed": 0.873,
+        "baseline": 0.32,
+        "twins": 0.6283333333333333
+      },
+      "used": {
+        "observed": 0.178,
+        "baseline": 0.21,
+        "twins": 0.40625
+      }
+    }
+  },
+  "scores": {
+    "accepted": {
+      "baseline": {
+        "mae_pp": 35.675,
+        "observed_gap_0_minus_8_pp": 3.7,
+        "estimated_gap_0_minus_8_pp": 30.0,
+        "gap_error_pp": 26.3
+      },
+      "twins": {
+        "mae_pp": 26.123,
+        "observed_gap_0_minus_8_pp": 3.7,
+        "estimated_gap_0_minus_8_pp": 1.75,
+        "gap_error_pp": 1.95
+      }
+    },
+    "used": {
+      "baseline": {
+        "mae_pp": 19.625,
+        "observed_gap_0_minus_8_pp": 8.0,
+        "estimated_gap_0_minus_8_pp": 27.0,
+        "gap_error_pp": 19.0
+      },
+      "twins": {
+        "mae_pp": 23.51,
+        "observed_gap_0_minus_8_pp": 8.0,
+        "estimated_gap_0_minus_8_pp": 7.417,
+        "gap_error_pp": 0.583
+      }
+    }
+  },
+  "rows": [
+    {
+      "fee": 0,
+      "profile_id": null,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 0,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 1,
+      "accepted": 0.78,
+      "used": 0.52
+    },
+    {
+      "fee": 0,
+      "profile_id": 2,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 0,
+      "profile_id": 3,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 0,
+      "profile_id": 4,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 5,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 0,
+      "profile_id": 6,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 7,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 8,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 0,
+      "profile_id": 9,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 0,
+      "profile_id": 10,
+      "accepted": 0.72,
+      "used": 0.58
+    },
+    {
+      "fee": 0,
+      "profile_id": 11,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 0,
+      "profile_id": 12,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 13,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 14,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 0,
+      "profile_id": 15,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 16,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 0,
+      "profile_id": 17,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 0,
+      "profile_id": 18,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 19,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 20,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 0,
+      "profile_id": 21,
+      "accepted": 0.78,
+      "used": 0.52
+    },
+    {
+      "fee": 0,
+      "profile_id": 22,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 0,
+      "profile_id": 23,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 2,
+      "profile_id": null,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 2,
+      "profile_id": 0,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 2,
+      "profile_id": 1,
+      "accepted": 0.78,
+      "used": 0.52
+    },
+    {
+      "fee": 2,
+      "profile_id": 2,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 2,
+      "profile_id": 3,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 2,
+      "profile_id": 4,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 2,
+      "profile_id": 5,
+      "accepted": 0.35,
+      "used": 0.22
+    },
+    {
+      "fee": 2,
+      "profile_id": 6,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 2,
+      "profile_id": 7,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 2,
+      "profile_id": 8,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 2,
+      "profile_id": 9,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 2,
+      "profile_id": 10,
+      "accepted": 0.72,
+      "used": 0.51
+    },
+    {
+      "fee": 2,
+      "profile_id": 11,
+      "accepted": 0.35,
+      "used": 0.22
+    },
+    {
+      "fee": 2,
+      "profile_id": 12,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 2,
+      "profile_id": 13,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 2,
+      "profile_id": 14,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 2,
+      "profile_id": 15,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 2,
+      "profile_id": 16,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 2,
+      "profile_id": 17,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 2,
+      "profile_id": 18,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 2,
+      "profile_id": 19,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 2,
+      "profile_id": 20,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 2,
+      "profile_id": 21,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 2,
+      "profile_id": 22,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 2,
+      "profile_id": 23,
+      "accepted": 0.35,
+      "used": 0.22
+    },
+    {
+      "fee": 4,
+      "profile_id": null,
+      "accepted": 0.62,
+      "used": 0.48
+    },
+    {
+      "fee": 4,
+      "profile_id": 0,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 4,
+      "profile_id": 1,
+      "accepted": 0.72,
+      "used": 0.51
+    },
+    {
+      "fee": 4,
+      "profile_id": 2,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 4,
+      "profile_id": 3,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 4,
+      "profile_id": 4,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 4,
+      "profile_id": 5,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 4,
+      "profile_id": 6,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 4,
+      "profile_id": 7,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 4,
+      "profile_id": 8,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 4,
+      "profile_id": 9,
+      "accepted": 0.72,
+      "used": 0.51
+    },
+    {
+      "fee": 4,
+      "profile_id": 10,
+      "accepted": 0.72,
+      "used": 0.51
+    },
+    {
+      "fee": 4,
+      "profile_id": 11,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 4,
+      "profile_id": 12,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 4,
+      "profile_id": 13,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 4,
+      "profile_id": 14,
+      "accepted": 0.82,
+      "used": 0.58
+    },
+    {
+      "fee": 4,
+      "profile_id": 15,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 4,
+      "profile_id": 16,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 4,
+      "profile_id": 17,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 4,
+      "profile_id": 18,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 4,
+      "profile_id": 19,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 4,
+      "profile_id": 20,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 4,
+      "profile_id": 21,
+      "accepted": 0.72,
+      "used": 0.51
+    },
+    {
+      "fee": 4,
+      "profile_id": 22,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 4,
+      "profile_id": 23,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 8,
+      "profile_id": null,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 8,
+      "profile_id": 0,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 1,
+      "accepted": 0.72,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 2,
+      "accepted": 0.72,
+      "used": 0.51
+    },
+    {
+      "fee": 8,
+      "profile_id": 3,
+      "accepted": 0.82,
+      "used": 0.51
+    },
+    {
+      "fee": 8,
+      "profile_id": 4,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 5,
+      "accepted": 0.32,
+      "used": 0.21
+    },
+    {
+      "fee": 8,
+      "profile_id": 6,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 7,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 8,
+      "accepted": 0.82,
+      "used": 0.61
+    },
+    {
+      "fee": 8,
+      "profile_id": 9,
+      "accepted": 0.82,
+      "used": 0.51
+    },
+    {
+      "fee": 8,
+      "profile_id": 10,
+      "accepted": 0.72,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 11,
+      "accepted": 0.32,
+      "used": 0.18
+    },
+    {
+      "fee": 8,
+      "profile_id": 12,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 13,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 14,
+      "accepted": 0.82,
+      "used": 0.51
+    },
+    {
+      "fee": 8,
+      "profile_id": 15,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 16,
+      "accepted": 0.72,
+      "used": 0.51
+    },
+    {
+      "fee": 8,
+      "profile_id": 17,
+      "accepted": 0.72,
+      "used": 0.51
+    },
+    {
+      "fee": 8,
+      "profile_id": 18,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 19,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 20,
+      "accepted": 0.32,
+      "used": 0.18
+    },
+    {
+      "fee": 8,
+      "profile_id": 21,
+      "accepted": 0.72,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 22,
+      "accepted": 0.62,
+      "used": 0.41
+    },
+    {
+      "fee": 8,
+      "profile_id": 23,
+      "accepted": 0.32,
+      "used": 0.18
+    }
+  ]
+}

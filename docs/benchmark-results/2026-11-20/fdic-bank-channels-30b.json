@@ -1,0 +1,867 @@
+{
+  "model": "qwen/qwen3-30b-a3b-2507",
+  "source": "https://www.fdic.gov/household-survey/2023-fdic-national-survey-unbanked-and-underbanked-households-appendix-tables",
+  "human": {
+    "25–34": {
+      "atm": 9.8,
+      "teller": 4.6,
+      "mobile": 74.8,
+      "online": 9.8,
+      "telephone": 0.7,
+      "other": 0.3
+    },
+    "35–44": {
+      "atm": 12.0,
+      "teller": 6.4,
+      "mobile": 66.4,
+      "online": 14.0,
+      "telephone": 0.8,
+      "other": 0.3
+    },
+    "45–54": {
+      "atm": 13.2,
+      "teller": 10.3,
+      "mobile": 54.7,
+      "online": 20.1,
+      "telephone": 1.2,
+      "other": 0.5
+    },
+    "55–64": {
+      "atm": 16.0,
+      "teller": 15.8,
+      "mobile": 39.7,
+      "online": 25.8,
+      "telephone": 2.3,
+      "other": 0.5
+    },
+    "65+": {
+      "atm": 16.7,
+      "teller": 30.4,
+      "mobile": 19.3,
+      "online": 27.2,
+      "telephone": 5.1,
+      "other": 1.4
+    }
+  },
+  "smartphone_weights": {
+    "25–34": 0.934,
+    "35–44": 0.934,
+    "45–54": 0.924,
+    "55–64": 0.898,
+    "65+": 0.763
+  },
+  "protocol": {
+    "question": "Which one method did the household use most to access its bank accounts in the last 12 months?",
+    "population": "In the June 2023 United States, consider households with a bank account they accessed in the prior 12 months.",
+    "systems": {
+      "aggregate": "You are a survey researcher. Estimate the distribution of answers from these households.",
+      "individual": "You are a respondent answering on behalf of your household. Estimate your probability of giving each answer."
+    },
+    "methods": {
+      "atm": "automated teller machine or bank kiosk",
+      "teller": "in-person bank teller",
+      "mobile": "app, text messaging, or browser on a mobile phone",
+      "online": "banking through a computer or tablet",
+      "telephone": "calling the bank",
+      "other": "some other way"
+    },
+    "orders": [
+      "published",
+      "reversed"
+    ],
+    "temperature": 0
+  },
+  "results": {
+    "aggregate": {
+      "cohorts": {
+        "25–34": {
+          "mean_percent": {
+            "atm": 17.0,
+            "teller": 10.500000000000002,
+            "mobile": 37.5,
+            "online": 27.0,
+            "telephone": 5.0,
+            "other": 3.0000000000000004
+          },
+          "order_shift_pp": {
+            "atm": 30.0,
+            "teller": 0.9999999999999996,
+            "mobile": 15.000000000000002,
+            "online": 36.0,
+            "telephone": 6.0,
+            "other": 4.0
+          }
+        },
+        "45–54": {
+          "mean_percent": {
+            "atm": 17.0,
+            "teller": 10.500000000000002,
+            "mobile": 34.0,
+            "online": 30.0,
+            "telephone": 5.0,
+            "other": 3.5000000000000004
+          },
+          "order_shift_pp": {
+            "atm": 30.0,
+            "teller": 0.9999999999999996,
+            "mobile": 8.000000000000002,
+            "online": 30.000000000000004,
+            "telephone": 6.0,
+            "other": 3.0000000000000004
+          }
+        },
+        "55–64": {
+          "mean_percent": {
+            "atm": 20.0,
+            "teller": 7.500000000000001,
+            "mobile": 30.0,
+            "online": 32.5,
+            "telephone": 6.5,
+            "other": 3.5000000000000004
+          },
+          "order_shift_pp": {
+            "atm": 30.0,
+            "teller": 5.0,
+            "mobile": 0.0,
+            "online": 25.0,
+            "telephone": 7.000000000000001,
+            "other": 3.0000000000000004
+          }
+        },
+        "65+": {
+          "mean_percent": {
+            "atm": 20.0,
+            "teller": 15.0,
+            "mobile": 30.0,
+            "online": 25.0,
+            "telephone": 6.5,
+            "other": 3.5000000000000004
+          },
+          "order_shift_pp": {
+            "atm": 30.0,
+            "teller": 0.0,
+            "mobile": 0.0,
+            "online": 20.0,
+            "telephone": 7.000000000000001,
+            "other": 3.0000000000000004
+          }
+        }
+      },
+      "metrics": null
+    },
+    "without_device": {
+      "cohorts": {
+        "25–34": {
+          "mean_percent": {
+            "atm": 13.5,
+            "teller": 6.5,
+            "mobile": 47.5,
+            "online": 25.0,
+            "telephone": 4.0,
+            "other": 3.5000000000000004
+          },
+          "order_shift_pp": {
+            "atm": 23.0,
+            "teller": 7.000000000000001,
+            "mobile": 4.999999999999999,
+            "online": 30.000000000000004,
+            "telephone": 2.0000000000000004,
+            "other": 3.0000000000000004
+          }
+        },
+        "45–54": {
+          "mean_percent": {
+            "atm": 15.0,
+            "teller": 7.500000000000001,
+            "mobile": 40.0,
+            "online": 27.500000000000004,
+            "telephone": 6.5,
+            "other": 3.5000000000000004
+          },
+          "order_shift_pp": {
+            "atm": 20.0,
+            "teller": 5.0,
+            "mobile": 10.000000000000004,
+            "online": 25.0,
+            "telephone": 7.000000000000001,
+            "other": 3.0000000000000004
+          }
+        },
+        "55–64": {
+          "mean_percent": {
+            "atm": 15.0,
+            "teller": 7.500000000000001,
+            "mobile": 40.0,
+            "online": 27.500000000000004,
+            "telephone": 6.5,
+            "other": 3.5000000000000004
+          },
+          "order_shift_pp": {
+            "atm": 20.0,
+            "teller": 5.0,
+            "mobile": 10.000000000000004,
+            "online": 25.0,
+            "telephone": 7.000000000000001,
+            "other": 3.0000000000000004
+          }
+        },
+        "65+": {
+          "mean_percent": {
+            "atm": 20.0,
+            "teller": 7.500000000000001,
+            "mobile": 37.5,
+            "online": 25.0,
+            "telephone": 6.5,
+            "other": 3.5000000000000004
+          },
+          "order_shift_pp": {
+            "atm": 30.0,
+            "teller": 5.0,
+            "mobile": 5.000000000000004,
+            "online": 30.000000000000004,
+            "telephone": 7.000000000000001,
+            "other": 3.0000000000000004
+          }
+        }
+      },
+      "metrics": null
+    },
+    "with_device": {
+      "cohorts": {
+        "25–34": {
+          "mean_percent": {
+            "atm": 16.155,
+            "teller": 9.15,
+            "mobile": 44.365,
+            "online": 19.340000000000003,
+            "telephone": 7.225999999999999,
+            "other": 3.764
+          },
+          "order_shift_pp": {
+            "atm": 20.33,
+            "teller": 3.020000000000002,
+            "mobile": 4.670000000000002,
+            "online": 20.0,
+            "telephone": 5.548000000000002,
+            "other": 2.4720000000000004
+          }
+        },
+        "45–54": {
+          "mean_percent": {
+            "atm": 16.33,
+            "teller": 9.209999999999999,
+            "mobile": 41.580000000000005,
+            "online": 22.69,
+            "telephone": 6.766,
+            "other": 3.424
+          },
+          "order_shift_pp": {
+            "atm": 20.38,
+            "teller": 3.1000000000000014,
+            "mobile": 9.239999999999998,
+            "online": 23.100000000000005,
+            "telephone": 6.468000000000002,
+            "other": 3.1520000000000006
+          }
+        },
+        "55–64": {
+          "mean_percent": {
+            "atm": 16.529999999999998,
+            "teller": 12.805,
+            "mobile": 38.165000000000006,
+            "online": 21.99,
+            "telephone": 6.857,
+            "other": 3.653
+          },
+          "order_shift_pp": {
+            "atm": 21.019999999999996,
+            "teller": 2.549999999999998,
+            "mobile": 4.489999999999999,
+            "online": 13.979999999999995,
+            "telephone": 6.286,
+            "other": 2.6940000000000004
+          }
+        },
+        "65+": {
+          "mean_percent": {
+            "atm": 25.332500000000003,
+            "teller": 14.0175,
+            "mobile": 34.33500000000001,
+            "online": 15.7225,
+            "telephone": 7.3294999999999995,
+            "other": 3.263
+          },
+          "order_shift_pp": {
+            "atm": 33.555,
+            "teller": 3.295000000000001,
+            "mobile": 7.629999999999998,
+            "online": 13.815,
+            "telephone": 5.341,
+            "other": 3.474
+          }
+        }
+      },
+      "metrics": null
+    }
+  },
+  "rows": [
+    {
+      "age": "25–34",
+      "order": "published",
+      "mode": "aggregate",
+      "access": null,
+      "probabilities": {
+        "atm": 0.32,
+        "teller": 0.11,
+        "mobile": 0.45,
+        "online": 0.09,
+        "telephone": 0.02,
+        "other": 0.01
+      },
+      "attempts": 1
+    },
+    {
+      "age": "25–34",
+      "order": "published",
+      "mode": "without_device",
+      "access": null,
+      "probabilities": {
+        "atm": 0.25,
+        "teller": 0.1,
+        "mobile": 0.5,
+        "online": 0.1,
+        "telephone": 0.03,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "25–34",
+      "order": "published",
+      "mode": "with_device",
+      "access": true,
+      "probabilities": {
+        "atm": 0.25,
+        "teller": 0.1,
+        "mobile": 0.5,
+        "online": 0.1,
+        "telephone": 0.03,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "25–34",
+      "order": "published",
+      "mode": "with_device",
+      "access": false,
+      "probabilities": {
+        "atm": 0.45,
+        "teller": 0.2,
+        "mobile": 0.0,
+        "online": 0.0,
+        "telephone": 0.25,
+        "other": 0.1
+      },
+      "attempts": 1
+    },
+    {
+      "age": "25–34",
+      "order": "reversed",
+      "mode": "aggregate",
+      "access": null,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.08,
+        "online": 0.45,
+        "mobile": 0.3,
+        "teller": 0.1,
+        "atm": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "25–34",
+      "order": "reversed",
+      "mode": "without_device",
+      "access": null,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.05,
+        "online": 0.4,
+        "mobile": 0.45,
+        "teller": 0.03,
+        "atm": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "25–34",
+      "order": "reversed",
+      "mode": "with_device",
+      "access": true,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.3,
+        "mobile": 0.45,
+        "teller": 0.05,
+        "atm": 0.05
+      },
+      "attempts": 1
+    },
+    {
+      "age": "25–34",
+      "order": "reversed",
+      "mode": "with_device",
+      "access": false,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.2,
+        "mobile": 0.0,
+        "teller": 0.45,
+        "atm": 0.2
+      },
+      "attempts": 1
+    },
+    {
+      "age": "35–44",
+      "order": "published",
+      "mode": "aggregate",
+      "access": null,
+      "probabilities": {
+        "atm": 0.32,
+        "teller": 0.11,
+        "mobile": 0.45,
+        "online": 0.09,
+        "telephone": 0.02,
+        "other": 0.01
+      },
+      "attempts": 2
+    },
+    {
+      "age": "35–44",
+      "order": "published",
+      "mode": "without_device",
+      "access": null,
+      "error": "InternalServerError",
+      "attempts": 2
+    },
+    {
+      "age": "35–44",
+      "order": "published",
+      "mode": "with_device",
+      "access": true,
+      "error": "InternalServerError",
+      "attempts": 2
+    },
+    {
+      "age": "35–44",
+      "order": "published",
+      "mode": "with_device",
+      "access": false,
+      "error": "InternalServerError",
+      "attempts": 2
+    },
+    {
+      "age": "35–44",
+      "order": "reversed",
+      "mode": "aggregate",
+      "access": null,
+      "error": "InternalServerError",
+      "attempts": 2
+    },
+    {
+      "age": "35–44",
+      "order": "reversed",
+      "mode": "without_device",
+      "access": null,
+      "error": "InternalServerError",
+      "attempts": 2
+    },
+    {
+      "age": "35–44",
+      "order": "reversed",
+      "mode": "with_device",
+      "access": true,
+      "error": "InternalServerError",
+      "attempts": 2
+    },
+    {
+      "age": "35–44",
+      "order": "reversed",
+      "mode": "with_device",
+      "access": false,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.25,
+        "mobile": 0.0,
+        "teller": 0.4,
+        "atm": 0.2
+      },
+      "attempts": 1
+    },
+    {
+      "age": "45–54",
+      "order": "published",
+      "mode": "aggregate",
+      "access": null,
+      "probabilities": {
+        "atm": 0.32,
+        "teller": 0.11,
+        "mobile": 0.38,
+        "online": 0.15,
+        "telephone": 0.02,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "45–54",
+      "order": "published",
+      "mode": "without_device",
+      "access": null,
+      "probabilities": {
+        "atm": 0.25,
+        "teller": 0.1,
+        "mobile": 0.45,
+        "online": 0.15,
+        "telephone": 0.03,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "45–54",
+      "order": "published",
+      "mode": "with_device",
+      "access": true,
+      "probabilities": {
+        "atm": 0.25,
+        "teller": 0.1,
+        "mobile": 0.5,
+        "online": 0.1,
+        "telephone": 0.03,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "45–54",
+      "order": "published",
+      "mode": "with_device",
+      "access": false,
+      "probabilities": {
+        "atm": 0.45,
+        "teller": 0.2,
+        "mobile": 0.0,
+        "online": 0.25,
+        "telephone": 0.1,
+        "other": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "age": "45–54",
+      "order": "reversed",
+      "mode": "aggregate",
+      "access": null,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.08,
+        "online": 0.45,
+        "mobile": 0.3,
+        "teller": 0.1,
+        "atm": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "45–54",
+      "order": "reversed",
+      "mode": "without_device",
+      "access": null,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.4,
+        "mobile": 0.35,
+        "teller": 0.05,
+        "atm": 0.05
+      },
+      "attempts": 1
+    },
+    {
+      "age": "45–54",
+      "order": "reversed",
+      "mode": "with_device",
+      "access": true,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.35,
+        "mobile": 0.4,
+        "teller": 0.05,
+        "atm": 0.05
+      },
+      "attempts": 1
+    },
+    {
+      "age": "45–54",
+      "order": "reversed",
+      "mode": "with_device",
+      "access": false,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.25,
+        "mobile": 0.0,
+        "teller": 0.4,
+        "atm": 0.2
+      },
+      "attempts": 1
+    },
+    {
+      "age": "55–64",
+      "order": "published",
+      "mode": "aggregate",
+      "access": null,
+      "probabilities": {
+        "atm": 0.35,
+        "teller": 0.1,
+        "mobile": 0.3,
+        "online": 0.2,
+        "telephone": 0.03,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "55–64",
+      "order": "published",
+      "mode": "without_device",
+      "access": null,
+      "probabilities": {
+        "atm": 0.25,
+        "teller": 0.1,
+        "mobile": 0.45,
+        "online": 0.15,
+        "telephone": 0.03,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "55–64",
+      "order": "published",
+      "mode": "with_device",
+      "access": true,
+      "probabilities": {
+        "atm": 0.25,
+        "teller": 0.1,
+        "mobile": 0.45,
+        "online": 0.15,
+        "telephone": 0.03,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "55–64",
+      "order": "published",
+      "mode": "with_device",
+      "access": false,
+      "probabilities": {
+        "atm": 0.45,
+        "teller": 0.25,
+        "mobile": 0.0,
+        "online": 0.15,
+        "telephone": 0.1,
+        "other": 0.05
+      },
+      "attempts": 1
+    },
+    {
+      "age": "55–64",
+      "order": "reversed",
+      "mode": "aggregate",
+      "access": null,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.45,
+        "mobile": 0.3,
+        "teller": 0.05,
+        "atm": 0.05
+      },
+      "attempts": 1
+    },
+    {
+      "age": "55–64",
+      "order": "reversed",
+      "mode": "without_device",
+      "access": null,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.4,
+        "mobile": 0.35,
+        "teller": 0.05,
+        "atm": 0.05
+      },
+      "attempts": 1
+    },
+    {
+      "age": "55–64",
+      "order": "reversed",
+      "mode": "with_device",
+      "access": true,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.3,
+        "mobile": 0.4,
+        "teller": 0.1,
+        "atm": 0.05
+      },
+      "attempts": 1
+    },
+    {
+      "age": "55–64",
+      "order": "reversed",
+      "mode": "with_device",
+      "access": false,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.2,
+        "mobile": 0.0,
+        "teller": 0.5,
+        "atm": 0.15
+      },
+      "attempts": 1
+    },
+    {
+      "age": "65+",
+      "order": "published",
+      "mode": "aggregate",
+      "access": null,
+      "probabilities": {
+        "atm": 0.35,
+        "teller": 0.15,
+        "mobile": 0.3,
+        "online": 0.15,
+        "telephone": 0.03,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "65+",
+      "order": "published",
+      "mode": "without_device",
+      "access": null,
+      "probabilities": {
+        "atm": 0.35,
+        "teller": 0.1,
+        "mobile": 0.4,
+        "online": 0.1,
+        "telephone": 0.03,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "65+",
+      "order": "published",
+      "mode": "with_device",
+      "access": true,
+      "probabilities": {
+        "atm": 0.35,
+        "teller": 0.1,
+        "mobile": 0.4,
+        "online": 0.1,
+        "telephone": 0.03,
+        "other": 0.02
+      },
+      "attempts": 1
+    },
+    {
+      "age": "65+",
+      "order": "published",
+      "mode": "with_device",
+      "access": false,
+      "probabilities": {
+        "atm": 0.65,
+        "teller": 0.2,
+        "mobile": 0.0,
+        "online": 0.05,
+        "telephone": 0.1,
+        "other": 0.0
+      },
+      "attempts": 1
+    },
+    {
+      "age": "65+",
+      "order": "reversed",
+      "mode": "aggregate",
+      "access": null,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.35,
+        "mobile": 0.3,
+        "teller": 0.15,
+        "atm": 0.05
+      },
+      "attempts": 1
+    },
+    {
+      "age": "65+",
+      "order": "reversed",
+      "mode": "without_device",
+      "access": null,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.4,
+        "mobile": 0.35,
+        "teller": 0.05,
+        "atm": 0.05
+      },
+      "attempts": 1
+    },
+    {
+      "age": "65+",
+      "order": "reversed",
+      "mode": "with_device",
+      "access": true,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.25,
+        "mobile": 0.5,
+        "teller": 0.05,
+        "atm": 0.05
+      },
+      "attempts": 1
+    },
+    {
+      "age": "65+",
+      "order": "reversed",
+      "mode": "with_device",
+      "access": false,
+      "probabilities": {
+        "other": 0.05,
+        "telephone": 0.1,
+        "online": 0.15,
+        "mobile": 0.0,
+        "teller": 0.5,
+        "atm": 0.2
+      },
+      "attempts": 1
+    }
+  ]
+}

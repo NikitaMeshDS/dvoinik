@@ -1,0 +1,717 @@
+{
+  "model": "qwen/qwen3-30b-a3b-2507",
+  "n": 16,
+  "seed": 42,
+  "source": "https://www.bis.org/publications/working-paper-1147-central-bank-digital-currency-and-privacy-randomized-survey-experiment.pdf",
+  "human": {
+    "cr": {
+      "sensitive_offline": 0.223,
+      "sensitive_online": 0.338,
+      "ordinary_offline": 0.24,
+      "ordinary_online": 0.265
+    },
+    "sr": {
+      "sensitive_offline": 0.307,
+      "sensitive_online": 0.446,
+      "ordinary_offline": 0.282,
+      "ordinary_online": 0.285
+    },
+    "sr_pcu": {
+      "sensitive_offline": 0.355,
+      "sensitive_online": 0.481,
+      "ordinary_offline": 0.29,
+      "ordinary_online": 0.318
+    }
+  },
+  "protocol": {
+    "audience": "An online survey of adults in South Korea about a new digital currency issued by the central bank (CBDC). Around 51% women, 18% in Seoul, 62% married, 47% with a college degree. Age breakdown: 16% ages 19–29, 26% ages 30–45, 29% ages 46–59, 29% age 60+. Before CBDC is offered, for a private purchase in person about 39% choose cash, 34% card, 8% mobile, and the rest have no preference.",
+    "designs": {
+      "cr": "CBDC stores identity and transaction records together at one public institution, which may link them.",
+      "sr": "CBDC stores identity and transaction records at separate public institutions so the records cannot readily be linked.",
+      "voucher": "For small payments, a CBDC anonymity voucher leaves no personal or transaction record, including for AML/CFT checks."
+    },
+    "pcu": "Using CBDC can prevent financial firms and big technology companies from using your personal and transaction data commercially.",
+    "question": "Imagine buying something private, such as a mental health service, and something ordinary, such as food. Consider both in-person and online purchases, weighing convenience and privacy. For each of sensitive_offline, sensitive_online, ordinary_offline, ordinary_online, the choices are cbdc (the central bank digital currency above), card (credit or debit), mobile (a fast mobile payment service), no_preference, and cash (in person only). Cash can generally be used without linking payment records to your identity; card and mobile payments leave linked records.",
+    "systems": "You are a participant in this survey. Estimate the probability that you would choose CBDC in each setting.",
+    "output_format": "Return a JSON object mapping the four settings to your personal probability of choosing cbdc, each a number from 0 to 1. A probability is not a yes/no answer.",
+    "profiles": [
+      "man; age 46–59; lives outside Seoul; not married; college degree or higher; had no preference in that preceding scenario",
+      "woman; age 30–45; lives outside Seoul; married; college degree or higher; chose a debit or credit card in that preceding scenario",
+      "woman; age 30–45; lives outside Seoul; married; college degree or higher; had no preference in that preceding scenario",
+      "woman; age 19–29; lives outside Seoul; not married; no college degree; chose a debit or credit card in that preceding scenario",
+      "man; age 19–29; lives outside Seoul; married; no college degree; chose a debit or credit card in that preceding scenario",
+      "man; age 30–45; lives outside Seoul; married; no college degree; usually chose cash in the preceding private in-store scenario without CBDC",
+      "man; age 60+; lives outside Seoul; not married; college degree or higher; had no preference in that preceding scenario",
+      "man; age 60+; lives in Seoul; not married; no college degree; chose a debit or credit card in that preceding scenario",
+      "man; age 60+; lives in Seoul; married; college degree or higher; usually chose cash in the preceding private in-store scenario without CBDC",
+      "woman; age 46–59; lives outside Seoul; married; college degree or higher; usually chose cash in the preceding private in-store scenario without CBDC",
+      "man; age 60+; lives outside Seoul; married; college degree or higher; usually chose cash in the preceding private in-store scenario without CBDC",
+      "woman; age 60+; lives outside Seoul; not married; college degree or higher; chose a mobile payment service in that preceding scenario",
+      "woman; age 46–59; lives outside Seoul; married; no college degree; usually chose cash in the preceding private in-store scenario without CBDC",
+      "woman; age 46–59; lives in Seoul; not married; no college degree; usually chose cash in the preceding private in-store scenario without CBDC",
+      "man; age 46–59; lives outside Seoul; married; no college degree; chose a debit or credit card in that preceding scenario",
+      "woman; age 30–45; lives outside Seoul; married; no college degree; chose a debit or credit card in that preceding scenario"
+    ],
+    "temperature": 0
+  },
+  "matched_n": 16,
+  "estimates": {
+    "without_profile": {
+      "cr": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.35
+      },
+      "sr": {
+        "sensitive_offline": 0.25,
+        "sensitive_online": 0.2,
+        "ordinary_offline": 0.55,
+        "ordinary_online": 0.6
+      },
+      "sr_pcu": {
+        "sensitive_offline": 0.72,
+        "sensitive_online": 0.68,
+        "ordinary_offline": 0.45,
+        "ordinary_online": 0.41
+      }
+    },
+    "with_profile": {
+      "cr": {
+        "sensitive_offline": 0.134375,
+        "sensitive_online": 0.084375,
+        "ordinary_offline": 0.325,
+        "ordinary_online": 0.275
+      },
+      "sr": {
+        "sensitive_offline": 0.61875,
+        "sensitive_online": 0.65625,
+        "ordinary_offline": 0.4875,
+        "ordinary_online": 0.525
+      },
+      "sr_pcu": {
+        "sensitive_offline": 0.8,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.503125,
+        "ordinary_online": 0.51875
+      }
+    }
+  },
+  "metrics": {
+    "without_profile": {
+      "sensitive_offline": {
+        "level_mae_pp": 16.5,
+        "effect_mae_pp": 22.7,
+        "combined_effect_pp": 57.0,
+        "observed_combined_effect_pp": 13.2
+      },
+      "sensitive_online": {
+        "level_mae_pp": 22.767,
+        "effect_mae_pp": 22.25,
+        "combined_effect_pp": 58.0,
+        "observed_combined_effect_pp": 14.3
+      },
+      "ordinary_offline": {
+        "level_mae_pp": 19.6,
+        "effect_mae_pp": 5.4,
+        "combined_effect_pp": 5.0,
+        "observed_combined_effect_pp": 5.0
+      },
+      "ordinary_online": {
+        "level_mae_pp": 16.4,
+        "effect_mae_pp": 11.85,
+        "combined_effect_pp": 6.0,
+        "observed_combined_effect_pp": 5.3
+      }
+    },
+    "with_profile": {
+      "sensitive_offline": {
+        "level_mae_pp": 28.179,
+        "effect_mae_pp": 46.7,
+        "combined_effect_pp": 66.562,
+        "observed_combined_effect_pp": 13.2
+      },
+      "sensitive_online": {
+        "level_mae_pp": 26.096,
+        "effect_mae_pp": 51.825,
+        "combined_effect_pp": 71.562,
+        "observed_combined_effect_pp": 14.3
+      },
+      "ordinary_offline": {
+        "level_mae_pp": 16.788,
+        "effect_mae_pp": 12.431,
+        "combined_effect_pp": 17.813,
+        "observed_combined_effect_pp": 5.0
+      },
+      "ordinary_online": {
+        "level_mae_pp": 15.025,
+        "effect_mae_pp": 21.038,
+        "combined_effect_pp": 24.375,
+        "observed_combined_effect_pp": 5.3
+      }
+    }
+  },
+  "rows": [
+    {
+      "arm": "cr",
+      "profile_id": null,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.35
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 0,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.35
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 1,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.35
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 2,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.35
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 3,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 4,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 5,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 6,
+      "predictions": {
+        "sensitive_offline": 0.1,
+        "sensitive_online": 0.05,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 7,
+      "predictions": {
+        "sensitive_offline": 0.1,
+        "sensitive_online": 0.05,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 8,
+      "predictions": {
+        "sensitive_offline": 0.1,
+        "sensitive_online": 0.05,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 9,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.35
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 10,
+      "predictions": {
+        "sensitive_offline": 0.1,
+        "sensitive_online": 0.05,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 11,
+      "predictions": {
+        "sensitive_offline": 0.1,
+        "sensitive_online": 0.05,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 12,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 13,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 14,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "cr",
+      "profile_id": 15,
+      "predictions": {
+        "sensitive_offline": 0.15,
+        "sensitive_online": 0.1,
+        "ordinary_offline": 0.3,
+        "ordinary_online": 0.25
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": null,
+      "predictions": {
+        "sensitive_offline": 0.25,
+        "sensitive_online": 0.2,
+        "ordinary_offline": 0.55,
+        "ordinary_online": 0.6
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 0,
+      "predictions": {
+        "sensitive_offline": 0.65,
+        "sensitive_online": 0.7,
+        "ordinary_offline": 0.5,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 1,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 2,
+      "predictions": {
+        "sensitive_offline": 0.65,
+        "sensitive_online": 0.7,
+        "ordinary_offline": 0.5,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 3,
+      "predictions": {
+        "sensitive_offline": 0.65,
+        "sensitive_online": 0.7,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 4,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 5,
+      "predictions": {
+        "sensitive_offline": 0.65,
+        "sensitive_online": 0.7,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 6,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.65
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 7,
+      "predictions": {
+        "sensitive_offline": 0.65,
+        "sensitive_online": 0.7,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 8,
+      "predictions": {
+        "sensitive_offline": 0.3,
+        "sensitive_online": 0.25,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 9,
+      "predictions": {
+        "sensitive_offline": 0.65,
+        "sensitive_online": 0.7,
+        "ordinary_offline": 0.5,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 10,
+      "predictions": {
+        "sensitive_offline": 0.3,
+        "sensitive_online": 0.25,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 11,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.65
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 12,
+      "predictions": {
+        "sensitive_offline": 0.35,
+        "sensitive_online": 0.4,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.65
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 13,
+      "predictions": {
+        "sensitive_offline": 0.65,
+        "sensitive_online": 0.7,
+        "ordinary_offline": 0.5,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 14,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr",
+      "profile_id": 15,
+      "predictions": {
+        "sensitive_offline": 0.65,
+        "sensitive_online": 0.7,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": null,
+      "predictions": {
+        "sensitive_offline": 0.72,
+        "sensitive_online": 0.68,
+        "ordinary_offline": 0.45,
+        "ordinary_online": 0.41
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 0,
+      "predictions": {
+        "sensitive_offline": 0.85,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 1,
+      "predictions": {
+        "sensitive_offline": 0.85,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.35
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 2,
+      "predictions": {
+        "sensitive_offline": 0.85,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.55,
+        "ordinary_online": 0.6
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 3,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 4,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 5,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 6,
+      "predictions": {
+        "sensitive_offline": 0.85,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 7,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 8,
+      "predictions": {
+        "sensitive_offline": 0.85,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 9,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.5,
+        "ordinary_online": 0.6
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 10,
+      "predictions": {
+        "sensitive_offline": 0.85,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 11,
+      "predictions": {
+        "sensitive_offline": 0.85,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.65
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 12,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.65
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 13,
+      "predictions": {
+        "sensitive_offline": 0.85,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.6,
+        "ordinary_online": 0.55
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 14,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    },
+    {
+      "arm": "sr_pcu",
+      "profile_id": 15,
+      "predictions": {
+        "sensitive_offline": 0.75,
+        "sensitive_online": 0.8,
+        "ordinary_offline": 0.4,
+        "ordinary_online": 0.45
+      },
+      "attempts": 1
+    }
+  ]
+}
