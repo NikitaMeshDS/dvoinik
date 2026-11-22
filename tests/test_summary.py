@@ -13,6 +13,7 @@ def test_summary_is_self_contained_and_escapes_user_text():
     assert "default-src 'none'" in html and "<script" not in html.replace("&lt;script", "")
     assert "Демо" in html and "План живой проверки" in html and "Простой подход" in html
     assert "Живой опрос:</b> ещё не загружен" in html
+    assert "Расхождения по сегментам" not in html
 
 
 def test_summary_includes_survey_comparison_when_validated():
@@ -20,6 +21,34 @@ def test_summary_includes_survey_comparison_when_validated():
     survey = SurveyRates({(v, "senior"): 0.3 for v in "ABC"}, {(v, "senior"): 30 for v in "ABC"})
     html = team_summary(attach_validation(record, survey))
     assert "90 оценок" in html and "ошибка двойников" in html
+
+
+def test_summary_lists_the_five_largest_survey_discrepancies():
+    scenario = {
+        **SCENARIOS["senior_deposit"],
+        "population": {"senior": 0.5, "student_msk": 0.5},
+    }
+    record = run_experiment("senior_deposit", scenario, RunSettings(n=100, seed=1))
+    rates = {
+        (variant, segment): float(variant == "A")
+        for variant in scenario["variants"]
+        for segment in scenario["population"]
+    }
+    counts = {key: index + 1 for index, key in enumerate(rates)}
+    validated = attach_validation(record, SurveyRates(rates, counts))
+    cells = validated["validation"]["result"]["cells"]
+    original = [(cell["variant"], cell["segment"]) for cell in cells]
+    html = team_summary(validated)
+    block = html.split('id="survey-discrepancies"', 1)[1].split("</section>", 1)[0]
+    assert "Сопоставленные пары (5 из 6)" in block
+    assert block.count("<tr>") == 6
+    assert "Симуляция выше" in block and "Симуляция ниже" in block
+    assert "Студенты 18–22, Москва" in block
+    assert "Общий рейтинг недоступен" in html
+    expected = sorted(cells, key=lambda cell: (-cell["error"], -cell["survey_n"]))
+    assert expected[0]["variant"] == "A"
+    assert f"<td>{expected[0]['survey_n']}</td>" in block.split("<tbody>", 1)[1].split("</tr>", 1)[0]
+    assert [(cell["variant"], cell["segment"]) for cell in cells] == original
 
 
 def test_summary_starts_with_a_method_passport():
@@ -111,6 +140,7 @@ def test_summary_exposes_missing_variants_and_partial_survey_coverage():
     assert "1 из 4 пар «предложение — сегмент»" in html
     assert "Нет оценок предложений: B" in html
     assert "отсутствие ответов не означает отказ" in html
+    assert "Для общего сравнения нужны оценки каждого предложения." in html
 
 
 def test_summary_warns_when_equal_totals_hide_different_segment_composition():
@@ -127,6 +157,7 @@ def test_summary_warns_when_equal_totals_hide_different_segment_composition():
     assert "4 из 4 пар «предложение — сегмент»" in html
     assert "Состав аудитории различается" in html
     assert "90,0%" in html
+    assert "Общий рейтинг недоступен." in html
 
 
 def test_summary_equal_composition_is_not_a_validity_claim():

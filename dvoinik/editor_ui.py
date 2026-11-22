@@ -13,7 +13,7 @@ from .experiments import CUSTOM_SCENARIO, normalize_population
 from .population import SEGMENTS, allocate_population
 from .presentation import markup
 from .runs import RunSettings
-from .scenarios import SCENARIOS
+from .scenarios import MAX_DEPOSIT_RUB, SCENARIOS
 
 TITLES = {
     "custom": "Собственный сценарий",
@@ -65,6 +65,9 @@ def render_editor(key, n):
     )
     scenario = copy.deepcopy(source)
     defaults = {f"question_{key}": source["question"]}
+    minimum_key = f"deposit_minimum_{key}"
+    if key == "custom" or "deposit_minimum_rub" in source:
+        defaults[minimum_key] = source.get("deposit_minimum_rub", 0)
     defaults.update({f"variant_{key}_{vid}": text for vid, text in source["variants"].items()})
     defaults.update(
         {f"weight_{key}_{sid}": round(weight * 100) for sid, weight in source["population"].items()}
@@ -90,13 +93,30 @@ def render_editor(key, n):
             if key == "custom":
                 scenario["title"] = st.text_input("Название эксперимента", max_chars=200, key="title_custom")
                 scenario["description"] = st.text_area(
-                    "Контекст исследования", max_chars=4000, height=80, key="description_custom"
+                    "Контекст исследования",
+                    max_chars=4000,
+                    height=80,
+                    key="description_custom",
+                    help="Заметка команды. Условия для участника внесите в вопрос и предложения.",
                 )
                 count = st.number_input(
                     "Вариантов предложения", min_value=2, max_value=5, step=1, key="variant_count_custom"
                 )
                 scenario["variants"] = {vid: "" for vid in "ABCDE"[:count]}
             scenario["question"] = st.text_input("Вопрос двойникам", key=f"question_{key}")
+            if minimum_key in defaults:
+                minimum = st.number_input(
+                    "Минимальный взнос, ₽",
+                    min_value=0,
+                    max_value=MAX_DEPOSIT_RUB,
+                    step=1,
+                    key=minimum_key,
+                    help="Общий для всех предложений. 0 отключает проверку суммы.",
+                )
+                if minimum:
+                    scenario["deposit_minimum_rub"] = minimum
+                else:
+                    scenario.pop("deposit_minimum_rub", None)
             variant_ids = list(scenario["variants"])
             for start in range(0, len(variant_ids), 3):
                 for col, vid in zip(

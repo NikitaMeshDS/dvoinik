@@ -277,6 +277,7 @@ class Twin:
     habits: list[str]
     attitude: str
     traits: dict[str, str] = field(default_factory=dict)
+    available_deposit_rub: int | None = None
 
     @property
     def digital(self) -> str | None:
@@ -293,6 +294,8 @@ class Twin:
         data = asdict(self)
         if not data["traits"]:
             del data["traits"]
+        if self.available_deposit_rub is None:
+            del data["available_deposit_rub"]
         return data
 
 
@@ -320,7 +323,7 @@ def allocate_population(n: int, segments: dict[str, float]) -> dict[str, int]:
     return dict(counts)
 
 
-def build_population(n: int, segments: dict[str, float], seed: int = 42) -> list[Twin]:
+def build_population(n: int, segments: dict[str, float], seed: int = 42, *, deposit=False) -> list[Twin]:
     """Стратифицированная популяция: доли нормируются, остатки распределяются по величине."""
     counts = allocate_population(n, segments)
     rng = random.Random(seed)
@@ -349,4 +352,11 @@ def build_population(n: int, segments: dict[str, float], seed: int = 42) -> list
             trait_rng = random.Random(f"{seed}:{name}")
             for twin, value in zip(members, _shares(trait["levels"], len(members), trait_rng), strict=True):
                 twin.traits[trait["label"]] = value
+    if deposit:
+        # Синтетические суммы для проверки порога. Уровни заданы независимо от условий вклада.
+        levels = (0, 20_000, 40_000, 50_000, 75_000, 125_000)
+        amounts = [levels[i % len(levels)] for i in range(n)]
+        random.Random(f"{seed}:deposit").shuffle(amounts)
+        for twin, amount in zip(twins, amounts, strict=True):
+            twin.available_deposit_rub = amount
     return twins

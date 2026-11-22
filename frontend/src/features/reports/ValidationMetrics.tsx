@@ -1,17 +1,34 @@
-import { decimal, percent } from "../../components";
+import type { Ref } from "react";
+import { Notice, decimal, percent } from "../../components";
 import type { Catalog, ValidationResult } from "../../types";
 export default function ValidationMetrics({
   result,
   segments,
+  headingRef,
 }: {
   result: ValidationResult;
   segments: Catalog["segments"];
+  headingRef?: Ref<HTMLHeadingElement>;
 }) {
+  const cells = [...result.cells].sort(
+    (a, b) => b.error - a.error || b.survey_n - a.survey_n,
+  );
   return (
     <>
+      <h3 className="validation-metrics-heading" ref={headingRef} tabIndex={-1}>
+        Расхождения по сегментам
+      </h3>
+      {result.ranking_unavailable && (
+        <Notice kind="warning">
+          <strong>Общий рейтинг недоступен.</strong>{" "}
+          {result.ranking_unavailable === "missing_variants"
+            ? "Для общего сравнения нужны оценки каждого предложения."
+            : "Доли сегментов отличаются между предложениями. Сравнивайте результаты внутри сегментов."}
+        </Notice>
+      )}
       <div className="validation-metrics">
         <div>
-          <span>Ошибка долей</span>
+          <span>Ошибка по сопоставленным парам</span>
           <strong>
             {decimal(result.mae_conversion * 100)} <small>п.п.</small>
           </strong>
@@ -81,8 +98,17 @@ export default function ValidationMetrics({
           </p>
         </div>
       )}
-      <div className="table-scroll">
+      <div
+        className="table-scroll"
+        role="region"
+        aria-label="Таблица расхождений"
+        tabIndex={0}
+      >
         <table className="data-table">
+          <caption className="validation-discrepancy-caption">
+            Сначала самые большие расхождения. Учитывайте число оценок в каждой
+            паре.
+          </caption>
           <thead>
             <tr>
               <th>Вариант</th>
@@ -90,11 +116,11 @@ export default function ValidationMetrics({
               <th>Оценок</th>
               <th>Опрос</th>
               <th>Симуляция</th>
-              <th>Ошибка</th>
+              <th aria-sort="descending">Расхождение</th>
             </tr>
           </thead>
           <tbody>
-            {result.cells.map((c) => (
+            {cells.map((c) => (
               <tr key={c.variant + c.segment}>
                 <td>{c.variant}</td>
                 <td className="validation-segment">
@@ -104,7 +130,16 @@ export default function ValidationMetrics({
                 <td>{c.survey_n}</td>
                 <td>{percent(c.actual)}</td>
                 <td>{percent(c.predicted)}</td>
-                <td>{decimal(c.error * 100)} п.п.</td>
+                <td className="validation-discrepancy">
+                  {decimal(c.error * 100)} п.п.
+                  <small>
+                    {c.predicted === c.actual
+                      ? "Доли совпали"
+                      : c.predicted > c.actual
+                        ? "Модель выше"
+                        : "Модель ниже"}
+                  </small>
+                </td>
               </tr>
             ))}
           </tbody>

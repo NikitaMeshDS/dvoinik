@@ -62,8 +62,8 @@ export default function Voices({
           onChange={(e) => setDecision(e.target.value)}
         >
           <option value="all">Все решения</option>
-          <option value="yes">Готовы подключить</option>
-          <option value="no">Отказались</option>
+          <option value="yes">Ответили «да»</option>
+          <option value="no">Ответили «нет»</option>
         </select>
       </div>
       <div className="voice-grid">
@@ -71,7 +71,7 @@ export default function Voices({
           quotes.map((q, i) => (
             <blockquote key={i} className="voice">
               <span className={q.decision ? "yes" : "no"}>
-                {q.decision ? "Готовы подключить" : "Отказались"}
+                {q.decision ? "Ответ «да»" : "Ответ «нет»"}
               </span>
               <p>«{q.quote}»</p>
               <cite>

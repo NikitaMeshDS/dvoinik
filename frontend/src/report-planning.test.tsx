@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import LivePlan from "./features/reports/LivePlan";
 import BaselineCard from "./features/reports/BaselineCard";
@@ -114,4 +114,81 @@ it("reports which approach was closer to the survey", () => {
   render(<ValidationMetrics result={result} segments={{}} />);
   expect(screen.getByText("Простой подход")).toBeTruthy();
   expect(screen.getByText("8,0")).toBeTruthy();
+});
+
+it("explains why the survey ranking is unavailable and retains segment-level errors", () => {
+  const result: ValidationResult = {
+    ranking_unavailable: "different_mix",
+    mae_conversion: 0.1,
+    spearman_variants: null,
+    winner_match: null,
+    survey_n: 12,
+    matched_cells: 1,
+    cells: [
+      {
+        variant: "A",
+        segment: "senior",
+        survey_n: 12,
+        actual: 0.5,
+        predicted: 0.4,
+        error: 0.1,
+      },
+    ],
+    actual_winners: [],
+    predicted_winners: [],
+  };
+  render(<ValidationMetrics result={result} segments={{}} />);
+  expect(screen.getByText("Общий рейтинг недоступен.")).toBeTruthy();
+  expect(screen.getByText(/Доли сегментов отличаются/)).toBeTruthy();
+  expect(screen.getByText("50,0%")).toBeTruthy();
+  expect(screen.getByText("40,0%")).toBeTruthy();
+  expect(screen.queryByText("Кто ближе к опросу")).toBeNull();
+});
+
+it("orders discrepancies by absolute size and shows direction with the response count", () => {
+  const result: ValidationResult = {
+    mae_conversion: 0.2,
+    spearman_variants: null,
+    winner_match: null,
+    survey_n: 31,
+    matched_cells: 3,
+    cells: [
+      {
+        variant: "A",
+        segment: "senior",
+        survey_n: 15,
+        actual: 0.5,
+        predicted: 0.4,
+        error: 0.1,
+      },
+      {
+        variant: "B",
+        segment: "senior",
+        survey_n: 1,
+        actual: 0,
+        predicted: 0.5,
+        error: 0.5,
+      },
+      {
+        variant: "C",
+        segment: "senior",
+        survey_n: 15,
+        actual: 0.7,
+        predicted: 0.2,
+        error: 0.5,
+      },
+    ],
+    actual_winners: [],
+    predicted_winners: [],
+  };
+  render(<ValidationMetrics result={result} segments={{}} />);
+  const [, first, second, third] = screen.getAllByRole("row");
+  expect(within(first).getByText("C")).toBeTruthy();
+  expect(within(first).getByText("15")).toBeTruthy();
+  expect(within(first).getByText("Модель ниже")).toBeTruthy();
+  expect(within(second).getByText("B")).toBeTruthy();
+  expect(within(second).getByText("1")).toBeTruthy();
+  expect(within(second).getByText("Модель выше")).toBeTruthy();
+  expect(within(third).getByText("A")).toBeTruthy();
+  expect(result.cells.map((cell) => cell.variant)).toEqual(["A", "B", "C"]);
 });

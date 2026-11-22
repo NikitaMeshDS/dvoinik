@@ -12,7 +12,7 @@
 
 [Второй спринт: материалы и доказательства](docs/sprint-2-evidence.md) · [Финансовая модель](docs/financial-model.md) · [Показ защиты данных](docs/security-demo.md) · [Карточка пилота](docs/pilot-intake.md)
 
-[Замеры по открытым исследованиям](docs/external-banking-benchmarks.md) · [Проверка контекста и анкета вклада](docs/context-study.md)
+[Замеры по открытым исследованиям](docs/external-banking-benchmarks.md) · [Проверка контекста и анкета вклада](docs/context-study.md) · [Обзор конкурентов и UX](docs/competitive-ux-review.md)
 
 Лицензия: [MIT](LICENSE).
 

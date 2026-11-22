@@ -845,12 +845,19 @@ def test_estimate_validates_scenario_and_counts_requests(app):
 def test_team_summary_export_is_html_attachment(app):
     client = login(app)
     record = run(client)["record"]
+    validation = client.put(
+        f"/api/experiments/{record['id']}/validation",
+        json={"csv": csv_for(record), "base_validation": None},
+    )
+    assert validation.status_code == 200, validation.text
     link = client.post("/api/export", json={"record_id": record["id"], "kind": "summary", "format": "html"})
     assert link.status_code == 200, link.text
     response = client.get(link.json()["url"])
     assert response.headers["content-type"].startswith("text/html")
     assert "attachment" in response.headers["content-disposition"]
     assert record["scenario"]["title"] in response.text
+    assert "Расхождения по сегментам" in response.text
+    assert "Сопоставленные пары (1 из 1)" in response.text
     bad = client.post("/api/export", json={"record_id": record["id"], "kind": "summary", "format": "json"})
     assert bad.status_code == 422
 
@@ -860,7 +867,7 @@ def test_insights_include_hypotheses_and_rewrite_requires_llm_record(app, monkey
     from dvoinik.hypotheses import suggest
 
     client, foreign = login(app), login(app, "bob")
-    sample = client.get("/api/sample/senior_deposit").json()
+    sample = client.get("/api/sample/student_card").json()
     data = client.post("/api/insights", json={"record_id": sample["id"], "segment": "all"}).json()
     assert data["hypotheses"] == suggest(sample)
     assert data["hypotheses"]["items"]

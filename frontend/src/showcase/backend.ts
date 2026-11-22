@@ -88,6 +88,7 @@ function same(a: Scenario, b: Scenario) {
   return (
     text(a.title) === text(b.title) &&
     text(a.question) === text(b.question) &&
+    a.deposit_minimum_rub === b.deposit_minimum_rub &&
     text(a.description ?? "") === text(b.description ?? "") &&
     JSON.stringify(Object.entries(a.variants).map(([k, v]) => [k, text(v)])) ===
       JSON.stringify(
@@ -115,7 +116,6 @@ export function createBackend(data: Data) {
     const e = data.estimate;
     const shared =
       e.system_chars +
-      (scenario.description ?? "").length +
       scenario.question.length +
       scenario.objections.reduce((a, o) => a + o.length + 2, 0) +
       e.profile_chars +

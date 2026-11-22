@@ -33,10 +33,10 @@ const ready: Insights = {
     assumptions: "Ориентир",
   },
 };
-function show() {
+function show(value = record) {
   return render(
     <ReportPage
-      record={record}
+      record={value}
       catalog={{ scenarios: {}, segments: {} }}
       onBack={() => {}}
       onReuse={() => {}}
@@ -58,6 +58,44 @@ function deferred<T>() {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+});
+it("moves focus directly to saved discrepancies from the report action", async () => {
+  vi.spyOn(api, "request").mockImplementation(<T,>() =>
+    Promise.resolve(ready as T),
+  );
+  show({
+    ...record,
+    mock: false,
+    validation: {
+      created_at: record.created_at,
+      cells: [],
+      result: {
+        mae_conversion: 0.2,
+        spearman_variants: null,
+        winner_match: null,
+        survey_n: 6,
+        matched_cells: 1,
+        cells: [],
+        actual_winners: [],
+        predicted_winners: [],
+      },
+    },
+  });
+  await act(async () => {});
+  fireEvent.click(
+    screen.getByRole("button", { name: "Разобрать расхождения с опросом" }),
+  );
+  const heading = screen.getByRole("heading", {
+    name: "Расхождения по сегментам",
+  });
+  expect(document.activeElement).toBe(heading);
+  const overview = screen.getByRole("tab", { name: "Результат" });
+  overview.focus();
+  fireEvent.click(overview);
+  const validation = screen.getByRole("tab", { name: "Проверка опросом" });
+  validation.focus();
+  fireEvent.click(validation);
+  expect(document.activeElement).toBe(validation);
 });
 it("does not label pending analysis as absence of valid answers", async () => {
   const loading = deferred<Insights>();

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type Ref } from "react";
 import { Download, FileJson, ClipboardCheck, CircleCheck } from "lucide-react";
 import { api, ignored, message } from "../../api";
 import { Button, Menu, Notice, date } from "../../components";
@@ -23,11 +23,13 @@ export default function ValidationPanel({
   onExport,
   plan,
   analyticsError,
+  metricsHeadingRef,
   onDirtyChange,
 }: {
   onDirtyChange?: (dirty: boolean) => void;
   plan?: Plan;
   analyticsError?: string;
+  metricsHeadingRef?: Ref<HTMLHeadingElement>;
   record: Experiment;
   catalog: Catalog;
   onUpdated: (r: Experiment) => void;
@@ -264,6 +266,7 @@ export default function ValidationPanel({
             <ValidationMetrics
               result={preview.record.validation!.result}
               segments={catalog.segments}
+              headingRef={metricsHeadingRef}
             />
             <div className="selection-bar survey-save-actions">
               <span>Предпросмотр · ещё не сохранён</span>
@@ -294,6 +297,7 @@ export default function ValidationPanel({
             <ValidationMetrics
               result={record.validation.result}
               segments={catalog.segments}
+              headingRef={metricsHeadingRef}
             />
           </>
         ) : (
@@ -313,9 +317,9 @@ export default function ValidationPanel({
           </div>
         )}
         <p className="help">
-          Ошибка взвешивается по числу ответов. Ранги сравниваются на составе
-          загруженного опроса; для содержательных выводов оценивайте варианты на
-          сопоставимых аудиториях. Новая загрузка заменяет прежний опрос.
+          Ошибка взвешивается по числу ответов. Для общего рейтинга нужны оценки
+          каждого варианта и одинаковые доли сегментов. Новая загрузка заменяет
+          прежний опрос.
         </p>
       </section>
     </>

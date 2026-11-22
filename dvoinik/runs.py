@@ -44,7 +44,9 @@ def run_experiment(
     check_access = guard or (lambda: None)
     check_access()
     started = time.perf_counter()
-    twins = build_population(settings.n, checked["population"], seed=settings.seed)
+    twins = build_population(
+        settings.n, checked["population"], seed=settings.seed, deposit="deposit_minimum_rub" in checked
+    )
 
     def advance(done: int, total: int):
         check_access()

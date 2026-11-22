@@ -458,11 +458,22 @@
   outline: 2px solid var(--blue);
   outline-offset: 3px;
 }
-.validation-segment small {
+.validation-segment small,
+.validation-discrepancy small {
   display: block;
   margin-top: 4px;
   color: var(--muted);
   font-size: 10px;
+}
+.validation-metrics-heading {
+  margin: 20px 0 12px;
+  scroll-margin-top: 20px;
+}
+.validation-discrepancy-caption {
+  text-align: left;
+  padding: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
 }
 .selection-bar {
   display: flex;
@@ -610,39 +621,6 @@
 .survey-questionnaire,
 .survey-segment-key {
   min-width: 0;
-}
-.survey-question {
-  font-size: 17px;
-  font-weight: 600;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  margin: 12px 0;
-}
-.survey-offer {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  border-top: 1px solid var(--line);
-  padding: 16px 0;
-}
-.survey-offer p {
-  margin: 0;
-  font-size: 13px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.survey-variant {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  width: 25px;
-  height: 25px;
-  border-radius: 6px;
-  color: var(--blue);
-  background: #edf2ff;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 700;
 }
 .survey-segment-key {
   border-left: 1px solid var(--line);

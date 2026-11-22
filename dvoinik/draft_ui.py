@@ -40,6 +40,7 @@ def reuse_record(record):
         "title_custom": scenario["title"],
         "description_custom": scenario["description"],
         "question_custom": scenario["question"],
+        "deposit_minimum_custom": scenario.get("deposit_minimum_rub", 0),
         "variant_count_custom": len(scenario["variants"]),
         "objections_custom": "\n".join(scenario["objections"]),
     }

@@ -33,6 +33,12 @@ export default function LaunchReview({
       </div>
       <h3>{draft.title}</h3>
       <p>{draft.question}</p>
+      {draft.depositMinimumRub !== undefined && (
+        <p>
+          Минимальный взнос — {draft.depositMinimumRub.toLocaleString("ru-RU")}{" "}
+          ₽ для всех предложений.
+        </p>
+      )}
       <dl className="launch-review-facts">
         <div>
           <dt>Режим</dt>

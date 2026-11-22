@@ -6,8 +6,14 @@ import csv
 import math
 from collections import defaultdict
 from contextlib import nullcontext
+from fractions import Fraction
 from pathlib import Path
 from typing import TextIO
+
+RANKING_LIMITS = {
+    "missing_variants": "Для общего сравнения нужны оценки каждого предложения.",
+    "different_mix": "Доли сегментов отличаются между предложениями. Сравнивайте результаты внутри сегментов.",
+}
 
 
 class SurveyRates(dict):
@@ -92,14 +98,25 @@ def compare(report: dict, survey: dict, baseline: dict | None = None) -> dict:
         totals[vid][1] += pred * weight
         totals[vid][2] += weight
     variants = sorted(totals)
+    mixes = defaultdict(dict)
+    for cell in cells:
+        variant = cell["variant"]
+        mixes[variant][cell["segment"]] = Fraction(cell["survey_n"], totals[variant][2])
+    ranking_unavailable = None
+    if len(variants) < 2 or totals.keys() != report.keys():
+        ranking_unavailable = "missing_variants"
+    elif any(mixes[v] != mixes[variants[0]] for v in variants[1:]):
+        ranking_unavailable = "different_mix"
     real = [totals[v][0] / totals[v][2] for v in variants]
     pred = [totals[v][1] / totals[v][2] for v in variants]
-    actual_winners = [v for v, x in zip(variants, real) if math.isclose(x, max(real))]
-    predicted_winners = [v for v, x in zip(variants, pred) if math.isclose(x, max(pred))]
-    unique = len(actual_winners) == len(predicted_winners) == 1 and len(variants) > 1
+    actual_winners, predicted_winners = [], []
+    if ranking_unavailable is None:
+        actual_winners = [v for v, x in zip(variants, real) if math.isclose(x, max(real))]
+        predicted_winners = [v for v, x in zip(variants, pred) if math.isclose(x, max(pred))]
+    unique = len(actual_winners) == len(predicted_winners) == 1
     result = {
         "mae_conversion": sum(c["error"] * c["survey_n"] for c in cells) / sum(c["survey_n"] for c in cells),
-        "spearman_variants": _correlation(_rank(real), _rank(pred)),
+        "spearman_variants": _correlation(_rank(real), _rank(pred)) if ranking_unavailable is None else None,
         "winner_match": actual_winners == predicted_winners if unique else None,
         "survey_n": sum(c["survey_n"] for c in cells),
         "matched_cells": len(cells),
@@ -107,7 +124,9 @@ def compare(report: dict, survey: dict, baseline: dict | None = None) -> dict:
         "actual_winners": actual_winners,
         "predicted_winners": predicted_winners,
     }
-    if baseline and all(v in baseline for v in variants):
+    if ranking_unavailable:
+        result["ranking_unavailable"] = ranking_unavailable
+    elif baseline and all(v in baseline for v in variants):
         result["baseline"] = _baseline_metrics(variants, real, pred, [baseline[v] for v in variants], totals)
     return result
 

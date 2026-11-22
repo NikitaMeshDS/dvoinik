@@ -10,12 +10,14 @@ import copy
 import json
 import math
 import re
+from collections import Counter
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from .population import SEGMENTS
 from .report_stats import OTHER_OBJECTION, wilson_interval
 from .reporting import PROFILES_PER_SEGMENT
+from .scenarios import MAX_DEPOSIT_RUB
 from .validate import SurveyRates, compare
 
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
@@ -25,7 +27,7 @@ CUSTOM_SCENARIO = {
     "description": "Проверка собственной продуктовой гипотезы",
     "question": "Подключили бы вы это предложение?",
     "variants": {"A": "", "B": ""},
-    "population": {"student_msk": 0.5, "student_reg": 0.5},
+    "population": {},
     "objections": ["дорого", "непонятные условия", "не вижу пользы", "не доверяю", "нет причины менять банк"],
 }
 
@@ -78,6 +80,8 @@ def normalize_scenario(scenario):
     if len(set(result["objections"])) != len(objections):
         raise ValueError("Категории отказа не должны повторяться.")
     result["population"] = normalize_population(result.get("population"))
+    if "deposit_minimum_rub" in result:
+        _integer(result["deposit_minimum_rub"], "Минимальный взнос", minimum=1, maximum=MAX_DEPOSIT_RUB)
     if "origin" in result:
         result["origin"] = _origin(result["origin"])
     return result
@@ -415,9 +419,24 @@ def load_experiment(source):
             _check_result(result, scenario["population"], scenario["objections"], n)
             if any(s["n"] > counts.get(sid, 0) for sid, s in result["segments"].items()):
                 raise ValueError("В сегменте больше ответов, чем двойников.")
+        minimum = scenario.get("deposit_minimum_rub")
+        eligibility = record.get("deposit_eligibility")
+        if minimum is not None or "deposit_eligibility" in record:
+            fields = {"available_n", "unavailable_n", "unknown_n"}
+            if (
+                minimum is None
+                or not isinstance(eligibility, dict)
+                or set(eligibility) != fields
+                or sum(
+                    _integer(eligibility[field], "Проверка доступности вклада", maximum=n) for field in fields
+                )
+                != n
+            ):
+                raise ValueError("Числа проверки доступности вклада не соответствуют размеру аудитории.")
         profiles = record.get("population_sample")
         if not isinstance(profiles, list) or len(profiles) > PROFILES_PER_SEGMENT * len(SEGMENTS):
             raise ValueError("Некорректная подборка профилей.")
+        sampled_eligibility = Counter()
         for profile in profiles:
             if not isinstance(profile, dict) or profile.get("segment") not in counts:
                 raise ValueError("Неизвестный сегмент профиля.")
@@ -432,6 +451,14 @@ def load_experiment(source):
                 _text(habit, "Привычка", 500)
             if profile.get("digital") is not None:
                 _text(profile["digital"], "Профиль: цифровые навыки", 500)
+            if "available_deposit_rub" in profile:
+                _integer(profile["available_deposit_rub"], "Свободная сумма", maximum=MAX_DEPOSIT_RUB)
+            if minimum is not None:
+                amount = profile.get("available_deposit_rub")
+                category = (
+                    "unknown_n" if amount is None else "available_n" if amount >= minimum else "unavailable_n"
+                )
+                sampled_eligibility[category] += 1
             traits = profile.get("traits")
             if traits is not None:
                 if not isinstance(traits, dict) or len(traits) > 10:
@@ -439,6 +466,8 @@ def load_experiment(source):
                 for label, value in traits.items():
                     _text(label, "Атрибут профиля", 100)
                     _text(value, "Значение атрибута", 500)
+        if any(count > eligibility[category] for category, count in sampled_eligibility.items()):
+            raise ValueError("Числа проверки доступности вклада не совпадают с сохранёнными профилями.")
         baseline = record.get("baseline")
         if baseline is not None:
             _check_baseline(baseline, scenario["variants"])

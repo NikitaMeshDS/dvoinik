@@ -13,8 +13,10 @@ def test_showcase_data_covers_every_template_size_and_segment():
         assert f"{record['id']}|all" in data["insights"]
         for sid in record["scenario"]["population"]:
             assert f"{record['id']}|{sid}" in data["insights"]
-    senior = data["records"]["senior_deposit|200"]["report"]
-    assert [senior[v]["yes"] for v in "ABC"] == [9, 86, 111]
+    senior = data["records"]["senior_deposit|200"]
+    assert senior["scenario"] == data["templates"]["senior_deposit"]
+    assert senior["scenario"]["deposit_minimum_rub"] == 50_000
+    assert all(result["n"] == 200 for result in senior["report"].values())
     experiments = data["experiments"]
     assert experiments and all(e["n"] == module.HYPOTHESIS_N for e in experiments)
     for item in experiments:

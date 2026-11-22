@@ -129,12 +129,13 @@ def compare(report, survey):
             variant: {
                 "n": survey.counts[variant, group],
                 "yes_share": survey[variant, group],
-                "estimates": {mode: results["levels"][mode][variant] for mode in MODES},
+                "estimates": {mode: levels.get(mode, {}).get(variant) for mode in MODES},
             }
             for variant in OFFERS
             if (variant, group) in survey
         }
-        for group, results in report["groups"].items()
+        for group in GROUPS
+        for levels in (report["groups"].get(group, {}).get("levels", {}),)
     }
     for cells in groups.values():
         for cell in cells.values():
@@ -143,17 +144,47 @@ def compare(report, survey):
                 for mode, estimate in cell["estimates"].items()
             }
         if set(cells) == set(OFFERS):
-            cells["gap_a_minus_b_error_pp"] = {
-                mode: 100
-                * abs(
-                    (cells["A"]["estimates"][mode] - cells["B"]["estimates"][mode])
-                    - (cells["A"]["yes_share"] - cells["B"]["yes_share"])
-                )
+            observed_gap = 100 * (cells["A"]["yes_share"] - cells["B"]["yes_share"])
+            model_gaps = {
+                mode: 100 * (cells["A"]["estimates"][mode] - cells["B"]["estimates"][mode])
                 if all(cells[v]["estimates"][mode] is not None for v in OFFERS)
                 else None
                 for mode in MODES
             }
+            cells["gap_a_minus_b_pp"] = {"survey": observed_gap, **model_gaps}
+            cells["gap_a_minus_b_error_pp"] = {
+                mode: abs(gap - observed_gap) if gap is not None else None for mode, gap in model_gaps.items()
+            }
     return {group: cells for group, cells in groups.items() if cells}
+
+
+def survey_coverage(comparison):
+    missing_survey, missing_model = [], []
+    comparable = set()
+    survey_n = survey_cells = 0
+    for group, variant in product(GROUPS, OFFERS):
+        key = {"variant": variant, "group": group}
+        cell = comparison.get(group, {}).get(variant)
+        if cell is None:
+            missing_survey.append(key)
+            continue
+        survey_n += cell["n"]
+        survey_cells += 1
+        if any(value is None for value in cell["estimates"].values()):
+            missing_model.append(key)
+        else:
+            comparable.add((group, variant))
+    return {
+        "survey_n": survey_n,
+        "expected_cells": len(GROUPS) * len(OFFERS),
+        "survey_cells": survey_cells,
+        "comparable_cells": len(comparable),
+        "paired_groups": [
+            group for group in GROUPS if all((group, variant) in comparable for variant in OFFERS)
+        ],
+        "missing_survey_cells": missing_survey,
+        "missing_model_cells": missing_model,
+    }
 
 
 def main():
@@ -172,6 +203,7 @@ def main():
         if report.get("offers") != OFFERS or report.get("question") != QUESTION:
             parser.error("Отчёт использует другой протокол.")
         report["human_comparison"] = compare(report, load_survey(args.survey))
+        report["human_coverage"] = survey_coverage(report["human_comparison"])
     else:
         model = os.getenv("LLM_MODEL")
         if not model or not os.getenv("LLM_BASE_URL") or args.concurrency < 1:
@@ -191,6 +223,13 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"{args.output}: {report['matched_n']}/{report['requested_n']} полных профилей")
+    if args.compare:
+        coverage = report["human_coverage"]
+        print(
+            f"Ответов в опросе: {coverage['survey_n']}. "
+            f"Сопоставимо сочетаний группы и варианта: {coverage['comparable_cells']}/{coverage['expected_cells']}. "
+            f"Сопоставимо групп с обоими каналами: {len(coverage['paired_groups'])}/{len(GROUPS)}."
+        )
     return 0 if report["matched_n"] else 1
 
 

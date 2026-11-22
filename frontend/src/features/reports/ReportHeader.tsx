@@ -4,7 +4,6 @@ import {
   FileJson,
   FileSpreadsheet,
   GitCompare,
-  RefreshCw,
 } from "lucide-react";
 import {
   Back,
@@ -44,12 +43,14 @@ export default function ReportHeader({
   onExport: ExportAction;
 }) {
   const variants = Object.keys(record.report),
-    segments = Object.keys(record.scenario.population),
-    summary = base?.summary;
+    segments = Object.keys(record.scenario.population);
   const corrected = Object.entries(record.report).filter(
     ([, result]) => (result.inconsistent_n ?? 0) > 0,
   );
-  const next = nextStep(record, pending);
+  const ready = nextStep(record);
+  const hasQualityIssue = ready.action === "reuse";
+  const summary = hasQualityIssue ? undefined : base?.summary;
+  const next = pending ? nextStep(record, pending) : ready;
   const nextAction =
     next.action === "save"
       ? (onRetry ?? (() => exportFile("json")))
@@ -62,19 +63,21 @@ export default function ReportHeader({
       <Heading
         title={record.scenario.title}
         description={
-          (record.sample
-            ? "Демонстрационный пример"
-            : date(record.created_at)) +
-          " · " +
-          record.model
+          record.sample ? "Демонстрационный пример" : date(record.created_at)
         }
         action={
           <div className="heading-actions">
-            <Button onClick={onReuse}>
-              Следующая итерация
-              <ArrowRight size={18} />
+            <Button kind="primary" onClick={nextAction}>
+              {next.action === "save" && !onRetry
+                ? "Скачать полный JSON"
+                : next.label}
+              <ArrowRight size={18} aria-hidden="true" />
             </Button>
             <Menu label="Действия с отчётом">
+              <button onClick={onReuse}>
+                <ArrowRight size={17} />
+                Следующая итерация
+              </button>
               <button onClick={() => exportFile("html", "summary")}>
                 <FileText size={17} />
                 Резюме для команды
@@ -99,28 +102,19 @@ export default function ReportHeader({
         record={record}
         base={base}
         analyticsError={analyticsError}
+        hasQualityIssue={hasQualityIssue}
         next={next}
-        actionLabel={
-          next.action === "save" && !onRetry
-            ? "Скачать полный JSON"
-            : next.label
-        }
-        onAction={nextAction}
       />
       {pending && (
         <Notice kind="error">
           <strong>Результат пока не записан в архив.</strong> {pending}
-          <div className="inline-actions">
-            {onRetry && (
-              <Button onClick={onRetry}>
-                <RefreshCw size={15} />
-                Повторить сохранение
-              </Button>
-            )}
-            <button className="text-link" onClick={() => exportFile("json")}>
-              Скачать полный JSON
-            </button>
-          </div>
+          {onRetry && (
+            <div className="inline-actions">
+              <button className="text-link" onClick={() => exportFile("json")}>
+                Скачать полный JSON
+              </button>
+            </div>
+          )}
         </Notice>
       )}
       {corrected.length > 0 && (
@@ -208,11 +202,13 @@ export default function ReportHeader({
           <small>
             {summary?.leaders.length
               ? "Вариант " + summary.leaders.join(" / ")
-              : summary
-                ? "Нет валидных ответов"
-                : analyticsError
-                  ? "Аналитика недоступна"
-                  : "Загружаем аналитику…"}{" "}
+              : hasQualityIssue
+                ? "Сначала проверьте качество"
+                : summary
+                  ? "Нет валидных ответов"
+                  : analyticsError
+                    ? "Аналитика недоступна"
+                    : "Загружаем аналитику…"}{" "}
             · вся аудитория
           </small>
         </div>

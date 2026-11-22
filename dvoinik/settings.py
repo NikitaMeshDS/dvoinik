@@ -26,7 +26,7 @@ def model_identity(mock: bool) -> tuple[str, str | None]:
     from .ssr import embed_model, mode
 
     model = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
-    config = model + "|" + os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
+    config = model + "|" + os.getenv("LLM_BASE_URL", "http://localhost:11434/v1") + "|respondent-v2"
     if mode() == "ssr":
         return f"{model} · SSR", f"{config}|ssr:{embed_model()}"
     return model, config

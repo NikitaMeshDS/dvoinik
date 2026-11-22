@@ -42,6 +42,34 @@ def test_csv_preserves_sample_weights():
 
 
 @pytest.mark.parametrize(
+    "survey, reason",
+    [
+        ({("A", "senior"): 0.8, ("B", "teen"): 0.2}, "different_mix"),
+        ({("A", "senior"): 0.8}, "missing_variants"),
+    ],
+)
+def test_incomparable_surveys_keep_cell_errors_without_a_leader(survey, reason):
+    result = compare(REPORT, survey, baseline={"A": 0.8, "B": 0.2})
+    assert result["ranking_unavailable"] == reason
+    assert result["matched_cells"] == len(survey)
+    assert result["mae_conversion"] == sum(c["error"] for c in result["cells"]) / len(survey)
+    assert result["actual_winners"] == result["predicted_winners"] == []
+    assert result["winner_match"] is result["spearman_variants"] is None
+    assert "baseline" not in result
+
+
+def test_rankings_require_equal_segment_shares_even_if_all_segments_are_covered():
+    csv_header = "segment,variant,decision\n"
+    balanced = "senior,A,1\nteen,A,1\nsenior,B,0\nsenior,B,0\nteen,B,0\nteen,B,0\n"
+    result = compare(REPORT, load_survey(io.StringIO(csv_header + balanced)))
+    assert "ranking_unavailable" not in result
+    assert result["actual_winners"] == ["A"]
+    shifted = compare(REPORT, load_survey(io.StringIO(csv_header + balanced + "teen,B,0\n")))
+    assert shifted["ranking_unavailable"] == "different_mix"
+    assert shifted["matched_cells"] == 4
+
+
+@pytest.mark.parametrize(
     "csv",
     [
         "wrong,variant,decision\nsenior,A,1\n",

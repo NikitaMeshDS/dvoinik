@@ -1,4 +1,5 @@
 import { ArrowRight } from "lucide-react";
+import { useId } from "react";
 import { Notice, LoadingState, decimal, percent } from "../../components";
 import { COLORS, type Catalog, type Experiment } from "../../types";
 import type { BaselineAgreement, Insights, LivePlan } from "./types";
@@ -35,6 +36,9 @@ export default function Overview({
   variant: string;
   setVariant: (s: string) => void;
 }) {
+  const eligibilityHeading = useId();
+  const eligibility = record.deposit_eligibility;
+  const minimum = record.scenario.deposit_minimum_rub;
   const variants = Object.keys(record.report),
     segments = Object.keys(record.scenario.population);
   const hasSegmentReasons =
@@ -52,7 +56,9 @@ export default function Overview({
     <>
       <div className="section-heading">
         <h2>Результаты по сегментам</h2>
-        <span>Готовность подключить предложение</span>
+        <span>
+          {eligibility ? "Интерес к предложению" : "Доля ответов «да»"}
+        </span>
       </div>
       <div
         className="matrix-scroll"
@@ -132,6 +138,32 @@ export default function Overview({
         Выделены наибольшие доли в строке; статистическая значимость не
         проверялась.
       </p>
+      {eligibility && minimum !== undefined && (
+        <section
+          className="analysis-chart"
+          aria-labelledby={eligibilityHeading}
+        >
+          <div className="section-heading">
+            <h2 id={eligibilityHeading}>По минимальному взносу</h2>
+            <span>
+              {minimum.toLocaleString("ru-RU")} ₽ для всех предложений
+            </span>
+          </div>
+          <p>
+            <strong>
+              {eligibility.available_n} из {record.n}
+            </strong>{" "}
+            профилей могут внести минимальную сумму.
+          </p>
+          <p className="help">
+            Не хватает средств у {eligibility.unavailable_n}.
+            {eligibility.unknown_n > 0 &&
+              ` Сумма неизвестна у ${eligibility.unknown_n}.`}{" "}
+            Суммы синтетические. Расчёт по всей аудитории учитывает только
+            взнос.
+          </p>
+        </section>
+      )}
       <label className="audience-filter field">
         <span>Разобрать аудиторию</span>
         <select value={segment} onChange={(e) => setSegment(e.target.value)}>
@@ -154,7 +186,9 @@ export default function Overview({
       <div className="analysis-grid" aria-busy={!focus && !error}>
         <section className="analysis-chart">
           <div className="section-heading">
-            <h2>Готовность подключить</h2>
+            <h2>
+              {eligibility ? "Интерес к предложению" : "Доля ответов «да»"}
+            </h2>
             <span>
               {segment === "all"
                 ? record.n
@@ -218,9 +252,7 @@ export default function Overview({
               {segment !== "all" ? (
                 quote ? (
                   <blockquote>
-                    <span>
-                      {quote.decision ? "Готовы подключить" : "Отказались"}
-                    </span>
+                    <span>{quote.decision ? "Ответ «да»" : "Ответ «нет»"}</span>
                     <p>«{quote.quote}»</p>
                     <cite>{quote.who}</cite>
                   </blockquote>

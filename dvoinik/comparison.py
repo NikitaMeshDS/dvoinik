@@ -38,6 +38,12 @@ def compare_runs(left, right):
     ]:
         compare(field, label, a[field], b[field])
     compare(
+        "deposit_minimum_rub",
+        "Минимальный взнос, ₽",
+        a.get("deposit_minimum_rub"),
+        b.get("deposit_minimum_rub"),
+    )
+    compare(
         "population",
         "Доли целевых сегментов",
         normalize_scenario(a)["population"],
@@ -86,6 +92,11 @@ def compare_runs(left, right):
         warn(
             "question_context",
             "Вопрос, контекст или категории отказа изменены. Условия получения ответов различаются.",
+        )
+    if "deposit_minimum_rub" in fields:
+        warn(
+            "deposit_minimum",
+            "Условия минимального взноса различаются. Оценки интереса получены для разных условий вклада.",
         )
     if "population" in fields:
         warn(

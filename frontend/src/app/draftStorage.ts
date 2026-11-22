@@ -45,6 +45,8 @@ function validDraft(value: unknown, key: string): value is Draft {
     typeof value.mock !== "boolean"
   )
     return false;
+  if (value.depositMinimumRub !== undefined && !finite(value.depositMinimumRub))
+    return false;
   if (value.origin !== undefined) {
     const origin = value.origin;
     if (

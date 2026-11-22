@@ -31,7 +31,11 @@ def test_cli_exports_reproducible_experiment(tmp_path):
     record = json.loads(output.read_text())
     assert record["n"] == 50
     assert record["seed"] == 7
-    assert record["scenario"]["question"] == "Открыли бы вы этот вклад?"
+    assert (
+        record["scenario"]["question"] == "Если бы у вас была нужная сумма, заинтересовал бы вас этот вклад?"
+    )
+    assert record["scenario"]["deposit_minimum_rub"] == 50_000
+    assert "Интерес к предложению оценивается отдельно" in result.stdout
     assert record["report"]["A"]["n"] == 50
 
 

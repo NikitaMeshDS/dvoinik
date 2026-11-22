@@ -62,7 +62,8 @@ def test_openai_compatible_protocol_and_client_lifecycle(monkeypatch):
     assert report["B"]["conversion"] == 0
     assert report["B"]["objections"] == {"плата": 4}
     assert clients[0].is_closed()
-    assert all(scenario["description"] in message for message in messages)
+    assert all(scenario["description"] not in message for message in messages)
+    assert all(("accept-offer" in message) != ("decline-offer" in message) for message in messages)
     # Повторный запуск не переиспользует закрытый клиент или event loop.
     assert engine.simulate(build_population(4, {"senior": 1}), scenario)["A"]["n"] == 4
 

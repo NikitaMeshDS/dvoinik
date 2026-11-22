@@ -3,6 +3,14 @@ import { Download, ArrowRight } from "lucide-react";
 import { api, download, ignored, message } from "./api";
 import { Button, Modal, Notice, decimal, percent, date } from "./components";
 import type { Comparison, Experiment } from "./types";
+
+function changeValue(field: string, value: unknown) {
+  if (value === null) return field === "deposit_minimum_rub" ? "Не задан" : "—";
+  if (field === "deposit_minimum_rub" && typeof value === "number")
+    return value.toLocaleString("ru-RU");
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 export function ComparisonDialog({
   ids,
   records,
@@ -159,16 +167,8 @@ export function ComparisonDialog({
                   <div className="comparison-change" key={c.field}>
                     <strong>{c.label}</strong>
                     <div>
-                      <p>
-                        {typeof c.before === "string"
-                          ? c.before
-                          : JSON.stringify(c.before)}
-                      </p>
-                      <p>
-                        {typeof c.after === "string"
-                          ? c.after
-                          : JSON.stringify(c.after)}
-                      </p>
+                      <p>{changeValue(c.field, c.before)}</p>
+                      <p>{changeValue(c.field, c.after)}</p>
                     </div>
                   </div>
                 ))

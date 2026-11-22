@@ -9,7 +9,7 @@ from dvoinik.experiments import attach_validation
 from dvoinik.planning import live_check_plan
 from dvoinik.reporting import export_json
 from dvoinik.runs import RunSettings, run_experiment, seed_robustness
-from dvoinik.scenarios import SCENARIOS
+from dvoinik.scenarios import SCENARIOS, deposit_terms
 from dvoinik.validate import load_survey
 
 
@@ -38,6 +38,14 @@ def main():
         if args.mock
         else "LLM: синтетические ответы требуют живой валидации."
     )
+    eligibility = record.get("deposit_eligibility")
+    if eligibility is not None:
+        print(
+            f"{deposit_terms(record['scenario'])} Хватает средств у {eligibility['available_n']} из {record['n']}, "
+            f"не хватает у {eligibility['unavailable_n']}, неизвестно у {eligibility['unknown_n']}. "
+            "Суммы синтетические."
+        )
+        print("Интерес к предложению оценивается отдельно.")
     for vid, result in record["report"].items():
         print(
             f"\nВариант {vid}: {result['conversion']:.1%} согласий (валидных: {result['n']}, ошибок: {result['failed_n']})"

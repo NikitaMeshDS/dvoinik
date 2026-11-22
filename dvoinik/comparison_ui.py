@@ -47,9 +47,11 @@ def comparison_view(history):
             "Условия запусков различаются. Разницу результатов нельзя приписать только изменению предложения."
         )
 
-        def display(value):
+        def display(field, value):
             if value is None:
-                return "Нет варианта"
+                return "Не задан" if field == "deposit_minimum_rub" else "Нет варианта"
+            if field == "deposit_minimum_rub":
+                return f"{value:,}".replace(",", " ")
             return json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value)
 
         st.dataframe(
@@ -57,8 +59,8 @@ def comparison_view(history):
                 [
                     {
                         "Изменение": c["label"],
-                        "Исходный запуск": display(c["before"]),
-                        "Новый запуск": display(c["after"]),
+                        "Исходный запуск": display(c["field"], c["before"]),
+                        "Новый запуск": display(c["field"], c["after"]),
                     }
                     for c in result["changes"]
                 ]

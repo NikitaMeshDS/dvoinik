@@ -61,6 +61,12 @@ export function useLaunchPreview(draft: Draft, step: number) {
   }, [step, estimateKey]);
   useEffect(() => {
     if (step !== 1) return;
+    if (!Object.values(draft.weights).some((weight) => weight > 0)) {
+      setPreview(null);
+      setPreviewError("");
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController();
     let alive = true;
     setLoading(true);

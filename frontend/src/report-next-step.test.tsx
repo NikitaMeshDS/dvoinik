@@ -41,10 +41,7 @@ it("prioritizes missing variant data over an uploaded survey", () => {
 });
 it("prioritizes unsaved archive recovery over another model run", () => {
   const a = show(record(), "storage unavailable");
-  const region = screen.getByRole("region", {
-    name: "Следующий шаг исследования",
-  });
-  fireEvent.click(region.querySelector("button")!);
+  fireEvent.click(screen.getByRole("button", { name: "Повторить сохранение" }));
   expect(a.onRetry).toHaveBeenCalledOnce();
   expect(a.onReuse).not.toHaveBeenCalled();
 });

@@ -83,20 +83,33 @@ def make_record(key, scenario, n, mock, seed, report, twins, elapsed=0, sample=F
             profiles.append(twin.to_dict())
             seen[twin.segment] += 1
     model, config_model = model_identity(mock)
-    return {
-        "schema_version": 2,
-        "id": uuid.uuid4().hex[:10],
-        "created_at": datetime.now(ZoneInfo("Europe/Moscow")).isoformat(timespec="seconds"),
-        "scenario_key": key,
-        "scenario": copy.deepcopy(scenario),
-        "n": n,
-        "mock": mock,
-        "seed": seed,
-        "model": model,
-        "elapsed_seconds": round(elapsed, 2),
-        "sample": sample,
-        "report": report,
-        "population_counts": dict(Counter(t.segment for t in twins)),
-        "population_sample": profiles,
-        "signature": signature(scenario, n, mock, seed, config_model),
-    } | ({"baseline": copy.deepcopy(baseline)} if baseline is not None else {})
+    deposit = {}
+    if (minimum := scenario.get("deposit_minimum_rub")) is not None:
+        amounts = [twin.available_deposit_rub for twin in twins if twin.available_deposit_rub is not None]
+        available = sum(amount >= minimum for amount in amounts)
+        deposit["deposit_eligibility"] = {
+            "available_n": available,
+            "unavailable_n": len(amounts) - available,
+            "unknown_n": n - len(amounts),
+        }
+    return (
+        {
+            "schema_version": 2,
+            "id": uuid.uuid4().hex[:10],
+            "created_at": datetime.now(ZoneInfo("Europe/Moscow")).isoformat(timespec="seconds"),
+            "scenario_key": key,
+            "scenario": copy.deepcopy(scenario),
+            "n": n,
+            "mock": mock,
+            "seed": seed,
+            "model": model,
+            "elapsed_seconds": round(elapsed, 2),
+            "sample": sample,
+            "report": report,
+            "population_counts": dict(Counter(t.segment for t in twins)),
+            "population_sample": profiles,
+            "signature": signature(scenario, n, mock, seed, config_model),
+        }
+        | deposit
+        | ({"baseline": copy.deepcopy(baseline)} if baseline is not None else {})
+    )

@@ -6,6 +6,7 @@ export type Scenario = {
   population: Record<string, number>;
   objections: string[];
   origin?: Origin;
+  deposit_minimum_rub?: number;
 };
 export type Origin = {
   kind: "iteration" | "hypothesis";
@@ -92,6 +93,7 @@ export type Profile = {
   attitude: string;
   digital?: string;
   traits?: Record<string, string>;
+  available_deposit_rub?: number;
 };
 export type ValidationCell = {
   variant: string;
@@ -102,6 +104,7 @@ export type ValidationCell = {
   error: number;
 };
 export type ValidationResult = {
+  ranking_unavailable?: "missing_variants" | "different_mix";
   mae_conversion: number;
   spearman_variants: number | null;
   winner_match: boolean | null;
@@ -153,6 +156,11 @@ export type Experiment = {
   report: Record<string, ReportItem>;
   population_counts: Record<string, number>;
   population_sample: Profile[];
+  deposit_eligibility?: {
+    available_n: number;
+    unavailable_n: number;
+    unknown_n: number;
+  };
   signature: string;
   validation?: Validation;
   import_origin_id?: string;
@@ -175,6 +183,7 @@ export type Estimate = {
 };
 export type Draft = {
   origin?: Origin;
+  depositMinimumRub?: number;
   key: string;
   title: string;
   description: string;

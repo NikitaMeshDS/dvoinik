@@ -47,6 +47,12 @@ export default function Audience({
                     </div>
                   </div>
                   <p>{p.income}</p>
+                  {p.available_deposit_rub !== undefined && (
+                    <p className="help">
+                      Свободно для вклада —{" "}
+                      {p.available_deposit_rub.toLocaleString("ru-RU")} ₽.
+                    </p>
+                  )}
                   <div className="habit-tags">
                     {p.habits.map((h) => (
                       <span key={h}>{h}</span>

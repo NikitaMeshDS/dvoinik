@@ -1,39 +1,66 @@
-import { ArrowRight, ScanText, ChartNoAxesCombined } from "lucide-react";
-import { Button, percent } from "../../components";
+import { ScanText, ChartNoAxesCombined } from "lucide-react";
+import { decimal, percent } from "../../components";
 import { plural } from "../../data";
 import type { Experiment } from "../../types";
 import type { Insights } from "./types";
-import { nextStep } from "./nextStep";
+import type { nextStep } from "./nextStep";
 export default function ResearchBrief({
   record,
   base,
   analyticsError,
+  hasQualityIssue,
   next,
-  actionLabel,
-  onAction,
 }: {
   record: Experiment;
   base: Insights | null;
   analyticsError: string;
+  hasQualityIssue: boolean;
   next: ReturnType<typeof nextStep>;
-  actionLabel: string;
-  onAction: () => void;
 }) {
   const summary = base?.summary;
-  const observation =
-    nextStep(record).action === "reuse"
-      ? "Есть пропуски, ошибки или корректировки ответов. Проверьте качество перед сравнением вариантов."
-      : !summary
-        ? analyticsError
-          ? "Аналитика недоступна. Сохранённые ответы остаются в отчёте."
-          : "Загружаем разбор сохранённых ответов…"
-        : !summary.leaders.length
-          ? "Нет валидных ответов для сравнения. Проверьте подключение и настройки модели."
-          : summary.leaders.length > 1
-            ? `Варианты ${summary.leaders.join(" / ")} получили равную долю согласий: ${percent(summary.best)}.`
-            : `В симуляции наибольшая доля согласий у ${summary.leaders[0]}: ${percent(summary.best)}.`;
+  const variants = Object.keys(record.scenario.variants);
+  const survey = record.validation?.result;
+  const expectedPairs =
+    variants.length *
+    Object.values(record.scenario.population).filter((weight) => weight > 0)
+      .length;
+  const surveyTitle = !survey
+    ? "Опрос ещё не загружен"
+    : survey.matched_cells < expectedPairs
+      ? "Неполное покрытие опроса"
+      : "Опрос загружен";
+  const observation = hasQualityIssue
+    ? "Есть пропуски, ошибки или корректировки ответов. Проверьте качество перед сравнением вариантов."
+    : !summary
+      ? analyticsError
+        ? "Аналитика недоступна. Сохранённые ответы остаются в отчёте."
+        : "Загружаем разбор сохранённых ответов…"
+      : !summary.leaders.length
+        ? "Нет валидных ответов для сравнения. Проверьте подключение и настройки модели."
+        : summary.leaders.length > 1
+          ? `У вариантов ${summary.leaders.join(" / ")} одинаковая доля ответов «да» — ${percent(summary.best)}.`
+          : `Вариант ${summary.leaders[0]} получил ${percent(summary.best)} ответов «да»${summary.gap_pp > 0 ? ` — выше следующего на ${decimal(summary.gap_pp)} п. п.` : "."}`;
   return (
     <section className="research-brief" aria-label="Краткий итог исследования">
+      <div className="brief-sources" role="group" aria-label="Источники данных">
+        <div>
+          <strong>
+            {record.mock ? "Эвристическое демо" : "Симуляция модели"}
+          </strong>
+          <span>{record.mock ? "По заданным правилам" : record.model}</span>
+        </div>
+        <div>
+          <strong>{surveyTitle}</strong>
+          {survey && (
+            <span>
+              {survey.survey_n.toLocaleString("ru-RU")}{" "}
+              {plural(survey.survey_n, "оценка", "оценки", "оценок")} ·{" "}
+              {survey.matched_cells} из {expectedPairs} пар «предложение —
+              сегмент»
+            </span>
+          )}
+        </div>
+      </div>
       <div className="brief-question">
         <h2>
           <ScanText size={18} aria-hidden="true" />
@@ -41,13 +68,8 @@ export default function ResearchBrief({
         </h2>
         <p>{record.scenario.question}</p>
         <span className="brief-caption">
-          {Object.keys(record.scenario.variants).length}{" "}
-          {plural(
-            Object.keys(record.scenario.variants).length,
-            "предложение",
-            "предложения",
-            "предложений",
-          )}{" "}
+          {variants.length}{" "}
+          {plural(variants.length, "предложение", "предложения", "предложений")}{" "}
           · {record.n.toLocaleString("ru-RU")} синтетических профилей
         </span>
         <details className="brief-offers">
@@ -79,14 +101,9 @@ export default function ResearchBrief({
         aria-label="Следующий шаг исследования"
       >
         <div>
-          <span className="brief-next-label">Что дальше</span>
           <h2>{next.title}</h2>
           <p>{next.detail}</p>
         </div>
-        <Button kind="primary" onClick={onAction}>
-          {actionLabel}
-          <ArrowRight size={17} aria-hidden="true" />
-        </Button>
       </section>
     </section>
   );

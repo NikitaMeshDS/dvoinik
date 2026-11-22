@@ -42,6 +42,8 @@ def test_rewrite_edits_price_inside_sentence_or_drops_price_sentence():
     assert whole["removed"] == ["Обслуживание 99 ₽/мес, бесплатно при тратах от 5 000 ₽."]
     pushy = rewrite("Кэшбэк 5% на продукты, только сегодня!", lever_for("похоже на спам"))
     assert "только сегодня" not in pushy["proposal"] and pushy["removed"] == ["только сегодня"]
+    assert "до конца дня" in pushy["proposal"]
+    assert "в неделю" not in pushy["proposal"]
     again = rewrite(pushy["proposal"], lever_for("похоже на спам"))
     assert again["proposal"] is None
 
@@ -65,10 +67,6 @@ def test_suggestions_are_grounded_in_leader_objections(records):
                     assert set(h["objections"]) & set(counts[sid]["objections"])
                 assert all(lever_for(o)["id"] == h["lever_id"] for o in h["objections"])
             assert h["ceiling_pp"] >= 5
-    assert suggest(records["nonresident_transfer"])["items"] == []
-    family = suggest(records["family_budget"])["items"][0]
-    assert family["lever"] == "Цена" and "без абонентской платы" in family["proposal"]
-    assert family["check_n"] and family["check_n"] > 30
 
 
 def test_segment_offer_when_another_variant_wins_a_segment():

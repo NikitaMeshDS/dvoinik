@@ -4,10 +4,10 @@ import sample from "../../examples/senior-deposit.demo.json";
 import type { Experiment, Scenario } from "./types";
 const record = sample as unknown as Experiment;
 const template: Scenario = record.scenario;
-function backend() {
+function backend(terms = template) {
   return createBackend({
     session: { user: { role: "demo" } },
-    catalog: { scenarios: { senior_deposit: template }, segments: {} },
+    catalog: { scenarios: { senior_deposit: terms }, segments: {} },
     sizes: [200],
     seed: 42,
     records: { "senior_deposit|200": { ...record, id: "senior_deposit-200" } },
@@ -20,7 +20,7 @@ function backend() {
       profile_chars: 260,
       latency_s: 3,
     },
-    templates: { senior_deposit: template },
+    templates: { senior_deposit: terms },
   });
 }
 it("allocates profiles with largest remainders like the server", () => {
@@ -32,6 +32,22 @@ it("allocates profiles with largest remainders like the server", () => {
     z: 2,
   });
 });
+
+it.each([75_000, undefined])(
+  "rejects changing the saved deposit minimum to %s",
+  async (minimum) => {
+    const terms = { ...template, deposit_minimum_rub: 50_000 };
+    const api = backend(terms);
+    const edited = await api("POST", "/runs", {
+      scenario_key: "senior_deposit",
+      scenario: { ...terms, deposit_minimum_rub: minimum },
+      n: 200,
+      mock: true,
+      seed: 42,
+    });
+    expect(edited.status).toBe(422);
+  },
+);
 it("runs unchanged templates and rejects edited scenarios", async () => {
   const api = backend();
   const started = await api("POST", "/runs", {

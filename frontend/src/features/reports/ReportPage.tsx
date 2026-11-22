@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { download } from "../../api";
 import { Notice, Button } from "../../components";
 import type { Catalog, Experiment } from "../../types";
@@ -69,9 +69,27 @@ export default function ReportPage({
         leave(() => onTestHypothesis(hypothesis, proposal))
     : undefined;
   const tab = selectedTab ?? localTab;
+  const surveyHeading = useRef<HTMLHeadingElement>(null);
+  const focusSurveyOnOpen = useRef(false);
+  useEffect(() => {
+    if (tab === "validation" && focusSurveyOnOpen.current) {
+      focusSurveyOnOpen.current = false;
+      surveyHeading.current?.focus();
+    }
+  }, [tab]);
   const setTab = (value: ReportTab) => {
     setLocalTab(value);
     onTabChange?.(value);
+  };
+  const openValidation = () => {
+    if (record.validation) {
+      if (tab === "validation") {
+        surveyHeading.current?.focus();
+        return;
+      }
+      focusSurveyOnOpen.current = true;
+    }
+    setTab("validation");
   };
   const insights = useInsights(record, segment);
   const exportFile: ExportAction = (format, kind = "record", preview_id) => {
@@ -91,7 +109,7 @@ export default function ReportPage({
         onBack={() => leave(onBack)}
         onReuse={() => leave(onReuse)}
         onCompare={onCompare}
-        onValidation={() => setTab("validation")}
+        onValidation={openValidation}
         pending={pending}
         onRetry={onRetry}
         onExport={exportFile}
@@ -119,7 +137,7 @@ export default function ReportPage({
         stability={insights.base?.stability}
         plan={insights.base?.plan}
         onOpen={openRecord}
-        onValidation={() => setTab("validation")}
+        onValidation={openValidation}
         onCompare={onCompareWith}
       />
       <ReportTabs tab={tab} setTab={setTab} />
@@ -178,6 +196,7 @@ export default function ReportPage({
             onExport={exportFile}
             plan={insights.base?.plan}
             analyticsError={insights.baseError}
+            metricsHeadingRef={surveyHeading}
             onDirtyChange={setSurveyDirty}
           />
         </div>

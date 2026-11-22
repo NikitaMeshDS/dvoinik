@@ -21,6 +21,9 @@ export function draftFromScenario(
       Object.entries(s.population).map(([k, v]) => [k, v * 100]),
     ),
     objections: [...s.objections],
+    ...(s.deposit_minimum_rub !== undefined
+      ? { depositMinimumRub: s.deposit_minimum_rub }
+      : {}),
     n: 200,
     mock,
     seed: 42,
@@ -126,6 +129,9 @@ export function runPayload(d: Draft): RunPayload {
       ),
       objections: d.objections.map((s) => s.trim()).filter(Boolean),
       ...(d.origin ? { origin: d.origin } : {}),
+      ...(d.depositMinimumRub !== undefined
+        ? { deposit_minimum_rub: d.depositMinimumRub }
+        : {}),
     },
     n: d.n,
     mock: d.mock,
@@ -147,8 +153,30 @@ export function draftIssue(d: Draft, offersOnly = false): DraftIssue | null {
   for (const v of VARIANTS.slice(0, d.variantCount))
     if (!(d.variants[v] ?? "").trim())
       return issue("variant-" + v, 0, "Заполните предложение " + v + ".");
-  if (!d.objections.some((s) => s.trim()))
+  const objections = d.objections.map((s) => s.trim()).filter(Boolean);
+  if (objections.length === 0)
     return issue("objections", 0, "Добавьте хотя бы одну категорию отказа.");
+  if (objections.length > 12)
+    return issue("objections", 0, "Оставьте не больше 12 категорий отказа.");
+  if (objections.some((text) => Array.from(text).length > 120))
+    return issue(
+      "objections",
+      0,
+      "Категория отказа должна быть до 120 символов.",
+    );
+  if (new Set(objections).size !== objections.length)
+    return issue("objections", 0, "Удалите повторяющиеся категории отказа.");
+  if (
+    d.depositMinimumRub !== undefined &&
+    (!Number.isInteger(d.depositMinimumRub) ||
+      d.depositMinimumRub < 1 ||
+      d.depositMinimumRub > 1_000_000_000)
+  )
+    return issue(
+      "depositMinimumRub",
+      0,
+      "Минимальный взнос должен быть целым числом от 1 до 1 000 000 000 ₽.",
+    );
   if (offersOnly) return null;
   if (!Object.values(d.weights).some((n) => n > 0))
     return issue("weights", 1, "Выберите хотя бы один сегмент аудитории.");

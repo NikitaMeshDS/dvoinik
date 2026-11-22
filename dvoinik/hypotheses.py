@@ -123,10 +123,9 @@ LEVERS = [
     {
         "id": "frequency",
         "match": ["спам", "уведомлен"],
-        "lever": "Частота и тон",
-        "change": "Писать реже, по выбору клиента и без давления",
-        "replace": (r"[,;]?\s*только сегодня", ""),
-        "add": "Не больше одного сообщения в неделю и только по выбранным вами категориям.",
+        "lever": "Тон уведомления",
+        "change": "Сформулировать срок нейтрально",
+        "replace": (r"\bтолько сегодня\b", "до конца дня"),
     },
 ]
 
@@ -160,9 +159,9 @@ def rewrite(text: str, lever: dict) -> dict:
                 if value:
                     added.append(value)
         kept.append(sentence)
-    if lever["add"] not in kept:
-        kept.append(lever["add"])
-        added.append(lever["add"])
+    if (addition := lever.get("add")) and addition not in kept:
+        kept.append(addition)
+        added.append(addition)
     proposal = " ".join(kept)
     if proposal == text.strip() or len(proposal) > MAX_TEXT:
         return {"proposal": None, "removed": [], "added": []}

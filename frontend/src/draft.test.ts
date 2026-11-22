@@ -57,3 +57,22 @@ describe("research draft contracts", () => {
     expect(draftError(draft)).toContain("аудитории");
   });
 });
+
+it("keeps the deposit minimum while drafting and submitting a run", () => {
+  const source = { ...scenario, deposit_minimum_rub: 50_000 };
+  const draft = draftFromScenario(source, "senior_deposit");
+  expect(runPayload(draft).scenario.deposit_minimum_rub).toBe(50_000);
+  draft.depositMinimumRub = 0;
+  expect(draftError(draft)).toMatch(/Минимальный взнос/);
+  draft.depositMinimumRub = undefined;
+  expect(runPayload(draft).scenario).not.toHaveProperty("deposit_minimum_rub");
+});
+
+it.each([
+  [Array.from({ length: 13 }, (_, i) => String(i)), /12/],
+  [["д".repeat(121)], /120/],
+  [["плата", " плата "], /повтор/],
+])("catches invalid refusal categories before launch", (objections, error) => {
+  const draft = draftFromScenario({ ...scenario, objections }, "custom");
+  expect(draftError(draft)).toMatch(error);
+});

@@ -135,7 +135,8 @@ def test_ssr_run_rates_by_meaning_and_records_the_scale(monkeypatch):
     seen = fake_llm(monkeypatch, reaction)
     twins = build_population(20, {"senior": 1})
     report = engine.simulate(twins, SCENARIO)
-    assert "Скажи одной-двумя фразами" in seen["chat"][0][0]["content"]
+    assert "Соблюдай допущения вопроса" in seen["chat"][0][0]["content"]
+    assert "Не выставляй числовую оценку" in seen["chat"][0][0]["content"]
     assert report["A"]["conversion"] > 0.85 and report["B"]["conversion"] < 0.15
     assert report["A"]["likert"][4] > 0.9 and report["B"]["likert"][0] > 0.9
     assert report["B"]["objections"] == {"не доверяю": report["B"]["n"] - report["B"]["yes"]}

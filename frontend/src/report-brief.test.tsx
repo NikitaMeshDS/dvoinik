@@ -45,22 +45,50 @@ it("summarizes the actual question and observed simulation separately from the n
   expect(within(brief).getByText(record.scenario.question)).toBeTruthy();
   expect(within(brief).getByText(record.scenario.variants.A)).toBeTruthy();
   expect(within(brief).getByText(/55,5%/)).toBeTruthy();
+  const sources = within(brief).getByRole("group", {
+    name: "Источники данных",
+  });
+  expect(within(sources).getByText("Эвристическое демо")).toBeTruthy();
+  expect(within(sources).getByText("Опрос ещё не загружен")).toBeTruthy();
+  expect(within(brief).getByText(/выше следующего на 12,5 п. п./)).toBeTruthy();
   expect(within(brief).getByText(/не прогноз спроса/)).toBeTruthy();
   fireEvent.click(
-    within(brief).getByRole("button", {
+    screen.getByRole("button", {
       name: "Открыть пример живой проверки",
     }),
   );
   expect(onValidation).toHaveBeenCalledOnce();
 });
+it("separates the model result from a partially covered survey in the first screen", () => {
+  const r = {
+    ...record,
+    mock: false,
+    model: "qwen-local",
+    validation: {
+      created_at: "2026-11-22",
+      cells: [{ variant: "A", segment: "senior", n: 6, yes: 2 }],
+      result: {
+        survey_n: 6,
+        matched_cells: 1,
+        cells: [],
+        actual_winners: [],
+        predicted_winners: [],
+        winner_match: null,
+        mae_conversion: 0.2,
+        spearman_variants: null,
+      },
+    },
+  };
+  show(r);
+  const sources = screen.getByRole("group", { name: "Источники данных" });
+  expect(within(sources).getByText("Симуляция модели")).toBeTruthy();
+  expect(within(sources).getByText("qwen-local")).toBeTruthy();
+  expect(within(sources).getByText("Неполное покрытие опроса")).toBeTruthy();
+  expect(within(sources).getByText(/6 оценок · 1 из 3 пар/)).toBeTruthy();
+});
 it("prioritizes an unsaved result in the brief rather than offering another run", () => {
   const { onRetry } = show(record, base, "Диск недоступен");
-  const brief = screen.getByRole("region", {
-    name: "Краткий итог исследования",
-  });
-  fireEvent.click(
-    within(brief).getByRole("button", { name: "Повторить сохранение" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Повторить сохранение" }));
   expect(onRetry).toHaveBeenCalledOnce();
 });
 it("does not present a leader when analysis is unavailable", () => {
@@ -84,7 +112,7 @@ it.each(["failed", "missing"])(
     expect(within(brief).queryByText(/55,5%/)).toBeNull();
     expect(within(brief).getByText(/Проверьте качество/)).toBeTruthy();
     expect(
-      within(brief).getByRole("button", { name: "Повторить сохранение" }),
+      screen.getByRole("button", { name: "Повторить сохранение" }),
     ).toBeTruthy();
   },
 );

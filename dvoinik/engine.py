@@ -18,6 +18,7 @@ from . import llm_cache, llm_json, ssr
 from .population import SEGMENTS, Twin
 from .report_stats import OTHER_OBJECTION as OTHER_OBJECTION
 from .report_stats import aggregate as aggregate
+from .scenarios import deposit_terms
 
 SYSTEM = (
     "Ты — конкретный клиент банка, описанный ниже. Отвечай от первого лица, как этот человек, "
@@ -34,7 +35,8 @@ SSR_SYSTEM = (
     "Ты — конкретный клиент банка, описанный ниже. Отвечай от первого лица, как этот человек, "
     "учитывая его возраст, доход, привычки и отношение к банкам. Не будь чрезмерно позитивным: "
     "реальные клиенты часто отказываются, если не видят явной пользы.\n"
-    "Скажи одной-двумя фразами, воспользуешься ли ты предложением и почему, без чисел и оценок.\n"
+    "Ответь на указанный вопрос одной-двумя фразами и объясни почему. Соблюдай допущения вопроса. "
+    "Не выставляй числовую оценку.\n"
     'Ответь строго JSON: {"reaction": "одна-две фразы от первого лица", '
     '"objection": главная причина сомнений — одна категория из списка}'
 )
@@ -152,9 +154,10 @@ async def _ask_llm(
     guard: Callable[[], None] | None = None,
     references: ssr.References | None = None,
 ):
+    terms = deposit_terms(scenario)
+    offer = f"{variant_text} {terms}" if terms else variant_text
     user = (
-        f"Ты: {twin.profile()}\n\nБанк предлагает: {variant_text}\n\n"
-        f"Контекст исследования: {scenario.get('description', '')}\n"
+        f"Ты: {twin.profile()}\n\nБанк предлагает: {offer}\n\n"
         f"Вопрос: {scenario['question']}\n"
         f"Категории отказа: {', '.join(scenario['objections'])}"
     )
@@ -250,46 +253,14 @@ BASE = {
 }
 
 
-MOTIVES = {
-    "student_msk": [
-        "Если это подходит для моих ежедневных покупок, готов попробовать.",
-        "Звучит выгодно для того, как я трачу. Оформлю и посмотрю месяц.",
-        "Сравню с тем, что у меня уже есть, но предложение интересное.",
-    ],
-    "student_reg": [
-        "Для меня важно не тратить лишнее на обслуживание карты.",
-        "Если правда без скрытых платежей, переведу сюда стипендию.",
-        "Подходит, пока условия понятные и ничего не списывают.",
-    ],
-    "teen": [
-        "Обсужу с родителями, мне интересно попробовать.",
-        "Если друзья тоже будут пользоваться, попрошу маму оформить.",
-        "Хочу попробовать, но решать будут родители.",
-    ],
-    "young_family": [
-        "Если семье будет проще планировать расходы, подключу.",
-        "Обсудим дома: если сэкономит время на бюджете, оформим.",
-        "Для семьи это может быть удобно, попробуем.",
-    ],
-    "senior": [
-        "Сначала уточню условия у сотрудника банка.",
-        "Если помогут оформить и всё объяснят, открою.",
-        "Посоветуюсь с дочерью, но в целом подходит.",
-    ],
-    "self_employed": [
-        "Попробую, если это упростит расчёты с клиентами.",
-        "Если комиссии честные, перейду с текущего счёта.",
-        "Это может сэкономить мне время на отчётности.",
-    ],
-    "nonresident": [
-        "Мне важно понимать условия переводов и комиссии.",
-        "Если всё объяснено понятно, буду пользоваться.",
-        "Подойдёт для переводов домой, если комиссия честная.",
-    ],
-}
+MOTIVES = [
+    "Да, мне это подходит.",
+    "Скорее да. Предложение мне интересно.",
+    "Да, эти условия мне подходят.",
+]
 REFUSALS = [
-    "Пока не подключу. Причина: {reason}.",
-    "Не вижу смысла менять что-то сейчас: {reason}.",
+    "Скорее нет. Меня останавливает причина «{reason}».",
+    "Нет, у меня есть сомнение: {reason}.",
     "Скорее нет. Главное для меня — {reason}.",
     "Отложу решение: {reason}.",
 ]
@@ -310,10 +281,10 @@ def _ask_mock(rng: random.Random, twin: Twin, scenario: dict, variant_text: str)
     for reason in objections:
         weight = 1.0
         if "плата" in reason or "комисс" in reason:
-            if ("бесплат" in t and "₽/мес" not in t and "комиссия" not in t) or "без комиссии" in t:
-                weight = 0.0
-            elif "₽/мес" in t or "комиссия" in t:
+            if "₽/мес" in t or "₽ в месяц" in t or "комиссия" in t:
                 weight = 3.0
+            elif "бесплат" in t or "без комиссии" in t:
+                weight = 0.0
         if "канал" in reason and twin.segment == "senior":
             weight = 4.0 if "только в приложении" in t else 0.5
         if "мошенник" in reason and "мошенник" in t:
@@ -323,7 +294,7 @@ def _ask_mock(rng: random.Random, twin: Twin, scenario: dict, variant_text: str)
         weights.append(weight)
     obj = None if decision else rng.choices(objections, weights=weights if sum(weights) else None)[0]
     if decision:
-        quote = _pick(MOTIVES[twin.segment], twin.id, t)
+        quote = _pick(MOTIVES, twin.id, t)
     else:
         quote = _pick(REFUSALS, twin.id, t).format(reason=obj)
     return {"decision": decision, "probability": round(p, 2), "objection": obj, "quote": quote}
@@ -450,8 +421,8 @@ def baseline_estimate(scenario: dict, mock: bool = False) -> dict:
     variants = scenario["variants"]
     user = (
         f"Аудитория: {_audience_text(scenario)}.\n"
-        f"Контекст: {scenario.get('description', '')}\n"
-        f"Вопрос: {scenario['question']}\n"
+        + (deposit_terms(scenario) + "\n" if "deposit_minimum_rub" in scenario else "")
+        + f"Вопрос: {scenario['question']}\n"
         + "\n".join(f"Предложение {vid}: {text}" for vid, text in variants.items())
     )
 

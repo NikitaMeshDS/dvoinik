@@ -17,9 +17,10 @@ from .insights import matrix_rows, segment_report
 from .population import SEGMENTS
 from .presentation import COLORS, escape, markup, section
 from .reporting import export_csv, export_json, summarize
+from .scenarios import deposit_terms
 from .storage import KEEP_VALIDATION
 from .survey_materials import comparable_cells, survey_template
-from .validate import load_survey
+from .validate import RANKING_LIMITS, load_survey
 from .workspace import Workspace
 
 
@@ -40,6 +41,8 @@ def persist_record(record, *, expected_validation=KEEP_VALIDATION):
 
 
 def offers(scenario):
+    if terms := deposit_terms(scenario):
+        st.caption(terms)
     variants = list(scenario["variants"].items())
     for start in range(0, len(variants), 3):
         row = variants[start : start + 3]
@@ -208,7 +211,7 @@ def matrix_view(record):
             )
         body.append(f'<tr><th scope="row">{escape(row["name"])}</th>' + "".join(cells) + "</tr>")
     markup(
-        '<div class="matrix-scroll" tabindex="0" role="region" aria-label="Матрица результатов с горизонтальной прокруткой"><table class="segment-matrix" aria-label="Готовность подключить предложение по сегментам"><thead><tr><th scope="col">Аудитория</th>'
+        '<div class="matrix-scroll" tabindex="0" role="region" aria-label="Матрица результатов с горизонтальной прокруткой"><table class="segment-matrix" aria-label="Доля ответов да по сегментам"><thead><tr><th scope="col">Аудитория</th>'
         + headings
         + "</tr></thead><tbody>"
         + "".join(body)
@@ -239,7 +242,7 @@ def _next_step(rep, summary, *, focused):
         quotes = rep[leader]["quotes"]
         if quotes:
             quote = quotes[0]
-            answer = "Готовы подключить" if quote["decision"] else "Отказались"
+            answer = "Ответ «да»" if quote["decision"] else "Ответ «нет»"
             markup(
                 f'<div class="focus-quote"><span class="quote-tag {"" if quote["decision"] else "no"}">{answer}</span><p>«{escape(quote["quote"])}»</p><small>{escape(quote["who"])}</small></div>'
             )
@@ -256,6 +259,17 @@ def _next_step(rep, summary, *, focused):
 
 def results_view(record, summary):
     matrix_view(record)
+    eligibility = record.get("deposit_eligibility")
+    if eligibility is not None:
+        st.subheader("По минимальному взносу")
+        st.write(
+            f"{deposit_terms(record['scenario'])} "
+            f"Средств хватает у {eligibility['available_n']} из {record['n']} профилей."
+        )
+        st.caption(
+            f"Не хватает у {eligibility['unavailable_n']}, сумма неизвестна у {eligibility['unknown_n']}. "
+            "Суммы синтетические. Расчёт по всей аудитории учитывает только взнос."
+        )
     sid = st.selectbox(
         "Разобрать аудиторию",
         ["all", *record["scenario"]["population"]],
@@ -271,7 +285,7 @@ def results_view(record, summary):
     left, right = st.columns([1.5, 1], gap="large")
     with left:
         with st.container(border=True, key="conversion_panel"):
-            st.subheader("Готовность подключить продукт")
+            st.subheader("Интерес к предложению" if eligibility is not None else "Доля ответов «да»")
             st.caption("Доля валидных ответов «да» в выбранной аудитории")
             conversion_chart(rep)
             st.caption(
@@ -329,6 +343,9 @@ def audience_view(record):
             st.caption(SEGMENTS[twin["segment"]]["name"])
             st.write(f"Доход: {twin['income']}. Привычки: {', '.join(twin['habits'])}.")
             st.caption(f"Отношение к банкам: {twin['attitude']}.")
+            if "available_deposit_rub" in twin:
+                amount = f"{twin['available_deposit_rub']:,}".replace(",", " ")
+                st.caption(f"Свободно для вклада — {amount} ₽.")
 
 
 def voices_view(record):
@@ -345,19 +362,19 @@ def voices_view(record):
         format_func=lambda v: f"Вариант {v}",
     )
     decision = second.selectbox(
-        "Ответ", ["Все ответы", "Готовы подключить", "Отказались"], key=f"voice_filter_{record['id']}"
+        "Ответ", ["Все ответы", "Ответ «да»", "Ответ «нет»"], key=f"voice_filter_{record['id']}"
     )
     quotes = [
         q
         for q in record["report"][vid]["quotes"]
-        if decision == "Все ответы" or q["decision"] == (decision == "Готовы подключить")
+        if decision == "Все ответы" or q["decision"] == (decision == "Ответ «да»")
     ]
     if not quotes:
         st.info("В сохранённой подборке нет таких ответов. Попробуйте другой фильтр.")
     cols = st.columns(2)
     for index, quote in enumerate(quotes):
         with cols[index % 2]:
-            tag = "Готовы подключить" if quote["decision"] else "Отказались"
+            tag = "Ответ «да»" if quote["decision"] else "Ответ «нет»"
             markup(
                 f'<div class="quote"><span class="quote-tag {"" if quote["decision"] else "no"}">{tag}</span>'
                 f"<p>«{escape(quote['quote'])}»</p><small>{escape(quote['who'])}<br>{escape(quote['segment'])}</small></div>"
@@ -414,6 +431,8 @@ def validation_view(record):
             "Валидация ещё не проведена. Добавьте ответы живых респондентов, чтобы измерить ошибку симуляции."
         )
         return
+    if reason := result.get("ranking_unavailable"):
+        st.warning("Общий рейтинг недоступен. " + RANKING_LIMITS[reason])
     cols = st.columns(3)
     cols[0].metric("Средняя абсолютная ошибка", f"{result['mae_conversion'] * 100:.1f} п.п.")
     cols[1].metric(
@@ -422,7 +441,7 @@ def validation_view(record):
     )
     cols[2].metric(
         "Совпадение лидера",
-        {True: "Да", False: "Нет", None: "Нет единственного лидера"}[result["winner_match"]],
+        {True: "Да", False: "Нет", None: "Не определено"}[result["winner_match"]],
     )
     st.caption(
         f"{result['survey_n']} живых ответов; {result['matched_cells']} сопоставленных пар «вариант — сегмент»."

@@ -174,7 +174,7 @@ def run_estimate(scenario: dict, n: int, concurrency: int = 16, baseline: bool =
     from .engine import BASELINE_SYSTEM, SYSTEM
 
     variants = scenario["variants"]
-    shared = len(SYSTEM) + len(scenario.get("description", "")) + len(scenario["question"])
+    shared = len(SYSTEM) + len(scenario["question"])
     shared += sum(len(o) + 2 for o in scenario["objections"]) + PROFILE_CHARS + 120
     requests = n * len(variants)
     input_chars = sum((shared + len(text)) * n for text in variants.values())

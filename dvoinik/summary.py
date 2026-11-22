@@ -13,6 +13,8 @@ from .experiments import format_timestamp
 from .hypotheses import suggest
 from .planning import baseline_agreement, leader_stability, live_check_plan
 from .population import DISTORTION_RISK, SEGMENTS
+from .scenarios import deposit_terms
+from .validate import RANKING_LIMITS
 
 
 def _pct(value) -> str:
@@ -102,6 +104,42 @@ def _survey_coverage(record, result) -> str:
     return "".join(lines)
 
 
+def _survey_discrepancies(record) -> str:
+    validation = record.get("validation")
+    if not validation or not (cells := validation["result"]["cells"]):
+        return ""
+    largest = sorted(cells, key=lambda cell: (-cell["error"], -cell["survey_n"]))[:5]
+    rows = []
+    for cell in largest:
+        actual, predicted = cell["actual"], cell["predicted"]
+        direction = (
+            "Доли совпали"
+            if actual == predicted
+            else "Симуляция выше"
+            if predicted > actual
+            else "Симуляция ниже"
+        )
+        rows.append(
+            f"<tr><th scope='row'>{escape(cell['variant'])}"
+            f"<small>{escape(SEGMENTS[cell['segment']]['name'])}</small></th>"
+            f"<td>{cell['survey_n']}</td>"
+            f"<td>{_pct(actual)}<small>{_pct(predicted)}</small></td>"
+            f"<td>{_num(cell['error'] * 100)} п.п.<small>{direction}</small></td></tr>"
+        )
+    return (
+        '<section id="survey-discrepancies" aria-labelledby="survey-discrepancies-heading">'
+        '<h2 id="survey-discrepancies-heading">Расхождения по сегментам</h2>'
+        f'<p class="note">Сопоставленные пары ({len(largest)} из {len(cells)}) идут '
+        "от большего расхождения к меньшему. Учитывайте число оценок в каждой паре. "
+        "Полная таблица доступна в отчёте и в метриках проверки JSON.</p>"
+        '<table class="survey-discrepancies"><thead><tr>'
+        "<th scope='col'>Вариант и сегмент</th><th scope='col'>Оценок</th>"
+        "<th scope='col'>Опрос<small>Симуляция</small></th>"
+        "<th scope='col' aria-sort='descending'>Расхождение</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></section>"
+    )
+
+
 def _checks(record) -> str:
     report = record["report"]
     lines = []
@@ -150,6 +188,8 @@ def _checks(record) -> str:
                 f"простого подхода {_num(base['baseline_mae_variants'] * 100)} п.п."
             )
         lines.append(line + ". Источник ответов предоставлен пользователем.</li>")
+        if reason := result.get("ranking_unavailable"):
+            lines.append(f"<li><b>Общий рейтинг недоступен.</b> {escape(RANKING_LIMITS[reason])}</li>")
         lines.append(_survey_coverage(record, result))
         from .experiments import PROTOCOL_ASSIGNMENTS, normalize_protocol
 
@@ -281,6 +321,15 @@ def team_summary(record: dict) -> str:
     offers = "".join(
         f"<li><b>{escape(vid)}.</b> {escape(text)}</li>" for vid, text in scenario["variants"].items()
     )
+    eligibility = record.get("deposit_eligibility")
+    access = ""
+    if eligibility is not None:
+        access = (
+            f"<h2>По минимальному взносу</h2><p>{escape(deposit_terms(scenario))} "
+            f"Хватает средств у {eligibility['available_n']} из {record['n']} профилей. "
+            f"Не хватает у {eligibility['unavailable_n']}, сумма неизвестна у {eligibility['unknown_n']}. "
+            "Суммы синтетические.</p>"
+        )
     return f"""<!doctype html>
 <html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -298,8 +347,11 @@ th,td{{text-align:left;padding:8px 10px;border-bottom:1px solid #e6ecf3;vertical
 thead th{{font-size:12px;color:#60758c;font-weight:600}}tbody th small{{display:block;color:#60758c;font-weight:400}}
 td.lead{{color:#315cf3;font-weight:700}}.passport th{{width:30%;font-weight:600}}tr.total th,tr.total td{{border-top:2px solid #dce4ee}}
 .note{{font-size:13px;color:#60758c}}ul,ol{{padding-left:20px}}li{{margin:4px 0}}
+.survey-discrepancies small{{display:block;color:#60758c;font-weight:400}}
+.survey-discrepancies th,.survey-discrepancies td{{overflow-wrap:anywhere}}
 footer{{margin-top:32px;font-size:12px;color:#60758c}}
-@media(max-width:640px){{main{{margin:0;padding:22px;border-radius:0}}}}
+@media(max-width:640px){{main{{margin:0;padding:22px;border-radius:0}}
+.survey-discrepancies th,.survey-discrepancies td{{padding:7px 5px;font-size:12px}}}}
 @media print{{@page{{size:A4;margin:16mm}}body{{background:#fff}}main{{margin:0;padding:0;max-width:none}}
 h2{{break-after:avoid}}table{{break-inside:avoid}}}}
 </style></head><body><main>
@@ -309,10 +361,12 @@ h2{{break-after:avoid}}table{{break-inside:avoid}}}}
 <p><b>Вопрос:</b> {escape(scenario["question"])}</p>
 <h2>Паспорт исследования</h2>{_passport(record)}
 <h2>Предложения</h2><ul>{offers}</ul>
-<h2>Доли согласий по сегментам</h2>{_matrix(record)}
+<h2>{"Интерес по сегментам" if eligibility is not None else "Доли согласий по сегментам"}</h2>{_matrix(record)}
+{access}
 <p class="note">Выделены наибольшие доли в строке; статистическая значимость не проверялась.</p>
 <h2>Частые причины отказа</h2>{_objections(record)}
 <h2>Проверки качества</h2>{_checks(record)}
+{_survey_discrepancies(record)}
 <h2>Гипотезы: что поменять в предложении</h2>{_hypotheses(record)}
 <h2>План живой проверки</h2>{_plan(record)}
 <footer>Двойник · синтетическая аудитория для подготовки живых исследований. Доли — заявленная готовность

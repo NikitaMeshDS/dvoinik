@@ -3,6 +3,7 @@ import { Download, FileText, FileSpreadsheet, BookOpen } from "lucide-react";
 import { download, ignored, message } from "../../api";
 import { Button, Notice } from "../../components";
 import type { Catalog, Experiment } from "../../types";
+import OfferFormPreview from "../OfferFormPreview";
 
 export default function SurveyPreparation({
   record,
@@ -14,6 +15,7 @@ export default function SurveyPreparation({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const variants = Object.entries(record.scenario.variants);
+  const minimum = record.scenario.deposit_minimum_rub;
   const segments = Object.keys(record.scenario.population);
   const missing = variants.flatMap(([vid]) =>
     segments
@@ -63,8 +65,8 @@ export default function SurveyPreparation({
         <li>
           <FileText size={21} />
           <div>
-            <strong>Анкета</strong>
-            <span>HTML для браузера и печати</span>
+            <strong>Бланки по вариантам</strong>
+            <span>Отдельный HTML для каждого предложения</span>
           </div>
         </li>
         <li>
@@ -99,18 +101,16 @@ export default function SurveyPreparation({
         <summary>Посмотреть анкету и коды сегментов</summary>
         <div className="survey-preview-content">
           <div className="survey-questionnaire">
-            <h3>Вопрос для каждого предложения</h3>
-            <p className="survey-question">{record.scenario.question}</p>
             <p className="help">
-              Ответ: да или нет. Причину можно записать отдельно; в метрики CSV
-              входят только решения.
+              Назначайте варианты случайно. Каждый участник видит только один
+              бланк. В CSV входит ответ «да» или «нет» на вопрос.
             </p>
-            {variants.map(([vid, text]) => (
-              <div className="survey-offer" key={vid}>
-                <span className="survey-variant">{vid}</span>
-                <p>{text}</p>
-              </div>
-            ))}
+            <OfferFormPreview
+              key={record.id}
+              offers={variants}
+              question={record.scenario.question}
+              minimum={minimum}
+            />
           </div>
           <div className="survey-segment-key">
             <h3>Коды для исследователя</h3>

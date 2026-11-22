@@ -544,47 +544,7 @@
   content: "−";
 }
 .respondent-preview > section {
-  padding: 0 18px 4px;
-}
-.respondent-preview h3 {
-  max-width: 65ch;
-  line-height: 1.55;
-}
-.respondent-offers {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-}
-.respondent-offers article {
-  min-width: 0;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 18px;
-}
-.respondent-letter {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  color: var(--blue);
-  background: #edf2ff;
-  font-size: 13px;
-  font-weight: 650;
-}
-.respondent-offers p {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 14px;
-  margin: 12px 0;
-}
-.respondent-answer {
-  display: block;
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
-  font-size: 12px;
-  color: var(--muted);
+  padding: 0 18px 18px;
 }
 .audience-distribution {
   padding: 22px;
@@ -657,9 +617,6 @@
   .composer textarea,
   .composer select {
     scroll-margin-bottom: 180px;
-  }
-  .composer .respondent-offers {
-    grid-template-columns: minmax(0, 1fr);
   }
   .composer .respondent-preview > summary {
     font-size: 13px;

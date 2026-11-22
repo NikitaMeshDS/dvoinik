@@ -8,6 +8,12 @@ export default function SnapshotDetails({ record }: { record: Experiment }) {
           <strong>Вопрос:</strong> {record.scenario.question}
         </p>
         <p>{record.scenario.description}</p>
+        {record.scenario.deposit_minimum_rub !== undefined && (
+          <p>
+            Минимальный взнос —{" "}
+            {record.scenario.deposit_minimum_rub.toLocaleString("ru-RU")} ₽.
+          </p>
+        )}
         <div className="saved-offers">
           {Object.entries(record.scenario.variants).map(([v, text]) => (
             <div key={v} className={"variant-" + v}>

@@ -58,7 +58,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
-it("previews the current question and only visible offers without collecting answers", () => {
+it("previews one participant form at a time and follows edits to the selected offer", () => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   const d = draft();
   const { rerender } = render(page(d));
@@ -66,9 +66,17 @@ it("previews the current question and only visible offers without collecting ans
   const preview = screen.getByRole("region", { name: "Предпросмотр вопроса" });
   expect(preview.textContent).toContain(d.question);
   expect(preview.textContent).toContain(d.variants.A);
-  expect(preview.textContent).toContain(d.variants.B);
+  expect(preview.textContent).not.toContain(d.variants.B);
   expect(preview.textContent).not.toContain(d.variants.C);
-  expect(within(preview).queryAllByRole("button")).toHaveLength(0);
+  expect(
+    within(preview).queryByRole("button", { name: "Вариант C" }),
+  ).toBeNull();
+  const second = within(preview).getByRole("button", { name: "Вариант B" });
+  fireEvent.click(second);
+  expect(second.getAttribute("aria-pressed")).toBe("true");
+  expect(preview.textContent).toContain(d.variants.B);
+  expect(preview.textContent).not.toContain(d.variants.A);
+  expect(within(preview).queryByRole("checkbox")).toBeNull();
   rerender(
     page({
       ...d,
@@ -127,4 +135,19 @@ it("does not keep the audience visualization busy after preview failure", async 
   });
   expect(distribution.getAttribute("aria-busy")).toBe("false");
   expect(within(distribution).queryByRole("status")).toBeNull();
+});
+
+it("waits for an explicit audience choice before requesting a preview", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const request = vi
+    .spyOn(api, "request")
+    .mockRejectedValue(new Error("offline"));
+  const d = draft();
+  const { rerender } = render(page({ ...d, weights: {} }, 1));
+  await act(async () => vi.advanceTimersByTimeAsync(300));
+  expect(request).not.toHaveBeenCalled();
+  rerender(page(d, 1));
+  await act(async () => vi.advanceTimersByTimeAsync(300));
+  expect(request.mock.calls.some(([path]) => path === "/preview")).toBe(true);
 });

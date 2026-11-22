@@ -6,6 +6,7 @@ from dvoinik.comparison import compare_runs
 from dvoinik.engine import simulate
 from dvoinik.population import build_population
 from dvoinik.reporting import make_record
+from dvoinik.runs import RunSettings, run_experiment
 from dvoinik.scenarios import SCENARIOS
 
 
@@ -70,6 +71,28 @@ def test_different_configuration_signatures_are_disclosed_even_with_same_model_n
     left, right = record(), record()
     right["signature"] = "different-endpoint"
     assert any(change["field"] == "configuration" for change in compare_runs(left, right)["changes"])
+
+
+@pytest.mark.parametrize("previous_minimum", [None, 50_000])
+def test_compare_shows_changed_deposit_minimum(previous_minimum):
+    previous = {**SCENARIOS["senior_deposit"]}
+    previous.pop("deposit_minimum_rub")
+    if previous_minimum is not None:
+        previous["deposit_minimum_rub"] = previous_minimum
+    current = {**previous, "deposit_minimum_rub": 75_000}
+    settings = RunSettings(n=12, mock=True)
+    left = run_experiment("senior_deposit", previous, settings)
+    right = run_experiment("senior_deposit", current, settings)
+    result = compare_runs(left, right)
+    assert result["changes"] == [
+        {
+            "field": "deposit_minimum_rub",
+            "label": "Минимальный взнос, ₽",
+            "before": previous_minimum,
+            "after": 75_000,
+        }
+    ]
+    assert [warning["code"] for warning in result["warnings"]] == ["deposit_minimum"]
 
 
 def test_comparison_warnings_explain_multiple_changed_factors_in_stable_order():

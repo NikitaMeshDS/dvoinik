@@ -55,6 +55,7 @@ export default function Composer({
       {
         title: "Название исследования",
         question: "Вопрос двойникам",
+        depositMinimumRub: "Минимальный взнос, ₽",
         objections: "Категории отказа — одна на строку",
         n: "Размер аудитории",
         seed: "Seed популяции и демо",
@@ -210,7 +211,7 @@ export default function Composer({
                 ))}
               </select>
             </label>
-            <p>{catalog.scenarios[draft.key]?.description}</p>
+            <p>{draft.description}</p>
           </div>
           <div className="question-fields">
             <label className="field">
@@ -277,6 +278,34 @@ export default function Composer({
               </label>
             ))}
           </div>
+          {(draft.key === "senior_deposit" ||
+            draft.key === "custom" ||
+            draft.depositMinimumRub !== undefined) && (
+            <label className="field">
+              <span>Минимальный взнос, ₽</span>
+              <input
+                {...fieldProps("depositMinimumRub")}
+                type="number"
+                min={1}
+                max={1_000_000_000}
+                step={1}
+                value={draft.depositMinimumRub ?? ""}
+                onChange={(e) =>
+                  patch({
+                    depositMinimumRub:
+                      e.target.value === ""
+                        ? undefined
+                        : Number(e.target.value),
+                  })
+                }
+              />
+              <small>
+                Общий для всех вариантов вклада. Оставьте пустым, если проверка
+                суммы не нужна.
+              </small>
+              {fieldError("depositMinimumRub")}
+            </label>
+          )}
           <RespondentPreview draft={draft} />
           <details className="disclosure">
             <summary>
@@ -291,17 +320,24 @@ export default function Composer({
                   value={draft.description}
                   onChange={(e) => patch({ description: e.target.value })}
                 />
+                <small>
+                  Заметка команды. Условия для участника внесите в предложения и
+                  вопрос.
+                </small>
               </label>
               <label className="field">
                 <span>Категории отказа — одна на строку</span>
                 <textarea
                   {...fieldProps("objections")}
-                  maxLength={1500}
+                  maxLength={3000}
                   value={draft.objections.join("\n")}
                   onChange={(e) =>
                     patch({ objections: e.target.value.split("\n") })
                   }
                 />
+                <small>
+                  До 12 уникальных категорий, до 120 символов каждая.
+                </small>
                 {fieldError("objections")}
               </label>
             </div>

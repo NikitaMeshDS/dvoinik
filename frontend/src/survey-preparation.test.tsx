@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import ValidationPanel from "./features/reports/ValidationPanel";
@@ -27,7 +28,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
-it("keeps the questionnaire neutral and uses the actual saved question and offers", () => {
+it("shows only the selected saved offer and keeps the questionnaire neutral", () => {
   panel({
     ...record,
     scenario: {
@@ -38,11 +39,25 @@ it("keeps the questionnaire neutral and uses the actual saved question and offer
   });
   fireEvent.click(screen.getByText("Посмотреть анкету и коды сегментов"));
   expect(screen.getByText("Открыли бы вы счёт на этих условиях?")).toBeTruthy();
-  for (const text of Object.values(record.scenario.variants)) {
-    expect(screen.getByText(text)).toBeTruthy();
-  }
+  const preview = screen.getByRole("region", { name: "Бланк участника" });
+  expect(within(preview).getByText(record.scenario.variants.A)).toBeTruthy();
+  expect(within(preview).queryByText(record.scenario.variants.B)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Вариант B" }));
+  expect(within(preview).getByText(record.scenario.variants.B)).toBeTruthy();
+  expect(within(preview).queryByText(record.scenario.variants.A)).toBeNull();
   expect(screen.queryByText("INTERNAL-DESCRIPTION")).toBeNull();
   expect(screen.queryByText(/Лидер симуляции/)).toBeNull();
+});
+it("shows the saved minimum and explains one offer per questionnaire", () => {
+  panel({
+    ...record,
+    scenario: { ...record.scenario, deposit_minimum_rub: 75_000 },
+  });
+  fireEvent.click(screen.getByText("Посмотреть анкету и коды сегментов"));
+  expect(screen.getByText(/Минимальный взнос — 75\s000 ₽/)).toBeTruthy();
+  expect(
+    screen.getByText(/каждый участник видит только один бланк/i),
+  ).toBeTruthy();
 });
 it("disables duplicate kit downloads until the session-bound export is ready", async () => {
   let resolve!: (response: Response) => void;
