@@ -49,9 +49,11 @@ def login(
 
 
 @router.post("/api/logout")
-def logout(response: Response, access=Depends(identity), runtime=Depends(get_runtime)):
+def logout(
+    response: Response, access=Depends(identity), runtime=Depends(get_runtime), security=Depends(get_security)
+):
     token, _ = access
     runtime.auth.logout(token)
     runtime.snapshots.forget(token)
-    response.delete_cookie(COOKIE, path="/", httponly=True, samesite="strict")
+    security.clear_cookie(response)
     return {"ok": True}

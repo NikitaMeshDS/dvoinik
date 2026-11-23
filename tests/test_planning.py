@@ -177,6 +177,18 @@ def test_run_estimate_counts_requests_and_optional_price(monkeypatch):
         run_estimate(scenario, 200)
 
 
+@pytest.mark.parametrize(
+    "n, concurrency, baseline, batches", [(6, 4, True, 8), (6, 1, True, 19), (1, 16, False, 3)]
+)
+def test_estimate_keeps_probe_variant_groups_and_baseline_separate(
+    monkeypatch, n, concurrency, baseline, batches
+):
+    monkeypatch.setenv("DVOINIK_LLM_LATENCY_S", "3")
+    estimate = run_estimate(SCENARIOS["senior_deposit"], n, concurrency=concurrency, baseline=baseline)
+    assert estimate["requests"] == n * 3 + baseline
+    assert estimate["minutes"] == pytest.approx(batches * 3 / 60)
+
+
 def test_demo_quotes_vary_without_changing_decisions():
     twins = build_population(200, {"senior": 1.0}, seed=42)
     scenario = SCENARIOS["senior_deposit"]

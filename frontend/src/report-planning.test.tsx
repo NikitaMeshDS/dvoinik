@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import LivePlan from "./features/reports/LivePlan";
 import BaselineCard from "./features/reports/BaselineCard";
@@ -191,4 +197,94 @@ it("orders discrepancies by absolute size and shows direction with the response 
   expect(within(second).getByText("Модель выше")).toBeTruthy();
   expect(within(third).getByText("A")).toBeTruthy();
   expect(result.cells.map((cell) => cell.variant)).toEqual(["A", "B", "C"]);
+  const comparison = screen.getByRole("region", {
+    name: "Сравнение предложений в сегменте",
+  });
+  expect(within(comparison).getByText("Разница A − B")).toBeTruthy();
+  expect(within(comparison).getByText("+50,0 п.п.")).toBeTruthy();
+  expect(within(comparison).getByText("−10,0 п.п.")).toBeTruthy();
+  fireEvent.change(
+    within(comparison).getByRole("combobox", { name: "Пара для сравнения" }),
+    {
+      target: { value: "B-C" },
+    },
+  );
+  expect(within(comparison).getByText("Разница B − C")).toBeTruthy();
+  expect(within(comparison).getByText("−70,0 п.п.")).toBeTruthy();
+  expect(within(comparison).getByText("+30,0 п.п.")).toBeTruthy();
+  expect(within(comparison).getByText("B — 1 оценка")).toBeTruthy();
+  expect(within(comparison).getByText("C — 15 оценок")).toBeTruthy();
+});
+
+it("filters discrepancies to one segment and preserves the full-survey metrics", () => {
+  const result: ValidationResult = {
+    ranking_unavailable: "different_mix",
+    mae_conversion: 0.2,
+    spearman_variants: null,
+    winner_match: null,
+    survey_n: 25,
+    matched_cells: 3,
+    cells: [
+      {
+        variant: "A",
+        segment: "senior",
+        survey_n: 10,
+        actual: 0.5,
+        predicted: 0.4,
+        error: 0.1,
+      },
+      {
+        variant: "B",
+        segment: "senior",
+        survey_n: 10,
+        actual: 0.7,
+        predicted: 0.4,
+        error: 0.3,
+      },
+      {
+        variant: "C",
+        segment: "teen",
+        survey_n: 5,
+        actual: 0.2,
+        predicted: 0.4,
+        error: 0.2,
+      },
+    ],
+    actual_winners: [],
+    predicted_winners: [],
+  };
+  const { rerender } = render(
+    <ValidationMetrics result={result} segments={{}} />,
+  );
+  const selector = screen.getByRole("combobox", { name: "Сегмент в таблице" });
+  const table = screen.getByRole("region", { name: "Таблица расхождений" });
+  expect(
+    screen.queryByRole("region", { name: "Сравнение предложений в сегменте" }),
+  ).toBeNull();
+  fireEvent.change(selector, { target: { value: "senior" } });
+  expect(within(table).getAllByRole("row")).toHaveLength(3);
+  expect(within(table).queryByText("teen")).toBeNull();
+  expect(screen.getByText("Показано 2 из 3 пар")).toBeTruthy();
+  expect(screen.getByText("20,0")).toBeTruthy();
+  const comparison = screen.getByRole("region", {
+    name: "Сравнение предложений в сегменте",
+  });
+  expect(within(comparison).getByText("−20,0 п.п.")).toBeTruthy();
+  expect(within(comparison).getByText("0,0 п.п.")).toBeTruthy();
+  fireEvent.change(selector, { target: { value: "teen" } });
+  expect(within(table).getAllByRole("row")).toHaveLength(2);
+  expect(screen.getByText(/оценивали только одно предложение/)).toBeTruthy();
+  expect(
+    screen.queryByRole("region", { name: "Сравнение предложений в сегменте" }),
+  ).toBeNull();
+  rerender(
+    <ValidationMetrics
+      result={{ ...result, cells: result.cells.slice(0, 2) }}
+      segments={{}}
+    />,
+  );
+  expect(
+    screen.queryByRole("combobox", { name: "Сегмент в таблице" }),
+  ).toBeNull();
+  expect(within(table).getAllByRole("row")).toHaveLength(3);
 });

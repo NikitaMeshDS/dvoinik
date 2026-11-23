@@ -33,6 +33,16 @@ it("allocates profiles with largest remainders like the server", () => {
   });
 });
 
+it("estimates variant batches and separate probe and baseline on the showcase", async () => {
+  const response = await backend()("POST", "/estimate", {
+    scenario: template,
+    n: 6,
+    concurrency: 4,
+  });
+  expect(response.status).toBe(200);
+  expect(response.payload).toMatchObject({ requests: 19, minutes: 0.4 });
+});
+
 it.each([75_000, undefined])(
   "rejects changing the saved deposit minimum to %s",
   async (minimum) => {

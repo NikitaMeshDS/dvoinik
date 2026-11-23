@@ -10,6 +10,7 @@ from .engine import baseline_estimate, simulate
 from .experiments import normalize_scenario
 from .population import build_population
 from .reporting import make_record
+from .run_usage import collect_usage
 
 
 @dataclass(frozen=True)
@@ -53,17 +54,18 @@ def run_experiment(
         if progress:
             progress(done, total)
 
-    report = simulate(
-        twins,
-        checked,
-        mock=settings.mock,
-        seed=settings.seed,
-        concurrency=settings.concurrency,
-        progress=advance,
-        guard=check_access,
-    )
-    check_access()
-    baseline = baseline_estimate(checked, mock=settings.mock)
+    with collect_usage() as usage:
+        report = simulate(
+            twins,
+            checked,
+            mock=settings.mock,
+            seed=settings.seed,
+            concurrency=settings.concurrency,
+            progress=advance,
+            guard=check_access,
+        )
+        check_access()
+        baseline = baseline_estimate(checked, mock=settings.mock)
     check_access()
     return make_record(
         key,
@@ -75,7 +77,7 @@ def run_experiment(
         twins,
         time.perf_counter() - started,
         baseline=baseline,
-    )
+    ) | {"run_usage": usage.snapshot(settings.concurrency)}
 
 
 def seed_robustness(key: str, scenario: dict, settings: RunSettings, repeats: int) -> dict:

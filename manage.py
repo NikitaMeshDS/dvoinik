@@ -7,7 +7,9 @@ import getpass
 import json
 import sqlite3
 import sys
+import time
 import uuid
+from contextlib import closing
 from pathlib import Path
 
 from dvoinik.auth import AuthError, AuthStore
@@ -46,6 +48,17 @@ def assign_legacy(auth, user_id, record_id=None):
         return result.rowcount
 
 
+def purge_expired_exports(path, *, apply=False):
+    # Open an existing archive directly: initializing AuthStore can create or change its schema.
+    mode = "rw" if apply else "ro"
+    uri = Path(path).resolve().as_uri() + f"?mode={mode}"
+    with closing(sqlite3.connect(uri, uri=True, timeout=5)) as db, db:
+        cutoff = time.time()
+        if apply:
+            return db.execute("DELETE FROM export_links WHERE expires_at <= ?", (cutoff,)).rowcount
+        return db.execute("SELECT count(*) FROM export_links WHERE expires_at <= ?", (cutoff,)).fetchone()[0]
+
+
 def main(argv=None):
     parser = Parser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--path", help="Путь к архиву SQLite")
@@ -66,7 +79,24 @@ def main(argv=None):
         "--record-id", help="Передать одну старую запись; без параметра — все записи без владельца"
     )
     commands.add_parser("list-users")
+    purge = commands.add_parser(
+        "purge-expired-exports",
+        help="Посчитать или удалить просроченные временные выгрузки",
+        allow_abbrev=False,
+    )
+    purge.add_argument(
+        "--apply", action="store_true", help="Удалить строки. Без флага выводится только число."
+    )
     args = parser.parse_args(argv)
+    if args.command == "purge-expired-exports":
+        try:
+            count = purge_expired_exports(args.path or storage_path(), apply=args.apply)
+        except (OSError, sqlite3.Error):
+            print("Не удалось открыть архив SQLite или выполнить очистку.", file=sys.stderr)
+            return 1
+        action = "Удалено" if args.apply else "Найдено"
+        print(f"{action} просроченных выгрузок — {count}.")
+        return 0
     try:
         auth = AuthStore(args.path or storage_path())
         if args.command == "create-user":

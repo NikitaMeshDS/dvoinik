@@ -370,6 +370,20 @@ def _check_utf8(value):
             pending.extend(item)
 
 
+def _check_run_usage(usage, mock, evaluations):
+    fields = {"concurrency", "sdk_calls", "calls_with_usage", "reported_tokens", "cache_hits"}
+    if not isinstance(usage, dict) or set(usage) != fields:
+        raise ValueError("Некорректные поля статистики запуска.")
+    _integer(usage["concurrency"], "Параллельность", minimum=1, maximum=64)
+    calls = _integer(usage["sdk_calls"], "Вызовы SDK", maximum=0 if mock else 2**53 - 1)
+    covered = _integer(usage["calls_with_usage"], "Вызовы с учётом токенов", maximum=calls)
+    if covered or calls == 0:
+        _integer(usage["reported_tokens"], "Учтённые токены", maximum=2**53 - 1 if covered else 0)
+    elif usage["reported_tokens"] is not None:
+        raise ValueError("Без данных провайдера расход токенов неизвестен.")
+    _integer(usage["cache_hits"], "Ответы из кэша", maximum=0 if mock else evaluations)
+
+
 def load_experiment(source):
     if not isinstance(source, (str, bytes)):
         raise ValueError("Нужен JSON-файл эксперимента.")
@@ -408,6 +422,8 @@ def load_experiment(source):
         report = record.get("report")
         if not isinstance(report, dict) or set(report) != set(scenario["variants"]):
             raise ValueError("Варианты отчёта не совпадают с предложениями сценария.")
+        if "run_usage" in record:
+            _check_run_usage(record["run_usage"], record["mock"], n * len(report))
         counts = record.get("population_counts")
         if not isinstance(counts, dict) or any(s not in scenario["population"] for s in counts):
             raise ValueError("Некорректный состав аудитории.")

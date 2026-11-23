@@ -1,12 +1,17 @@
 """HTTP boundary checks use isolated accounts, real SQLite, and real mock runs."""
 
 import json
+import sqlite3
 import threading
 import time
+from contextlib import closing
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 from fastapi.testclient import TestClient
 
+from dvoinik import llm_cache
 from dvoinik.api import create_app
 from dvoinik.auth import IDLE_SECONDS, AuthStore
 from dvoinik.scenarios import SCENARIOS
@@ -110,6 +115,27 @@ def test_session_boundary_and_csrf(app):
     assert client.get("/api/session").status_code == 401
 
 
+def test_https_mode_requires_https_and_marks_session_cookie_on_login_and_logout(app, monkeypatch):
+    monkeypatch.setenv("DVOINIK_HTTPS_ONLY", "1")
+    with TestClient(create_app(app.state.auth.path, mode="local"), base_url="https://localhost") as client:
+        credentials = {"username": "alice", "password": PASSWORD}
+        refused = client.post("http://localhost/api/login", json=credentials)
+        assert refused.status_code == 403 and "set-cookie" not in refused.headers
+        spoofed = client.post(
+            "http://localhost/api/login", json=credentials, headers={"X-Forwarded-Proto": "https"}
+        )
+        assert spoofed.status_code == 403
+
+        logged_in = client.post("/api/login", json=credentials)
+        assert logged_in.status_code == 200
+        assert "; secure" in logged_in.headers["set-cookie"].lower()
+        assert client.get("/api/session").status_code == 200
+        logged_out = client.post("/api/logout", headers={"X-CSRF-Token": logged_in.json()["csrf_token"]})
+        assert logged_out.status_code == 200
+        assert "; secure" in logged_out.headers["set-cookie"].lower()
+        assert client.get("/api/session").status_code == 401
+
+
 def test_catalog_and_population_are_server_validated(app):
     client = login(app)
     catalog = client.get("/api/catalog").json()
@@ -144,6 +170,95 @@ def test_owner_and_session_isolation_and_admin(app):
     alice_id = next(user["id"] for user in users if user["username"] == "alice")
     assert admin.put(f"/api/users/{alice_id}/active", json={"active": False}).status_code == 200
     assert alice.get("/api/experiments").status_code == 401
+
+
+def test_sqlite_backup_restores_validated_report_and_requires_fresh_access(app, tmp_path):
+    alice = login(app)
+    source = app.state.auth.path
+    backup = tmp_path / "backup.sqlite3"
+    restored = tmp_path / "restored.sqlite3"
+
+    # Keep the WAL connection open while the archive, survey and export handle are committed.
+    with closing(sqlite3.connect(source)) as live:
+        assert live.execute("PRAGMA journal_mode=WAL").fetchone() == ("wal",)
+        live.execute("SELECT count(*) FROM users").fetchone()
+        record = run(alice)["record"]
+        endpoint = f"/api/experiments/{record['id']}"
+        saved = alice.put(endpoint + "/validation", json={"csv": csv_for(record), "base_validation": None})
+        saved.raise_for_status()
+        expected = alice.get(endpoint).raise_for_status().json()
+        assert expected["validation"]["result"]["survey_n"] == 1
+        export_request = {"record_id": record["id"], "format": "json", "kind": "record"}
+        old_download = alice.post("/api/export", json=export_request).raise_for_status().json()["url"]
+        assert alice.head(old_download).status_code == 200
+        old_cookie = alice.cookies["dvoinik_session"]
+        assert source.with_name(source.name + "-wal").stat().st_size > 0
+        with closing(sqlite3.connect(backup)) as target:
+            live.backup(target)
+
+    # Log out after the copy to model an access change missing from the snapshot.
+    alice.post("/api/logout").raise_for_status()
+    with closing(sqlite3.connect(backup.as_uri() + "?mode=ro", uri=True)) as snapshot:
+        with closing(sqlite3.connect(restored)) as target:
+            snapshot.backup(target)
+            assert target.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
+            # Apply this step offline before opening a restored database to users.
+            with target:
+                target.execute("DELETE FROM export_links")
+                target.execute("DELETE FROM sessions")
+
+    restored_app = create_app(restored, mode="local")
+    with TestClient(restored_app, base_url="http://127.0.0.1") as stale:
+        stale.cookies.set("dvoinik_session", old_cookie)
+        assert stale.get("/api/session").status_code == 401
+        assert stale.get(old_download).status_code == 410
+
+        owner, other = login(restored_app), login(restored_app, "bob")
+        assert owner.get(endpoint).raise_for_status().json() == expected
+        assert other.get(endpoint).status_code == 404
+        assert other.post("/api/export", json=export_request).status_code == 404
+        new_download = owner.post("/api/export", json=export_request).raise_for_status().json()["url"]
+        assert owner.get(new_download).raise_for_status().json() == expected
+
+
+def test_pilot_closure_revokes_access_and_accounts_for_local_copies(tmp_path, monkeypatch):
+    with TemporaryDirectory(dir=tmp_path) as directory:
+        pilot = Path(directory)
+        archive = pilot / "archive.sqlite3"
+        backup = pilot / "archive-backup.sqlite3"
+        cache = pilot / "cache.sqlite3"
+        export = pilot / "downloaded-report.json"
+        monkeypatch.setenv("DVOINIK_LLM_CACHE", "1")
+        monkeypatch.setenv("DVOINIK_LLM_CACHE_PATH", str(cache))
+        app = create_app(archive, mode="local")
+        app.state.auth.create_user("admin", "Admin", PASSWORD, "admin")
+        owner_id = app.state.auth.create_user("alice", "Alice", PASSWORD)
+
+        with TestClient(app, base_url="http://127.0.0.1"):
+            alice, admin = login(app), login(app, "admin")
+            record = run(alice)["record"]
+            endpoint = f"/api/experiments/{record['id']}"
+            request = {"record_id": record["id"], "format": "json", "kind": "record"}
+            url = alice.post("/api/export", json=request).raise_for_status().json()["url"]
+            export.write_bytes(alice.get(url).raise_for_status().content)
+            pending = alice.post("/api/export", json=request).raise_for_status().json()["url"]
+            assert alice.head(pending).status_code == 200
+
+            cache_key = llm_cache.key("pilot-test", [{"role": "user", "content": record["id"]}], 0)
+            synthetic_answer = {"decision": True, "probability": 1.0, "quote": "Синтетический ответ"}
+            llm_cache.put(cache_key, synthetic_answer)
+            with app.state.auth.connection() as source, closing(sqlite3.connect(backup)) as target:
+                source.backup(target)
+
+            admin.put(f"/api/users/{owner_id}/active", json={"active": False}).raise_for_status()
+            assert alice.get(endpoint).status_code == 401
+            assert alice.get(pending).status_code == 410
+            assert ExperimentStore(archive, owner_id=owner_id).get_record(record["id"]) == record
+            assert ExperimentStore(backup, owner_id=owner_id).get_record(record["id"]) == record
+            assert json.loads(export.read_bytes()) == record
+            assert llm_cache.get(cache_key) == synthetic_answer
+
+    assert not pilot.exists()
 
 
 def test_sample_cache_import_compare_and_private_download(app):

@@ -18,6 +18,7 @@ from . import llm_cache, llm_json, ssr
 from .population import SEGMENTS, Twin
 from .report_stats import OTHER_OBJECTION as OTHER_OBJECTION
 from .report_stats import aggregate as aggregate
+from .run_usage import count_cache_hit
 from .scenarios import deposit_terms
 
 SYSTEM = (
@@ -173,6 +174,7 @@ async def _ask_llm(
             guard()
         cached = llm_cache.get(cache_key)
         if cached is not None:
+            count_cache_hit()
             return cached
         try:
             content = await llm_json.chat_json(client, model, messages, 0.8)

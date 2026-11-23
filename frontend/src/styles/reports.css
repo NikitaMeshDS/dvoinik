@@ -475,6 +475,70 @@
   color: var(--muted);
   font-size: 12px;
 }
+.validation-table-filter {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 18px 0;
+}
+.validation-table-filter .field {
+  flex: 0 1 280px;
+  min-width: 0;
+  margin: 0;
+}
+.validation-table-filter .help {
+  margin: 0;
+}
+.validation-table-filter .help span {
+  display: block;
+}
+.segment-survey-comparison {
+  padding: clamp(14px, 4vw, 22px);
+  margin: 18px 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.segment-survey-comparison-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.segment-survey-comparison-heading :is(h4, .help, .field),
+.segment-survey-comparison > .help {
+  margin: 0;
+}
+.segment-survey-comparison-heading h4 {
+  font-size: 16px;
+}
+.segment-survey-differences {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.segment-survey-differences dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.segment-survey-differences dd {
+  margin: 4px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.segment-survey-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 0;
+  margin: 0 0 8px;
+  list-style: none;
+  font-size: 13px;
+}
 .selection-bar {
   display: flex;
   align-items: center;

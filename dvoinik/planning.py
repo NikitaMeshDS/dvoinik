@@ -184,7 +184,10 @@ def run_estimate(scenario: dict, n: int, concurrency: int = 16, baseline: bool =
     input_tokens = math.ceil(input_chars / CHARS_PER_TOKEN)
     output_tokens = requests * OUTPUT_TOKENS
     latency = _env_float("DVOINIK_LLM_LATENCY_S", 3.0)
-    minutes = math.ceil(requests / max(1, concurrency)) * latency / 60
+    workers = max(1, concurrency)
+    # The first answer is a separate probe. Variants are then evaluated in order.
+    batches = 1 + math.ceil((n - 1) / workers) + (len(variants) - 1) * math.ceil(n / workers)
+    minutes = (batches + int(baseline)) * latency / 60
     price = _env_float("DVOINIK_PRICE_PER_1K_TOKENS", None)
     return {
         "requests": requests,
@@ -196,7 +199,7 @@ def run_estimate(scenario: dict, n: int, concurrency: int = 16, baseline: bool =
         "cost": round((input_tokens + output_tokens) / 1000 * price, 2) if price is not None else None,
         "currency": os.getenv("DVOINIK_PRICE_CURRENCY", "₽") if price is not None else None,
         "detail": f"≈ по {CHARS_PER_TOKEN:g} символа на токен и {latency:g} с на запрос при параллельности "
-        f"{concurrency}. Фактические значения зависят от модели и сервера."
+        f"{concurrency}. Учтены пробный запрос и очередь вариантов. Фактическое время зависит от модели и сервера."
         + (" Кэш включён: повторные тексты не запрашиваются, это верхняя оценка." if _cache_on() else "")
         + (
             " Режим SSR: плюс короткие запросы к модели эмбеддингов — по одному на ответ и один на эталоны."

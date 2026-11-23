@@ -1,6 +1,7 @@
-import type { Ref } from "react";
+import { useState, type Ref } from "react";
 import { Notice, decimal, percent } from "../../components";
 import type { Catalog, ValidationResult } from "../../types";
+import SegmentSurveyComparison from "./SegmentSurveyComparison";
 export default function ValidationMetrics({
   result,
   segments,
@@ -10,9 +11,18 @@ export default function ValidationMetrics({
   segments: Catalog["segments"];
   headingRef?: Ref<HTMLHeadingElement>;
 }) {
-  const cells = [...result.cells].sort(
-    (a, b) => b.error - a.error || b.survey_n - a.survey_n,
-  );
+  const [selected, setSelected] = useState("");
+  const segmentName = (sid: string) => segments[sid]?.name ?? sid;
+  const availableSegments = [
+    ...new Set(result.cells.map((cell) => cell.segment)),
+  ];
+  const activeSegment = availableSegments.includes(selected) ? selected : "";
+  const comparisonSegment =
+    activeSegment ||
+    (availableSegments.length === 1 ? availableSegments[0] : "");
+  const cells = result.cells
+    .filter((cell) => !activeSegment || cell.segment === activeSegment)
+    .sort((a, b) => b.error - a.error || b.survey_n - a.survey_n);
   return (
     <>
       <h3 className="validation-metrics-heading" ref={headingRef} tabIndex={-1}>
@@ -98,6 +108,39 @@ export default function ValidationMetrics({
           </p>
         </div>
       )}
+      {availableSegments.length > 1 && (
+        <div className="validation-table-filter">
+          <label className="field">
+            <span>Сегмент в таблице</span>
+            <select
+              value={activeSegment}
+              onChange={(event) => setSelected(event.target.value)}
+            >
+              <option value="">Все сегменты</option>
+              {availableSegments.map((sid) => (
+                <option key={sid} value={sid}>
+                  {segmentName(sid)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="help" role="status">
+            <span>
+              Показано {cells.length} из {result.cells.length} пар
+            </span>
+            {activeSegment && cells.length === 1 && (
+              <span>В этом сегменте оценивали только одно предложение.</span>
+            )}
+          </p>
+        </div>
+      )}
+      {comparisonSegment && cells.length > 1 && (
+        <SegmentSurveyComparison
+          key={comparisonSegment}
+          segment={segmentName(comparisonSegment)}
+          cells={cells}
+        />
+      )}
       <div
         className="table-scroll"
         role="region"
@@ -124,7 +167,7 @@ export default function ValidationMetrics({
               <tr key={c.variant + c.segment}>
                 <td>{c.variant}</td>
                 <td className="validation-segment">
-                  {segments[c.segment]?.name ?? c.segment}
+                  {segmentName(c.segment)}
                   {segments[c.segment] && <small>{c.segment}</small>}
                 </td>
                 <td>{c.survey_n}</td>

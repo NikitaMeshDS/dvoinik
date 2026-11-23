@@ -16,6 +16,8 @@ import hashlib
 import math
 import os
 
+from .run_usage import measure_call
+
 # Эталонные ответы для точек шкалы 1–5. Несколько наборов усредняются,
 # чтобы результат меньше зависел от конкретной формулировки.
 REFERENCE_SETS = [
@@ -102,7 +104,7 @@ class References:
 
 
 async def embed(client, model: str, texts: list[str]) -> list[list[float]]:
-    response = await client.embeddings.create(model=model, input=texts)
+    response = await measure_call(client.embeddings.create(model=model, input=texts))
     vectors = [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
     if len(vectors) != len(texts) or any(not v for v in vectors):
         raise ValueError("Модель эмбеддингов вернула неполный ответ.")

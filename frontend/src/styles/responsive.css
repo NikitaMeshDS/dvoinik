@@ -124,6 +124,14 @@
   .heading-actions .button {
     flex: 1;
   }
+  .report-page .heading-actions > .button {
+    min-width: 0;
+    text-align: left;
+    white-space: normal;
+  }
+  .report-page .heading-actions > .button > svg {
+    flex-shrink: 0;
+  }
   .app-footer {
     margin-top: 40px;
     flex-direction: column;

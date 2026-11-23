@@ -28,6 +28,10 @@ class Security:
 
     def __init__(self, runtime: Runtime):
         self.runtime = runtime
+        https_only = os.getenv("DVOINIK_HTTPS_ONLY", "0")
+        if https_only not in {"0", "1"}:
+            raise ValueError("DVOINIK_HTTPS_ONLY принимает 0 или 1.")
+        self.https_only = https_only == "1"
         self.csrf_secret = secrets.token_bytes(32)
 
     def csrf(self, token):
@@ -62,7 +66,10 @@ class Security:
         }
 
     def set_cookie(self, response, token):
-        response.set_cookie(COOKIE, token, httponly=True, samesite="strict", path="/")
+        response.set_cookie(COOKIE, token, secure=self.https_only, httponly=True, samesite="strict", path="/")
+
+    def clear_cookie(self, response):
+        response.delete_cookie(COOKIE, secure=self.https_only, httponly=True, samesite="strict", path="/")
 
 
 def access_failure(exc):
@@ -87,6 +94,8 @@ def install_security(app, security: Security):
         parsed = urlsplit(str(request.url))
         if parsed.hostname not in {"127.0.0.1", "localhost"}:
             return JSONResponse({"detail": "Сервис доступен только через локальный адрес."}, status_code=403)
+        if security.https_only and parsed.scheme != "https":
+            return JSONResponse({"detail": "Сервис требует подключение по HTTPS."}, status_code=403)
         if request.url.path.startswith("/api"):
             origin = request.headers.get("origin")
             if origin and origin != f"{parsed.scheme}://{parsed.netloc}":

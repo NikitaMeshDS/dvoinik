@@ -18,6 +18,8 @@ import json
 import os
 import re
 
+from .run_usage import measure_call
+
 _STATE = {"text": None}
 _THINK = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
 _FENCE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
@@ -71,19 +73,20 @@ async def chat_json(client, model: str, messages: list[dict], temperature: float
     extra = {"extra_body": extra_body()} if extra_body() else {}
     current = mode()
     use_text = current == "text" or (current == "auto" and _STATE["text"])
+
+    async def request(**options):
+        response = await measure_call(
+            client.chat.completions.create(
+                model=model, temperature=temperature, messages=messages, **options, **extra
+            )
+        )
+        return extract(response.choices[0].message.content)
+
     if not use_text:
         try:
-            r = await client.chat.completions.create(
-                model=model,
-                temperature=temperature,
-                response_format={"type": "json_object"},
-                messages=messages,
-                **extra,
-            )
-            return extract(r.choices[0].message.content)
+            return await request(response_format={"type": "json_object"})
         except Exception as exc:
             if current != "auto" or not _rejects_format(exc):
                 raise
             _STATE["text"] = True
-    r = await client.chat.completions.create(model=model, temperature=temperature, messages=messages, **extra)
-    return extract(r.choices[0].message.content)
+    return await request()

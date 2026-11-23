@@ -87,3 +87,40 @@ def test_legacy_assignment_preserves_validation_and_never_moves_owned_records(tm
     assert assign_legacy(auth, alice, owned["id"]) == 0
     assert ExperimentStore(auth.path, owner_id=bob).list_records() == [owned]
     assert list(tmp_path.glob("*.legacy-assign-*.sqlite3"))
+
+
+def test_purge_expired_exports_previews_without_writing_and_keeps_live_links(tmp_path):
+    from dvoinik.auth import digest
+
+    path = tmp_path / "archive with spaces.sqlite3"
+    auth = AuthStore(path)
+    auth.create_user("alice", "Алиса", "test-only-password-2026")
+    token = auth.login("alice", "test-only-password-2026")
+    expired = auth.issue_export(token, b"expired-test-content", "application/json", "old.json")
+    live = auth.issue_export(token, b"live-test-content", "application/json", "live.json")
+    with auth.connection() as db:
+        db.execute("UPDATE export_links SET expires_at = 0 WHERE handle_hash = ?", (digest(expired),))
+    original = path.read_bytes()
+
+    args = ("--path", str(path), "purge-expired-exports")
+    preview = run(*args)
+    assert preview.returncode == 0 and "Найдено просроченных выгрузок — 1." in preview.stdout
+    assert path.read_bytes() == original
+
+    applied = run(*args, "--apply")
+    assert applied.returncode == 0 and "Удалено просроченных выгрузок — 1." in applied.stdout
+    for result in (preview, applied):
+        assert all(value not in result.stdout + result.stderr for value in (expired, live, "test-content"))
+    with auth.connection() as db:
+        assert [row[0] for row in db.execute("SELECT handle_hash FROM export_links")] == [digest(live)]
+    assert auth.consume_export(live)[0] == b"live-test-content"
+    assert "Удалено просроченных выгрузок — 0." in run(*args, "--apply").stdout
+
+
+def test_purge_expired_exports_does_not_create_missing_archive(tmp_path):
+    path = tmp_path / "missing.sqlite3"
+    for flags in ((), ("--apply",)):
+        result = run("--path", str(path), "purge-expired-exports", *flags)
+        assert result.returncode == 1
+        assert "Traceback" not in result.stderr
+        assert not path.exists()

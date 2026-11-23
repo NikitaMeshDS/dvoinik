@@ -152,6 +152,13 @@ export type Experiment = {
   seed: number;
   model: string;
   elapsed_seconds: number;
+  run_usage?: {
+    concurrency: number;
+    sdk_calls: number;
+    calls_with_usage: number;
+    reported_tokens: number | null;
+    cache_hits: number;
+  };
   sample: boolean;
   report: Record<string, ReportItem>;
   population_counts: Record<string, number>;

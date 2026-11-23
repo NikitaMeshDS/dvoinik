@@ -127,8 +127,13 @@ export function createBackend(data: Data) {
       e.baseline_chars +
       variants.reduce((a, t) => a + t.length + 20, 0) +
       600;
-    const minutes =
-      (Math.ceil(requests / Math.max(1, concurrency)) * e.latency_s) / 60;
+    const workers = Math.max(1, concurrency);
+    const batches =
+      1 +
+      Math.ceil((n - 1) / workers) +
+      (variants.length - 1) * Math.ceil(n / workers) +
+      1; // Separate baseline request.
+    const minutes = (batches * e.latency_s) / 60;
     return {
       requests,
       input_tokens: Math.ceil(inputChars / e.chars_per_token),
@@ -138,7 +143,7 @@ export function createBackend(data: Data) {
       concurrency,
       cost: null,
       currency: null,
-      detail: `≈ по ${e.chars_per_token} символа на токен и ${e.latency_s} с на запрос при параллельности ${concurrency}. Фактические значения зависят от модели и сервера.`,
+      detail: `≈ по ${e.chars_per_token} символа на токен и ${e.latency_s} с на запрос при параллельности ${concurrency}. Учтены пробный запрос и очередь вариантов. Фактическое время зависит от модели и сервера.`,
     };
   }
   function startRun(body: {
