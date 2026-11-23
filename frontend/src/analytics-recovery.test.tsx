@@ -59,6 +59,25 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+it("focuses the survey plan when opening an unvalidated report from its main action", async () => {
+  vi.spyOn(api, "request").mockImplementation(<T,>() =>
+    Promise.resolve(ready as T),
+  );
+  show();
+  await act(async () => {});
+  const action = screen.getByRole("button", {
+    name: "Открыть пример живой проверки",
+  });
+  action.focus();
+  fireEvent.click(action);
+  const heading = screen.getByRole("heading", { name: "Спланируйте проверку" });
+  expect(document.activeElement).toBe(heading);
+  expect(
+    screen
+      .getByRole("tab", { name: "Проверка опросом" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+});
 it("moves focus directly to saved discrepancies from the report action", async () => {
   vi.spyOn(api, "request").mockImplementation(<T,>() =>
     Promise.resolve(ready as T),

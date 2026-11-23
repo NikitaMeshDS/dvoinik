@@ -23,12 +23,14 @@ export default function ValidationPanel({
   onExport,
   plan,
   analyticsError,
+  planHeadingRef,
   metricsHeadingRef,
   onDirtyChange,
 }: {
   onDirtyChange?: (dirty: boolean) => void;
   plan?: Plan;
   analyticsError?: string;
+  planHeadingRef?: Ref<HTMLHeadingElement>;
   metricsHeadingRef?: Ref<HTMLHeadingElement>;
   record: Experiment;
   catalog: Catalog;
@@ -114,6 +116,7 @@ export default function ValidationPanel({
         plan={plan}
         mock={record.mock}
         analyticsError={analyticsError}
+        headingRef={planHeadingRef}
       />
       <SurveyPreparation record={record} catalog={catalog} />
       <section

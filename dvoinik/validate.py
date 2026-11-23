@@ -7,12 +7,22 @@ import math
 from collections import defaultdict
 from contextlib import nullcontext
 from fractions import Fraction
+from itertools import combinations
 from pathlib import Path
+from statistics import NormalDist
 from typing import TextIO
+
+from .report_stats import difference_interval_95_pp, wilson_interval
 
 RANKING_LIMITS = {
     "missing_variants": "Для общего сравнения нужны оценки каждого предложения.",
     "different_mix": "Доли сегментов отличаются между предложениями. Сравнивайте результаты внутри сегментов.",
+}
+
+
+BASELINE_LIMITS = {
+    "unknown_population": "В сохранённой оценке простого подхода не указан состав аудитории.",
+    "different_population": "Состав опроса отличается от аудитории, для которой был рассчитан простой подход.",
 }
 
 
@@ -70,7 +80,59 @@ def _correlation(xs, ys):
     return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / math.sqrt(vx * vy)
 
 
-def compare(report: dict, survey: dict, baseline: dict | None = None) -> dict:
+def _segment_contrasts(cells, *, intervals, paired_probabilities):
+    by_segment = defaultdict(list)
+    for cell in cells:
+        by_segment[cell["segment"]].append(cell)
+    model_pairs = {
+        (tuple(pair["variants"]), segment): data
+        for pair in paired_probabilities or ()
+        for segment, data in pair.get("segments", {}).items()
+    }
+    results = []
+    for segment, entries in sorted(by_segment.items()):
+        for a, b in combinations(sorted(entries, key=lambda cell: cell["variant"]), 2):
+            left, right = a["variant"], b["variant"]
+            comparison = {"segment": segment, "pair": [left, right]}
+            model = model_pairs.get(((left, right), segment))
+            if not intervals and model is None:
+                continue
+            if intervals:
+                a_n, b_n = a["survey_n"], b["survey_n"]
+                low, high = difference_interval_95_pp(
+                    round(a["actual"] * a_n), a_n, round(b["actual"] * b_n), b_n
+                )
+                comparison["interval_95_pp"] = [low, high]
+                comparison["direction"] = left if low > 0 else right if high < 0 else "uncertain"
+            if model is not None:
+                observed = (a["actual"] - b["actual"]) * 100
+                comparison["model_pair"] = {**model, "absolute_error_pp": abs(model["gap_pp"] - observed)}
+            results.append(comparison)
+    return results
+
+
+def _mae_interval_95_pp(cells, survey_n):
+    """Project simultaneous Wilson bounds onto weighted MAE with fixed predictions and weights."""
+    z = NormalDist().inv_cdf(1 - 0.05 / (2 * len(cells)))
+    lower_error = upper_error = 0.0
+    for cell in cells:
+        n = cell["survey_n"]
+        low, high = wilson_interval(round(cell["actual"] * n), n, z=z)
+        predicted = cell["predicted"]
+        lower_error += n * max(0.0, low - predicted, predicted - high)
+        upper_error += n * max(abs(predicted - low), abs(predicted - high))
+    return [100 * (lower_error / survey_n), 100 * (upper_error / survey_n)]
+
+
+def compare(
+    report: dict,
+    survey: dict,
+    baseline: dict | None = None,
+    *,
+    baseline_population=None,
+    assignment=None,
+    paired_probabilities=None,
+) -> dict:
     if not survey:
         raise ValueError("Добавьте ответы живого опроса для сравнения.")
     counts = getattr(survey, "counts", {})
@@ -114,28 +176,46 @@ def compare(report: dict, survey: dict, baseline: dict | None = None) -> dict:
         actual_winners = [v for v, x in zip(variants, real) if math.isclose(x, max(real))]
         predicted_winners = [v for v, x in zip(variants, pred) if math.isclose(x, max(pred))]
     unique = len(actual_winners) == len(predicted_winners) == 1
+    survey_n = sum(c["survey_n"] for c in cells)
     result = {
-        "mae_conversion": sum(c["error"] * c["survey_n"] for c in cells) / sum(c["survey_n"] for c in cells),
+        "mae_conversion": sum(c["error"] * c["survey_n"] for c in cells) / survey_n,
         "spearman_variants": _correlation(_rank(real), _rank(pred)) if ranking_unavailable is None else None,
         "winner_match": actual_winners == predicted_winners if unique else None,
-        "survey_n": sum(c["survey_n"] for c in cells),
+        "survey_n": survey_n,
         "matched_cells": len(cells),
         "cells": cells,
         "actual_winners": actual_winners,
         "predicted_winners": predicted_winners,
     }
+    intervals = assignment == "random_one" and bool(counts)
+    if intervals:
+        result["mae_interval_95_pp"] = _mae_interval_95_pp(cells, survey_n)
+    if intervals or paired_probabilities:
+        contrasts = _segment_contrasts(cells, intervals=intervals, paired_probabilities=paired_probabilities)
+        if intervals or contrasts:
+            result["segment_contrasts"] = contrasts
     if ranking_unavailable:
         result["ranking_unavailable"] = ranking_unavailable
     elif baseline and all(v in baseline for v in variants):
-        result["baseline"] = _baseline_metrics(variants, real, pred, [baseline[v] for v in variants], totals)
+        mix = mixes[variants[0]]
+        if not baseline_population:
+            result["baseline_unavailable"] = "unknown_population"
+        elif mix.keys() != baseline_population.keys() or any(
+            not math.isclose(float(share), baseline_population[segment], rel_tol=0, abs_tol=1e-10)
+            for segment, share in mix.items()
+        ):
+            result["baseline_unavailable"] = "different_population"
+        else:
+            result["baseline"] = _baseline_metrics(
+                variants, real, pred, [baseline[v] for v in variants], totals
+            )
     return result
 
 
 def _baseline_metrics(variants, real, pred, base, totals):
     """Сравнение двойников и простого подхода на уровне предложений, по весам опроса.
 
-    Простой подход оценивает всю аудиторию сразу; если опрос покрывает не все сегменты,
-    сопоставление приблизительное.
+    Сравнение строится только на совпадающем составе аудитории по каждому предложению.
     """
     weights = [totals[v][2] for v in variants]
     total = sum(weights)

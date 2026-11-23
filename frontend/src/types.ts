@@ -103,16 +103,26 @@ export type ValidationCell = {
   predicted: number;
   error: number;
 };
+export type SurveyContrast = {
+  segment: string;
+  pair: [string, string];
+  interval_95_pp?: [number, number];
+  direction?: string;
+  model_pair?: { matched_n: number; gap_pp: number; absolute_error_pp: number };
+};
 export type ValidationResult = {
   ranking_unavailable?: "missing_variants" | "different_mix";
   mae_conversion: number;
+  mae_interval_95_pp?: [number, number];
   spearman_variants: number | null;
   winner_match: boolean | null;
   survey_n: number;
   matched_cells: number;
   cells: ValidationCell[];
+  segment_contrasts?: SurveyContrast[];
   actual_winners: string[];
   predicted_winners: string[];
+  baseline_unavailable?: "unknown_population" | "different_population";
   baseline?: {
     twins_mae_variants: number;
     baseline_mae_variants: number;
@@ -141,6 +151,13 @@ export type Validation = {
   result: ValidationResult;
   source?: string;
 };
+export type PairedProbability = {
+  variants: [string, string];
+  matched_n: number;
+  means: [number, number] | null;
+  gap_pp: number | null;
+  interval_95_pp: [number, number] | null;
+};
 export type Experiment = {
   schema_version: number;
   id: string;
@@ -159,6 +176,7 @@ export type Experiment = {
     reported_tokens: number | null;
     cache_hits: number;
   };
+  paired_probabilities?: PairedProbability[];
   sample: boolean;
   report: Record<string, ReportItem>;
   population_counts: Record<string, number>;
@@ -174,6 +192,7 @@ export type Experiment = {
   baseline?: {
     method: string;
     rates?: Record<string, number>;
+    population?: Record<string, number>;
     error?: string;
   };
 };

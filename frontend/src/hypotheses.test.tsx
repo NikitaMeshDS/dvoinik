@@ -34,7 +34,7 @@ const hypothesis: Hypothesis = {
   removed: ["199 ₽/мес"],
   added: ["Без скрытых платежей."],
 };
-it("shows evidence, the text change, effect ceiling and a test action", () => {
+it("shows simulated refusals, the text change and a test action", () => {
   const onTest = vi.fn();
   render(
     <Hypotheses
@@ -44,7 +44,10 @@ it("shows evidence, the text change, effect ceiling and a test action", () => {
     />,
   );
   expect(screen.getByText("Убрать абонентскую плату")).toBeTruthy();
-  expect(screen.getByText("до +30,0 п.п.")).toBeTruthy();
+  expect(screen.getByText("30,0 п.п.")).toBeTruthy();
+  expect(
+    screen.getByText("отказы по этой причине в главном сегменте"),
+  ).toBeTruthy();
   expect(screen.getByText("199 ₽/мес").tagName).toBe("DEL");
   expect(screen.getByText("Без скрытых платежей.").tagName).toBe("INS");
   expect(screen.getByText("Ещё 1")).toBeTruthy();

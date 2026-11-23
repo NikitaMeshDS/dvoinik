@@ -44,29 +44,37 @@ export default function ValidationMetrics({
           </strong>
         </div>
         <div>
-          <span>Корреляция рангов</span>
-          <strong>
-            {result.spearman_variants === null
-              ? "—"
-              : decimal(result.spearman_variants, 2)}
-          </strong>
+          <span>Оценок в опросе</span>
+          <strong>{result.survey_n.toLocaleString("ru-RU")}</strong>
         </div>
         <div>
-          <span>Совпадение лидера</span>
-          <strong>
-            {result.winner_match === null
-              ? "Не определено"
-              : result.winner_match
-                ? "Да"
-                : "Нет"}
-          </strong>
+          <span>Сопоставлено пар «вариант — сегмент»</span>
+          <strong>{result.matched_cells}</strong>
         </div>
       </div>
+      {result.mae_interval_95_pp && (
+        <p className="help">
+          <strong>
+            Приблизительный 95%-й интервал ошибки —{" "}
+            {result.mae_interval_95_pp.map((value) => decimal(value)).join("–")}{" "}
+            п.п.
+          </strong>{" "}
+          Учитывает случайный разброс ответов опроса при фиксированных оценках
+          симуляции и составе выборки.
+        </p>
+      )}
       <p className="help">
-        Оценок: {result.survey_n} · Пар «вариант — сегмент»:{" "}
-        {result.matched_cells}. Это оценки предложений, а не число уникальных
-        людей. Подлинность опроса приложение не проверяет.
+        Число оценок может отличаться от числа людей. Происхождение ответов
+        подтверждает организатор опроса.
       </p>
+      {result.baseline_unavailable && (
+        <Notice>
+          <strong>Ошибки двух подходов пока нельзя сопоставить.</strong>{" "}
+          {result.baseline_unavailable === "unknown_population"
+            ? "В сохранённой оценке простого подхода не указан состав аудитории."
+            : "Сегменты или их доли в опросе отличаются от аудитории простого подхода."}
+        </Notice>
+      )}
       {result.baseline && (
         <div className="baseline-validation">
           <h3>Двойники против простого подхода</h3>
@@ -86,7 +94,7 @@ export default function ValidationMetrics({
               </strong>
             </div>
             <div>
-              <span>Кто ближе к опросу</span>
+              <span>Чья ошибка ниже в этой выборке</span>
               <strong>
                 {Math.abs(
                   result.baseline.twins_mae_variants -
@@ -101,10 +109,8 @@ export default function ValidationMetrics({
             </div>
           </div>
           <p className="help">
-            Сравнение по предложениям с весами опроса. Простой подход оценивает
-            всю аудиторию сразу: если опрос покрывает не все сегменты,
-            сопоставление приблизительное. Один опрос — разведка, а не
-            доказательство преимущества.
+            Сегменты и их доли совпадают с аудиторией простого подхода. Ошибки
+            описывают результаты этого опроса.
           </p>
         </div>
       )}
@@ -139,6 +145,9 @@ export default function ValidationMetrics({
           key={comparisonSegment}
           segment={segmentName(comparisonSegment)}
           cells={cells}
+          contrasts={result.segment_contrasts?.filter(
+            ({ segment }) => segment === comparisonSegment,
+          )}
         />
       )}
       <div

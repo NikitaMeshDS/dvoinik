@@ -298,7 +298,10 @@ export async function install() {
   };
   const note = document.createElement("div");
   note.className = "showcase-note";
-  note.textContent =
-    "Онлайн-витрина · готовые шаблоны в демо-режиме · полная версия локально: github.com/NikitaMeshDS/dvoinik";
-  document.body.append(note);
+  note.textContent = "Онлайн-витрина с готовыми шаблонами. ";
+  const link = document.createElement("a");
+  link.href = "https://github.com/NikitaMeshDS/dvoinik";
+  link.textContent = "Полная версия на GitHub";
+  note.append(link);
+  document.body.prepend(note);
 }

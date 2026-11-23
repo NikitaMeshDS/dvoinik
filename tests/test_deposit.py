@@ -49,6 +49,29 @@ def test_deposit_template_produces_reproducible_synthetic_amounts():
     assert all("available_deposit_rub" not in row for row in regular["population_sample"])
 
 
+def test_deposit_removes_branch_preference_without_resampling_profiles():
+    population = {"senior": 1}
+    ordinary = build_population(24, population, seed=42)
+    deposit = build_population(24, population, seed=42, deposit=True)
+    assert any(twin.attitude == "предпочитает отделение" for twin in ordinary)
+    for before, after in zip(ordinary, deposit, strict=True):
+        expected = "" if before.attitude == "предпочитает отделение" else before.attitude
+        assert after == replace(before, attitude=expected, available_deposit_rub=after.available_deposit_rub)
+        assert "предпочитает отделение" not in after.profile()
+        assert "Цифровые навыки" in after.profile()
+        if not expected:
+            assert "Отношение к банкам:" not in after.profile()
+
+    record = run_experiment("senior_deposit", SCENARIOS["senior_deposit"], RunSettings(n=24, mock=True))
+    assert load_experiment(export_json(record))["population_sample"] == record["population_sample"]
+    without_minimum = dict(SCENARIOS["senior_deposit"])
+    del without_minimum["deposit_minimum_rub"]
+    record = run_experiment("senior_deposit", without_minimum, RunSettings(n=24, mock=True))
+    sample = load_experiment(export_json(record))["population_sample"]
+    assert any(profile["attitude"] == "" for profile in sample)
+    assert all("available_deposit_rub" not in profile for profile in sample)
+
+
 @pytest.mark.parametrize("remove_total", [False, True])
 def test_import_rejects_deposit_totals_inconsistent_with_snapshot(remove_total):
     record = run_experiment("senior_deposit", SCENARIOS["senior_deposit"], RunSettings(n=3, mock=True))

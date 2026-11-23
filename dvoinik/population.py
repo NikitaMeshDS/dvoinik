@@ -10,7 +10,9 @@ from __future__ import annotations
 import math
 import random
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
+
+BRANCH_PREFERENCE = "предпочитает отделение"
 
 SEGMENTS = {
     "student_msk": {
@@ -51,7 +53,7 @@ SEGMENTS = {
         "region": ["Тула", "Саратов", "Москва", "Пермь"],
         "income": ["пенсия 20–35 тыс. ₽"],
         "habits": ["оплата ЖКХ", "аптеки", "вклады"],
-        "attitude": ["осторожен с новым", "предпочитает отделение", "боится мошенников"],
+        "attitude": ["осторожен с новым", BRANCH_PREFERENCE, "боится мошенников"],
     },
     "self_employed": {
         "name": "Самозанятые и микробизнес",
@@ -286,9 +288,14 @@ class Twin:
     def profile(self) -> str:
         text = (
             f"{self.name}, {self.age} лет, {self.region}. Доход: {self.income}. "
-            f"Привычки: {', '.join(self.habits)}. Отношение к банкам: {self.attitude}."
+            f"Привычки: {', '.join(self.habits)}."
         )
+        if self.attitude:
+            text += f" Отношение к банкам: {self.attitude}."
         return text + "".join(f" {label}: {value}." for label, value in self.traits.items())
+
+    def without_branch_preference(self) -> Twin:
+        return replace(self, attitude="") if self.attitude == BRANCH_PREFERENCE else self
 
     def to_dict(self):
         data = asdict(self)
@@ -323,7 +330,9 @@ def allocate_population(n: int, segments: dict[str, float]) -> dict[str, int]:
     return dict(counts)
 
 
-def build_population(n: int, segments: dict[str, float], seed: int = 42, *, deposit=False) -> list[Twin]:
+def build_population(
+    n: int, segments: dict[str, float], seed: int = 42, *, deposit=False, omit_branch_preference=False
+) -> list[Twin]:
     """Стратифицированная популяция: доли нормируются, остатки распределяются по величине."""
     counts = allocate_population(n, segments)
     rng = random.Random(seed)
@@ -359,4 +368,7 @@ def build_population(n: int, segments: dict[str, float], seed: int = 42, *, depo
         random.Random(f"{seed}:deposit").shuffle(amounts)
         for twin, amount in zip(twins, amounts, strict=True):
             twin.available_deposit_rub = amount
+    if deposit or omit_branch_preference:
+        # Omit the preassigned preference without redrawing any profile fields.
+        return [twin.without_branch_preference() for twin in twins]
     return twins

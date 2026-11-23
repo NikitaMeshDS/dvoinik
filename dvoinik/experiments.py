@@ -12,6 +12,7 @@ import math
 import re
 from collections import Counter
 from datetime import datetime
+from itertools import combinations
 from zoneinfo import ZoneInfo
 
 from .population import SEGMENTS
@@ -252,14 +253,40 @@ def _survey_from_cells(cells):
     return SurveyRates(rates, counts)
 
 
-def _baseline_rates(record):
+def _compare_survey(record, survey, protocol):
     baseline = record.get("baseline")
-    return baseline.get("rates") if isinstance(baseline, dict) else None
+    baseline = baseline if isinstance(baseline, dict) else {}
+    return compare(
+        record["report"],
+        survey,
+        baseline=baseline.get("rates"),
+        baseline_population=baseline.get("population"),
+        assignment=protocol.get("assignment"),
+        paired_probabilities=record.get("paired_probabilities"),
+    )
 
 
 def _check_baseline(baseline, variants):
     if not isinstance(baseline, dict) or baseline.get("method") not in BASELINE_METHODS:
         raise ValueError("Некорректная оценка простым подходом.")
+    if "population" in baseline:
+        population = baseline["population"]
+        if (
+            not isinstance(population, dict)
+            or not population
+            or any(segment not in SEGMENTS for segment in population)
+            or not math.isclose(
+                sum(
+                    _number(weight, "Доля сегмента простого подхода", minimum=0)
+                    for weight in population.values()
+                ),
+                1,
+                rel_tol=0,
+                abs_tol=1e-9,
+            )
+            or any(weight <= 0 for weight in population.values())
+        ):
+            raise ValueError("Некорректный состав аудитории простого подхода.")
     if "rates" in baseline:
         rates = baseline["rates"]
         if not isinstance(rates, dict) or set(rates) != set(variants):
@@ -317,7 +344,7 @@ def normalize_protocol(protocol):
 
 def attach_validation(record, survey, protocol=None):
     protocol = normalize_protocol(protocol)
-    result = compare(record["report"], survey, baseline=_baseline_rates(record))
+    result = _compare_survey(record, survey, protocol)
     counts = getattr(survey, "counts", None)
     if counts is None:
         raise ValueError("Для сохранения проверки нужны количества ответов опроса.")
@@ -384,6 +411,61 @@ def _check_run_usage(usage, mock, evaluations):
     _integer(usage["cache_hits"], "Ответы из кэша", maximum=0 if mock else evaluations)
 
 
+def _check_paired_segments(segments, left, right, total, gap):
+    if not isinstance(segments, dict) or set(segments) - (left["segments"].keys() & right["segments"].keys()):
+        raise ValueError("Неизвестный сегмент парного сравнения.")
+    matched, total_gap = 0, 0.0
+    for segment, item in segments.items():
+        if not isinstance(item, dict) or set(item) != {"matched_n", "gap_pp"}:
+            raise ValueError("Некорректные данные парного сравнения по сегменту.")
+        maximum = min(left["segments"][segment]["n"], right["segments"][segment]["n"])
+        n = _integer(item["matched_n"], "Число пар в сегменте", minimum=1, maximum=maximum)
+        measured = _number(item["gap_pp"], "Парная разница в сегменте", minimum=-100, maximum=100)
+        matched += n
+        total_gap += n * measured
+    if matched != total or (total and not math.isclose(total_gap / total, gap, abs_tol=1e-9)):
+        raise ValueError("Парное сравнение по сегментам не совпадает с общим итогом.")
+
+
+def _check_paired_probabilities(pairs, report):
+    expected = list(combinations(sorted(report), 2))
+    if not isinstance(pairs, list) or len(pairs) != len(expected):
+        raise ValueError("Некорректный список парных сравнений.")
+    for item, (left, right) in zip(pairs, expected, strict=True):
+        fields = {"variants", "matched_n", "means", "gap_pp", "interval_95_pp"}
+        if (
+            not isinstance(item, dict)
+            or set(item) - {"segments"} != fields
+            or item["variants"] != [left, right]
+        ):
+            raise ValueError("Парное сравнение не совпадает с вариантами отчёта.")
+        n = _integer(
+            item["matched_n"], "Число полных пар", maximum=min(report[left]["n"], report[right]["n"])
+        )
+        means, gap, interval = item["means"], item["gap_pp"], item["interval_95_pp"]
+        if not n:
+            if any(value is not None for value in (means, gap, interval)):
+                raise ValueError("Для расчёта разницы нужна хотя бы одна полная пара.")
+            if "segments" in item:
+                _check_paired_segments(item["segments"], report[left], report[right], 0, None)
+            continue
+        if not isinstance(means, list) or len(means) != 2:
+            raise ValueError("Для парного сравнения нужны две средние вероятности.")
+        a, b = (_number(value, "Средняя вероятность") for value in means)
+        measured = _number(gap, "Парная разница", minimum=-100, maximum=100)
+        if not math.isclose(measured, (a - b) * 100, abs_tol=1e-9):
+            raise ValueError("Парная разница не совпадает со средними вероятностями.")
+        if "segments" in item:
+            _check_paired_segments(item["segments"], report[left], report[right], n, measured)
+        if n == 1 and interval is None:
+            continue
+        if n < 2 or not isinstance(interval, list) or len(interval) != 2:
+            raise ValueError("Некорректный интервал парной разницы.")
+        low, high = (_number(value, "Граница интервала", minimum=-100, maximum=100) for value in interval)
+        if low > high:
+            raise ValueError("Границы интервала должны быть упорядочены.")
+
+
 def load_experiment(source):
     if not isinstance(source, (str, bytes)):
         raise ValueError("Нужен JSON-файл эксперимента.")
@@ -435,6 +517,8 @@ def load_experiment(source):
             _check_result(result, scenario["population"], scenario["objections"], n)
             if any(s["n"] > counts.get(sid, 0) for sid, s in result["segments"].items()):
                 raise ValueError("В сегменте больше ответов, чем двойников.")
+        if "paired_probabilities" in record:
+            _check_paired_probabilities(record["paired_probabilities"], report)
         minimum = scenario.get("deposit_minimum_rub")
         eligibility = record.get("deposit_eligibility")
         if minimum is not None or "deposit_eligibility" in record:
@@ -458,8 +542,14 @@ def load_experiment(source):
                 raise ValueError("Неизвестный сегмент профиля.")
             _integer(profile.get("id"), "ID профиля", maximum=n - 1)
             _integer(profile.get("age"), "Возраст", minimum=14, maximum=120)
-            for field in ["name", "region", "income", "attitude"]:
+            for field in ["name", "region", "income"]:
                 _text(profile.get(field), f"Профиль: {field}", 500)
+            _text(
+                profile.get("attitude"),
+                "Профиль: attitude",
+                500,
+                required=minimum is None and record["scenario_key"] != "senior_deposit",
+            )
             habits = profile.get("habits")
             if not isinstance(habits, list) or not 1 <= len(habits) <= 10:
                 raise ValueError("Привычки профиля должны быть списком.")
@@ -529,7 +619,7 @@ def load_experiment(source):
                     validation.pop("protocol")
             _timestamp(validation.get("created_at"))
             survey = _survey_from_cells(validation.get("cells"))
-            validation["result"] = compare(report, survey, baseline=_baseline_rates(record))
+            validation["result"] = _compare_survey(record, survey, validation.get("protocol", {}))
             validation["source"] = "user_supplied_survey"
         return record
     except (KeyError, TypeError, UnicodeError, RecursionError, OverflowError) as exc:

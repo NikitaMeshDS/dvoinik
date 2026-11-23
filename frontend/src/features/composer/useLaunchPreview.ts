@@ -3,9 +3,19 @@ import { api, ignored, message } from "../../api";
 import { draftError, runPayload } from "../../draft";
 import type { Draft, Estimate } from "../../types";
 
-type AudiencePreview = {
+export type AudiencePreview = {
   counts: Record<string, number>;
   shares: Record<string, number>;
+  respondent_system?: string;
+  profiles?: Record<
+    string,
+    {
+      id: number;
+      text: string;
+      available_deposit_rub?: number;
+      offer_prompts?: Record<string, string>;
+    }
+  >;
 };
 
 type Preview = AudiencePreview & { requestKey: string };
@@ -22,7 +32,18 @@ export function useLaunchPreview(draft: Draft, step: number) {
   const estimateKey = payload
     ? JSON.stringify([payload.scenario, payload.n, payload.concurrency])
     : "";
-  const previewKey = JSON.stringify([draft.weights, draft.n]);
+  const deposit = draft.depositMinimumRub !== undefined;
+  const validSeed =
+    Number.isInteger(draft.seed) && draft.seed >= 0 && draft.seed <= 999999;
+  const scenario = payload?.scenario;
+  const previewKey = JSON.stringify([
+    draft.weights,
+    draft.n,
+    draft.seed,
+    draft.key,
+    deposit,
+    scenario,
+  ]);
   const activePreview = preview?.requestKey === previewKey ? preview : null;
   const activeEstimate = estimate?.requestKey === estimateKey ? estimate : null;
   useEffect(() => {
@@ -76,7 +97,13 @@ export function useLaunchPreview(draft: Draft, step: number) {
         .request<AudiencePreview>(
           "/preview",
           "POST",
-          { population: draft.weights, n: draft.n },
+          {
+            population: draft.weights,
+            n: draft.n,
+            ...(validSeed
+              ? { seed: draft.seed, scenario_key: draft.key, deposit, scenario }
+              : {}),
+          },
           controller.signal,
         )
         .then((p) => {

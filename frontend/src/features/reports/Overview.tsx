@@ -7,6 +7,7 @@ import ConversionChart from "./ConversionChart";
 import SnapshotDetails from "./SnapshotDetails";
 import BaselineCard from "./BaselineCard";
 import LikertBars from "./LikertBars";
+import PairedComparison from "./PairedComparison";
 export default function Overview({
   record,
   catalog,
@@ -54,10 +55,21 @@ export default function Overview({
     quote = candidateResult?.quotes[0];
   return (
     <>
+      {record.paired_probabilities && (
+        <PairedComparison
+          pairs={record.paired_probabilities}
+          total={record.n}
+          mock={record.mock}
+        />
+      )}
       <div className="section-heading">
         <h2>Результаты по сегментам</h2>
         <span>
-          {eligibility ? "Интерес к предложению" : "Доля ответов «да»"}
+          {record.paired_probabilities
+            ? "Доля ответов «да» после жребия"
+            : eligibility
+              ? "Интерес к предложению"
+              : "Доля ответов «да»"}
         </span>
       </div>
       <div

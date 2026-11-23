@@ -1,4 +1,5 @@
-from dvoinik.experiments import attach_validation
+from dvoinik.experiments import attach_validation, load_experiment
+from dvoinik.reporting import export_json
 from dvoinik.runs import RunSettings, run_experiment
 from dvoinik.scenarios import SCENARIOS
 from dvoinik.summary import team_summary
@@ -13,6 +14,8 @@ def test_summary_is_self_contained_and_escapes_user_text():
     assert "default-src 'none'" in html and "<script" not in html.replace("&lt;script", "")
     assert "Демо" in html and "План живой проверки" in html and "Простой подход" in html
     assert "Живой опрос:</b> ещё не загружен" in html
+    assert "Парное сравнение" in html and "100 из 100 профилей" in html
+    assert "95% интервал" in html
     assert "Расхождения по сегментам" not in html
 
 
@@ -60,6 +63,7 @@ def test_summary_starts_with_a_method_passport():
     record = json.loads((Path(__file__).parents[1] / "examples" / "senior-deposit.demo.json").read_text())
     html = team_summary(record)
     assert html.index("Паспорт исследования") < html.index("Предложения")
+    assert "Парное сравнение" not in html
     assert "Демо-эвристика по ключевым словам" in html and "ещё не проводилась" in html
     assert "Риск искажений" in html and "Пенсионеры 60+" in html
     llm = {**record, "mock": False, "model": "qwen2.5:7b-instruct · SSR"}
@@ -109,20 +113,25 @@ def test_summary_exports_probability_before_and_after_correction():
 def test_summary_discloses_protocol_without_executing_user_text():
     record = run_experiment("senior_deposit", SCENARIOS["senior_deposit"], RunSettings(n=20))
     survey = SurveyRates({("A", "senior"): 0.5}, {("A", "senior"): 2})
-    html = team_summary(
-        attach_validation(
-            record,
-            survey,
-            protocol={
-                "recruitment": "<script>bad</script>",
-                "assignment": "random_one",
-                "collected_from": "2026-11-01",
-            },
-        )
+    checked = attach_validation(
+        record,
+        survey,
+        protocol={
+            "recruitment": "<script>bad</script>",
+            "assignment": "random_one",
+            "collected_from": "2026-11-01",
+        },
     )
+    reopened = load_experiment(export_json(checked))
+    result_key = "mae_interval_95_pp"
+    assert reopened["validation"]["result"][result_key] == checked["validation"]["result"][result_key]
+    html = team_summary(reopened)
     assert "&lt;script&gt;bad&lt;/script&gt;" in html and "<script>bad" not in html
     assert "2026-11-01" in html and "случайно" in html
-    assert "не указаны" in team_summary(attach_validation(record, survey))
+    assert "Приблизительный 95%-й интервал ошибки" in html
+    without_protocol = team_summary(attach_validation(record, survey))
+    assert "не указаны" in without_protocol
+    assert "Приблизительный 95%-й интервал ошибки" not in without_protocol
 
 
 def coverage_record(counts):

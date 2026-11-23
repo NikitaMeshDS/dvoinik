@@ -162,6 +162,49 @@
   color: #536b83;
   line-height: 1.7;
 }
+.profile-preview > summary {
+  cursor: pointer;
+  color: var(--blue);
+}
+.profile-preview-segment {
+  max-width: 380px;
+  margin: 12px 0;
+}
+.profile-preview-example {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f6f8ff;
+  overflow-wrap: anywhere;
+}
+.profile-preview-example p:last-child {
+  margin-bottom: 0;
+}
+.profile-preview-sources {
+  margin: 0;
+  padding-inline-start: 20px;
+}
+.profile-preview-request {
+  margin: 14px 0;
+}
+.profile-preview-request > summary,
+.profile-preview-instruction > summary {
+  cursor: pointer;
+}
+.profile-preview-instruction {
+  margin: 0;
+  border-bottom: 0;
+}
+.profile-preview-message {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f6f8ff;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .step-actions {
   display: flex;
   justify-content: space-between;
@@ -597,13 +640,6 @@
 }
 @media (max-width: 760px) {
   .composer .step-actions {
-    position: sticky;
-    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
-    box-shadow: 0 8px 26px #192d401c;
-    background: #fff;
-  }
-  /* While editing, keep the action bar in flow so the keyboard has priority. */
-  .composer:has(input:focus, textarea:focus, select:focus) .step-actions {
     position: static;
   }
   .composer .step-actions .button {

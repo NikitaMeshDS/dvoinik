@@ -342,7 +342,8 @@ def audience_view(record):
             st.markdown(f"**{twin['name']}, {twin['age']} лет · {twin['region']}**")
             st.caption(SEGMENTS[twin["segment"]]["name"])
             st.write(f"Доход: {twin['income']}. Привычки: {', '.join(twin['habits'])}.")
-            st.caption(f"Отношение к банкам: {twin['attitude']}.")
+            if twin["attitude"]:
+                st.caption(f"Отношение к банкам: {twin['attitude']}.")
             if "available_deposit_rub" in twin:
                 amount = f"{twin['available_deposit_rub']:,}".replace(",", " ")
                 st.caption(f"Свободно для вклада — {amount} ₽.")

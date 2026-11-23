@@ -831,6 +831,15 @@
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   gap: 32px;
 }
+.live-plan .data-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+.live-plan .data-table th,
+.live-plan .data-table td {
+  padding: 10px clamp(6px, 1vw, 14px);
+  overflow-wrap: anywhere;
+}
 .live-plan td small {
   color: var(--muted);
 }
@@ -1438,4 +1447,11 @@
 .data-table td,
 .matrix td strong {
   font-variant-numeric: tabular-nums;
+}
+
+.paired-meta {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-weight: 400;
 }

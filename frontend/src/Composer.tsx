@@ -12,6 +12,7 @@ import { VARIANTS, TITLES, type Catalog, type Draft } from "./types";
 import LaunchReview from "./features/composer/LaunchReview";
 import RespondentPreview from "./features/composer/RespondentPreview";
 import AudienceDistribution from "./features/composer/AudienceDistribution";
+import ProfilePreview from "./features/composer/ProfilePreview";
 import { useLaunchPreview } from "./features/composer/useLaunchPreview";
 export default function Composer({
   catalog,
@@ -405,8 +406,7 @@ export default function Composer({
                 <span className="segment-name">
                   <strong>{s.name}</strong>
                   <small>
-                    {s.region.slice(0, 2).join(", ")} · {s.age[0]}–{s.age[1]}{" "}
-                    лет
+                    {s.region.join(", ")} · {s.age[0]}–{s.age[1]} лет
                   </small>
                 </span>
                 <input
@@ -448,6 +448,19 @@ export default function Composer({
             error={previewError}
           />
           {previewError && <Notice kind="error">{previewError}</Notice>}
+          <ProfilePreview
+            catalog={catalog}
+            preview={loading ? null : activePreview}
+            loading={
+              loading || (!activePreview && !previewError && selected > 0)
+            }
+            error={previewError}
+            mock={demo || draft.mock}
+            deposit={
+              draft.key === "senior_deposit" ||
+              draft.depositMinimumRub !== undefined
+            }
+          />
           {!loading &&
             activePreview &&
             Object.entries(draft.weights).some(

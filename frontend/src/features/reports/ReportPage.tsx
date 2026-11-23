@@ -82,13 +82,11 @@ export default function ReportPage({
     onTabChange?.(value);
   };
   const openValidation = () => {
-    if (record.validation) {
-      if (tab === "validation") {
-        surveyHeading.current?.focus();
-        return;
-      }
-      focusSurveyOnOpen.current = true;
+    if (tab === "validation") {
+      surveyHeading.current?.focus();
+      return;
     }
+    focusSurveyOnOpen.current = true;
     setTab("validation");
   };
   const insights = useInsights(record, segment);
@@ -196,7 +194,8 @@ export default function ReportPage({
             onExport={exportFile}
             plan={insights.base?.plan}
             analyticsError={insights.baseError}
-            metricsHeadingRef={surveyHeading}
+            planHeadingRef={record.validation ? undefined : surveyHeading}
+            metricsHeadingRef={record.validation ? surveyHeading : undefined}
             onDirtyChange={setSurveyDirty}
           />
         </div>

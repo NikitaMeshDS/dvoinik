@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import math
+import random
 from collections import Counter, defaultdict, deque
+from itertools import combinations
 
 from .population import SEGMENTS
 from .ssr import POINTS
@@ -12,15 +14,27 @@ from .ssr import POINTS
 OTHER_OBJECTION = "другое"
 
 
-def wilson_interval(yes: int, n: int) -> list[float]:
-    """Wilson 95%: разброс ответов внутри симуляции, не точность прогноза людей."""
+def wilson_interval(yes: int, n: int, *, z: float = 1.96) -> list[float]:
+    """Wilson score interval for a binary proportion, at 95% by default."""
     if not n:
         return [0.0, 1.0]
-    z, p = 1.96, yes / n
+    p = yes / n
     denominator = 1 + z * z / n
     center = (p + z * z / (2 * n)) / denominator
     margin = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denominator
     return [max(0.0, center - margin), min(1.0, center + margin)]
+
+
+def difference_interval_95_pp(a_yes: int, a_n: int, b_yes: int, b_n: int) -> list[float]:
+    """Newcombe method 10 for independent groups, in percentage points."""
+    a_low, a_high = wilson_interval(a_yes, a_n)
+    b_low, b_high = wilson_interval(b_yes, b_n)
+    p_a, p_b = a_yes / a_n, b_yes / b_n
+    gap = p_a - p_b
+    return [
+        100 * (gap - math.hypot(p_a - a_low, b_high - p_b)),
+        100 * (gap + math.hypot(a_high - p_a, p_b - b_low)),
+    ]
 
 
 def aggregate(rows) -> dict:
@@ -125,3 +139,53 @@ def _probability_summary(values: list[float]) -> dict:
     mean = sum(values) / len(values)
     sd = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values))
     return {"mean": round(mean, 4), "sd": round(sd, 4), "n": len(values)}
+
+
+def paired_probabilities(results: dict) -> list[dict]:
+    """Aggregate differences across identical profile IDs; individual pairs stay in memory."""
+    values = {
+        variant: {
+            (twin.segment, twin.id): probability
+            for twin, answer in rows
+            if not answer.get("error")
+            and type(answer.get("decision")) is bool
+            and type(probability := answer.get("probability")) in (float, int)
+            and 0 <= probability <= 1
+        }
+        for variant, rows in results.items()
+    }
+    pairs = []
+    for left, right in combinations(values, 2):
+        a, b = values[left], values[right]
+        common = sorted(a.keys() & b.keys())
+        n = len(common)
+        means = [sum(group[key] for key in common) / n for group in (a, b)] if n else None
+        gaps = [(a[key] - b[key]) * 100 for key in common]
+        gap = round(sum(gaps) / n, 10) if n else None
+        by_segment = defaultdict(list)
+        for (segment, _), value in zip(common, gaps, strict=True):
+            by_segment[segment].append(value)
+        segments = {
+            segment: {"matched_n": len(group), "gap_pp": round(sum(group) / len(group), 10)}
+            for segment, group in by_segment.items()
+        }
+        interval = None
+        if n >= 2:
+            if all(value == gaps[0] for value in gaps):
+                interval = [gap, gap]
+            else:
+                # Resample complete pairs so the covariance between offers is retained.
+                rng = random.Random(42)
+                samples = sorted(sum(rng.choices(gaps, k=n)) / n for _ in range(400))
+                interval = [round(samples[10], 10), round(samples[-11], 10)]
+        pairs.append(
+            {
+                "variants": [left, right],
+                "matched_n": n,
+                "means": means,
+                "gap_pp": gap,
+                "interval_95_pp": interval,
+                "segments": segments,
+            }
+        )
+    return pairs

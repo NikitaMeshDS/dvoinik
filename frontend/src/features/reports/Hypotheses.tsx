@@ -71,9 +71,9 @@ export default function Hypotheses({
       <p className="help hypotheses-intro">
         Гипотезы построены по частым причинам отказа от лидера и по сегментам,
         где другой вариант сильнее. Порядок — по доле аудитории, которую
-        затрагивает причина. Потолок эффекта показывает прирост, если причина
-        исчезнет полностью: реальный эффект меньше. Проверка — A/B-запуск «лидер
-        против гипотезы», затем живой опрос.
+        затрагивает причина или сегмент. Доли отказов и разницы вариантов
+        относятся к этой симуляции. Эффект нового текста измеряется в живом
+        опросе.
       </p>
       {record.mock && (
         <Notice>
@@ -99,8 +99,12 @@ export default function Hypotheses({
                 <div className="hypothesis-head">
                   <span className="chip chip-neutral">{h.lever}</span>
                   <span className="hypothesis-ceiling">
-                    до +{decimal(h.ceiling_pp)} п.п.
-                    <small>потолок в главном сегменте</small>
+                    {decimal(h.ceiling_pp)} п.п.
+                    <small>
+                      {h.kind === "segment_offer"
+                        ? "разница в главном сегменте"
+                        : "отказы по этой причине в главном сегменте"}
+                    </small>
                   </span>
                 </div>
                 <h3>{h.change}</h3>
@@ -153,13 +157,13 @@ export default function Hypotheses({
                     <dd>{decimal(h.audience_pp)}%</dd>
                   </div>
                   <div>
-                    <dt>Живой тест</dt>
+                    <dt>Ориентир для живого теста</dt>
                     <dd>
                       {h.check_n
                         ? "≈ " +
                           h.check_n.toLocaleString("ru-RU") +
                           " оценок на вариант"
-                        : "эффект слишком мал"}
+                        : "объём не рассчитан"}
                     </dd>
                   </div>
                 </dl>

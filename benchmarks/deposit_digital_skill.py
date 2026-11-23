@@ -9,7 +9,6 @@ import json
 import os
 from dataclasses import replace
 from itertools import product
-from math import hypot
 from pathlib import Path
 from statistics import mean
 
@@ -20,7 +19,7 @@ from benchmarks.deposit_assignments import reconcile
 from context_study import OFFERS, SYSTEM, message
 from dvoinik import engine, llm_json
 from dvoinik.population import DIGITAL, DIGITAL_LABEL, build_population
-from dvoinik.report_stats import wilson_interval
+from dvoinik.report_stats import difference_interval_95_pp
 from dvoinik.validate import load_survey
 
 QUESTION = "Если бы у вас была нужная сумма, заинтересовал бы вас этот вклад?"
@@ -29,6 +28,7 @@ FORMAT = (
     'Верни JSON с одним числом "interest" в этом диапазоне.'
 )
 MODES = ("without_skill", "with_skill")
+CHANNEL_MODES = ("with_preference", "without_preference")
 GROUPS = dict(
     zip(("independent", "assisted", "offline"), (text for text, _ in DIGITAL["senior"]), strict=True)
 )
@@ -42,6 +42,8 @@ def prompt(twin, variant, mode):
         twin = replace(
             twin, traits={key: value for key, value in twin.traits.items() if key != DIGITAL_LABEL}
         )
+    elif mode == "without_preference":
+        twin = twin.without_branch_preference()
     return f"Профиль: {twin.profile()}\n\n{OFFERS[variant]}\n{QUESTION}\n{FORMAT}"
 
 
@@ -53,7 +55,7 @@ def parse(raw):
     return interest
 
 
-async def collect(model, concurrency):
+async def collect(model, concurrency, modes=MODES):
     population = [
         (seed, twin) for seed in SEEDS for twin in build_population(N_PER_SEED, {"senior": 1}, seed)
     ]
@@ -83,7 +85,7 @@ async def collect(model, concurrency):
         rows = await asyncio.gather(
             *(
                 ask(seed, twin, mode, variant)
-                for (seed, twin), mode, variant in product(population, MODES, OFFERS)
+                for (seed, twin), mode, variant in product(population, modes, OFFERS)
             )
         )
     return rows, [
@@ -92,11 +94,11 @@ async def collect(model, concurrency):
     ]
 
 
-def score(rows):
+def score(rows, modes=MODES):
     index = {(r["seed"], r["id"], r["mode"], r["variant"]): r for r in rows if "error" not in r}
     keys = {(r["seed"], r["id"]): r["group"] for r in rows}
     matched = [
-        key for key in keys if all((*key, mode, variant) in index for mode, variant in product(MODES, OFFERS))
+        key for key in keys if all((*key, mode, variant) in index for mode, variant in product(modes, OFFERS))
     ]
 
     def estimates(people):
@@ -105,7 +107,7 @@ def score(rows):
                 variant: mean(index[(*key, mode, variant)]["interest"] for key in people) if people else None
                 for variant in OFFERS
             }
-            for mode in MODES
+            for mode in modes
         }
         return {"n": len(people), "levels": levels}
 
@@ -149,18 +151,6 @@ def baseline_rates(baseline, model):
     return rates
 
 
-def survey_gap_interval(a, b):
-    """Newcombe method 10 for independent groups, in percentage points."""
-    a_low, a_high = wilson_interval(a["yes"], a["n"])
-    b_low, b_high = wilson_interval(b["yes"], b["n"])
-    p_a, p_b = a["yes_share"], b["yes_share"]
-    gap = p_a - p_b
-    return [
-        100 * (gap - hypot(p_a - a_low, b_high - p_b)),
-        100 * (gap + hypot(a_high - p_a, p_b - b_low)),
-    ]
-
-
 def compare(report, survey, baseline=None):
     if any(group not in GROUPS or variant not in OFFERS for variant, group in survey):
         raise ValueError("В опросе допустимы варианты A/B и сегменты independent, assisted, offline.")
@@ -197,7 +187,8 @@ def compare(report, survey, baseline=None):
                 for mode in modes
             }
             cells["gap_a_minus_b_pp"] = {"survey": observed_gap, **model_gaps}
-            low, high = survey_gap_interval(cells["A"], cells["B"])
+            a, b = cells["A"], cells["B"]
+            low, high = difference_interval_95_pp(a["yes"], a["n"], b["yes"], b["n"])
             cells["survey_gap_interval_95_pp"] = [low, high]
             cells["survey_gap_direction"] = "A" if low > 0 else "B" if high < 0 else "uncertain"
             cells["model_direction_match"] = {
@@ -320,6 +311,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--concurrency", type=int, default=2)
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--channel-preference",
+        action="store_true",
+        help="Сравнить анкеты с исходным предпочтением отделения и без него, сохранив цифровой навык",
+    )
     parser.add_argument("--compare", type=Path)
     parser.add_argument("--survey", type=Path)
     parser.add_argument("--baseline", type=Path, help="Зафиксированные оценки простого промпта")
@@ -343,6 +339,7 @@ def main():
                 args.assignment_sha256,
                 args.output,
                 args.rehearsal,
+                args.channel_preference,
             )
         ):
             parser.error("--summary-from требует --summary и используется отдельно от сравнения.")
@@ -365,6 +362,8 @@ def main():
         parser.error("Укажите --output.")
     if bool(args.compare) != bool(args.survey):
         parser.error("--compare и --survey указываются вместе.")
+    if args.compare and args.channel_preference:
+        parser.error("--channel-preference используется для отдельного запуска модели.")
     if args.baseline and not args.compare:
         parser.error("--baseline требует --compare и --survey.")
     if args.assignments and not args.compare:
@@ -381,7 +380,7 @@ def main():
         if args.summary and args.summary.resolve() in input_paths | {args.output.resolve()}:
             parser.error("Укажите отдельный файл для резюме.")
         report = json.loads(args.compare.read_text(encoding="utf-8"))
-        if report.get("offers") != OFFERS or report.get("question") != QUESTION:
+        if report.get("offers") != OFFERS or report.get("question") != QUESTION or report.get("ablation"):
             parser.error("Отчёт использует другой протокол.")
         if report.get("survey_input_kind") == "rehearsal" and not args.rehearsal:
             parser.error(
@@ -412,7 +411,8 @@ def main():
         model = os.getenv("LLM_MODEL")
         if not model or not os.getenv("LLM_BASE_URL") or args.concurrency < 1:
             parser.error("Нужны LLM_MODEL, LLM_BASE_URL и положительный --concurrency.")
-        rows, population = asyncio.run(collect(model, args.concurrency))
+        modes = CHANNEL_MODES if args.channel_preference else MODES
+        rows, population = asyncio.run(collect(model, args.concurrency, modes))
         report = {
             "model": model,
             "offers": OFFERS,
@@ -422,8 +422,23 @@ def main():
             "population": population,
             "rows": rows,
             "human_comparison": None,
-            **score(rows),
+            **score(rows, modes),
         }
+        if args.channel_preference:
+            from dvoinik.population import BRANCH_PREFERENCE
+
+            affected = {
+                (p["seed"], p["id"])
+                for p in population
+                if f"Отношение к банкам: {BRANCH_PREFERENCE}." in p["profile"]
+            }
+            report.update(
+                ablation="branch_preference",
+                temperature=0,
+                llm_json_mode=llm_json.mode(),
+                request_options=llm_json.extra_body(),
+                affected=score([row for row in rows if (row["seed"], row["id"]) in affected], modes),
+            )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     if args.summary:

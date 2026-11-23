@@ -29,17 +29,22 @@ export default function ResearchBrief({
     : survey.matched_cells < expectedPairs
       ? "Неполное покрытие опроса"
       : "Опрос загружен";
+  const firstPair = record.paired_probabilities?.[0];
   const observation = hasQualityIssue
     ? "Есть пропуски, ошибки или корректировки ответов. Проверьте качество перед сравнением вариантов."
-    : !summary
-      ? analyticsError
-        ? "Аналитика недоступна. Сохранённые ответы остаются в отчёте."
-        : "Загружаем разбор сохранённых ответов…"
-      : !summary.leaders.length
-        ? "Нет валидных ответов для сравнения. Проверьте подключение и настройки модели."
-        : summary.leaders.length > 1
-          ? `У вариантов ${summary.leaders.join(" / ")} одинаковая доля ответов «да» — ${percent(summary.best)}.`
-          : `Вариант ${summary.leaders[0]} получил ${percent(summary.best)} ответов «да»${summary.gap_pp > 0 ? ` — выше следующего на ${decimal(summary.gap_pp)} п. п.` : "."}`;
+    : firstPair
+      ? firstPair.gap_pp == null
+        ? `Для пары ${firstPair.variants.join(" − ")} пока нет профилей с двумя оценками.`
+        : `Разница средних оценок ответа «да» для ${firstPair.variants.join(" − ")} — ${firstPair.gap_pp > 0 ? "+" : ""}${decimal(firstPair.gap_pp)} п. п. Учтено профилей — ${firstPair.matched_n} из ${record.n}.`
+      : !summary
+        ? analyticsError
+          ? "Аналитика недоступна. Сохранённые ответы остаются в отчёте."
+          : "Загружаем разбор сохранённых ответов…"
+        : !summary.leaders.length
+          ? "Нет валидных ответов для сравнения. Проверьте подключение и настройки модели."
+          : summary.leaders.length > 1
+            ? `У вариантов ${summary.leaders.join(" / ")} одинаковая доля ответов «да» — ${percent(summary.best)}.`
+            : `Вариант ${summary.leaders[0]} получил ${percent(summary.best)} ответов «да»${summary.gap_pp > 0 ? ` — выше следующего на ${decimal(summary.gap_pp)} п. п.` : "."}`;
   return (
     <section className="research-brief" aria-label="Краткий итог исследования">
       <div className="brief-sources" role="group" aria-label="Источники данных">

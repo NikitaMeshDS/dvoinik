@@ -115,9 +115,18 @@ def test_validation_compares_twins_and_baseline_with_survey():
         {("A", "senior"): 0.1, ("B", "senior"): 0.5, ("C", "senior"): 0.4},
         {("A", "senior"): 30, ("B", "senior"): 30, ("C", "senior"): 30},
     )
-    metrics = attach_validation(record, survey)["validation"]["result"]["baseline"]
+    assert record["baseline"]["population"] == {"senior": 1.0}
+    checked = attach_validation(record, survey)
+    metrics = load_experiment(export_json(checked))["validation"]["result"]["baseline"]
     assert {row["variant"] for row in metrics["variants"]} == {"A", "B", "C"}
     assert math.isfinite(metrics["twins_mae_variants"]) and math.isfinite(metrics["baseline_mae_variants"])
+    del checked["baseline"]["population"]
+    legacy = load_experiment(export_json(checked))
+    assert legacy["baseline"]["rates"]
+    result = legacy["validation"]["result"]
+    assert result["baseline_unavailable"] == "unknown_population"
+    assert "baseline" not in result
+    assert result["matched_cells"] == 3
 
 
 def test_llm_baseline_uses_single_request_and_reports_schema_errors(monkeypatch):
@@ -158,7 +167,11 @@ def test_llm_baseline_uses_single_request_and_reports_schema_errors(monkeypatch)
         "population": {"senior": 1.0},
         "objections": ["плата"],
     }
-    assert engine.baseline_estimate(scenario) == {"method": "single_prompt", "rates": {"A": 0.2, "B": 0.6}}
+    assert engine.baseline_estimate(scenario) == {
+        "method": "single_prompt",
+        "population": {"senior": 1.0},
+        "rates": {"A": 0.2, "B": 0.6},
+    }
     assert "Пенсионеры 60+" in seen[0]["messages"][1]["content"] and seen[0]["temperature"] == 0
     assert "error" in engine.baseline_estimate(scenario)
 

@@ -6,7 +6,8 @@ import uuid
 
 from fastapi import APIRouter, Depends
 
-from ...engine import rewrite_offer
+from ... import llm_json, ssr
+from ...engine import respondent_messages, rewrite_offer
 from ...experiments import (
     CUSTOM_SCENARIO,
     load_experiment,
@@ -24,7 +25,7 @@ from ...population import (
     SOURCE_GAPS,
     allocate_population,
 )
-from ...runs import RunSettings
+from ...runs import RunSettings, build_run_population
 from ...scenarios import SCENARIOS
 from ..models import Compare, Estimate, Import, Insights, Preview, Rewrite, Run
 from ..runtime import get_runtime
@@ -45,9 +46,32 @@ def catalog(access=Depends(identity)):
 
 @router.post("/api/preview")
 def preview(body: Preview, access=Depends(identity)):
-    RunSettings(n=body.n)
+    settings = RunSettings(n=body.n, seed=42 if body.seed is None else body.seed)
     shares = normalize_population(body.population)
-    return {"counts": allocate_population(body.n, shares), "shares": shares}
+    result = {"counts": allocate_population(body.n, shares), "shares": shares}
+    if body.seed is not None:
+        scenario = normalize_scenario(body.scenario) if body.scenario is not None else None
+        deposit = "deposit_minimum_rub" in scenario if scenario is not None else body.deposit
+        use_ssr = scenario is not None and ssr.mode() == "ssr"
+        profiles = {}
+        for twin in build_run_population(body.scenario_key, shares, settings, deposit=deposit):
+            if twin.segment in profiles:
+                continue
+            entry = {"id": twin.id, "text": twin.profile()}
+            if twin.available_deposit_rub is not None:
+                entry["available_deposit_rub"] = twin.available_deposit_rub
+            if scenario is not None:
+                prompts = {}
+                for variant, text in scenario["variants"].items():
+                    system, user = llm_json.prepare_messages(
+                        respondent_messages(twin, scenario, text, use_ssr=use_ssr)
+                    )
+                    result["respondent_system"] = system["content"]
+                    prompts[variant] = user["content"]
+                entry["offer_prompts"] = prompts
+            profiles[twin.segment] = entry
+        result["profiles"] = profiles
+    return result
 
 
 @router.get("/api/experiments")

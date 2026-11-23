@@ -15,6 +15,10 @@ class Login(Body):
 class Preview(Body):
     population: dict
     n: StrictInt
+    seed: StrictInt | None = None
+    scenario_key: StrictStr = "custom"
+    deposit: StrictBool = False
+    scenario: dict | None = None
 
 
 class Estimate(Body):

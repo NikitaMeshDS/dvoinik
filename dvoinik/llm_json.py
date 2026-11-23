@@ -50,7 +50,8 @@ def _rejects_format(exc) -> bool:
     return status in {400, 422} and "response_format" in str(exc).lower()
 
 
-def _no_think(messages: list[dict]) -> list[dict]:
+def prepare_messages(messages: list[dict]) -> list[dict]:
+    """Apply the same text modifications for preview and provider requests."""
     if os.getenv("LLM_NO_THINK") != "1" or not messages:
         return messages
     last = messages[-1]
@@ -69,7 +70,7 @@ def extra_body() -> dict | None:
 
 async def chat_json(client, model: str, messages: list[dict], temperature: float) -> str:
     """Запрос с ожиданием JSON; возвращает текст объекта для json.loads."""
-    messages = _no_think(messages)
+    messages = prepare_messages(messages)
     extra = {"extra_body": extra_body()} if extra_body() else {}
     current = mode()
     use_text = current == "text" or (current == "auto" and _STATE["text"])

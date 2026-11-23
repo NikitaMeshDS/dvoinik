@@ -14,7 +14,7 @@ from .hypotheses import suggest
 from .planning import baseline_agreement, leader_stability, live_check_plan
 from .population import DISTORTION_RISK, SEGMENTS
 from .scenarios import deposit_terms
-from .validate import RANKING_LIMITS
+from .validate import BASELINE_LIMITS, RANKING_LIMITS
 
 
 def _pct(value) -> str:
@@ -47,6 +47,30 @@ def _matrix(record) -> str:
     )
     rows.append(f"<tr class='total'><th>Вся аудитория</th>{total}</tr>")
     return f"<table><thead><tr><th>Сегмент</th>{head}</tr></thead><tbody>{''.join(rows)}</tbody></table>"
+
+
+def _paired_comparison(record) -> str:
+    pairs = record.get("paired_probabilities")
+    if not pairs:
+        return ""
+    rows = []
+    for pair in pairs:
+        name = escape(" − ".join(pair["variants"]))
+        means = " / ".join(_pct(p) for p in pair["means"]) if pair["means"] is not None else "—"
+        gap = _num(pair["gap_pp"]) if pair["gap_pp"] is not None else "—"
+        interval = pair["interval_95_pp"]
+        bounds = " … ".join(_num(value) for value in interval) if interval is not None else "—"
+        rows.append(
+            f"<tr><th>{name}<small>{pair['matched_n']} из {record['n']} профилей</small></th>"
+            f"<td>{means}</td><td>{gap}</td><td>{bounds}</td></tr>"
+        )
+    return (
+        "<h2>Парное сравнение</h2><table><thead><tr>"
+        "<th>Пара</th><th>Средние оценки «да»</th><th>Разница, п. п.</th><th>95% интервал, п. п.</th>"
+        f"</tr></thead><tbody>{''.join(rows)}</tbody></table>"
+        "<p class='note'>Интервал показывает разброс при перевыборке общих синтетических профилей. "
+        "Точность прогноза по ответам людей проверяется опросом.</p>"
+    )
 
 
 def _objections(record) -> str:
@@ -188,6 +212,17 @@ def _checks(record) -> str:
                 f"простого подхода {_num(base['baseline_mae_variants'] * 100)} п.п."
             )
         lines.append(line + ". Источник ответов предоставлен пользователем.</li>")
+        if interval := result.get("mae_interval_95_pp"):
+            low, high = interval
+            lines.append(
+                f"<li><b>Приблизительный 95%-й интервал ошибки:</b> {_num(low)}–{_num(high)} п.п. "
+                "Учитывает случайный разброс ответов опроса при фиксированных оценках "
+                "симуляции и составе выборки.</li>"
+            )
+        if reason := result.get("baseline_unavailable"):
+            lines.append(
+                f"<li><b>Сравнение ошибок двух подходов недоступно.</b> {escape(BASELINE_LIMITS[reason])}</li>"
+            )
         if reason := result.get("ranking_unavailable"):
             lines.append(f"<li><b>Общий рейтинг недоступен.</b> {escape(RANKING_LIMITS[reason])}</li>")
         lines.append(_survey_coverage(record, result))
@@ -255,15 +290,19 @@ def _hypotheses(record) -> str:
     for h in items:
         evidence = "".join(f"<li>{escape(e)}</li>" for e in h["evidence"])
         check = (
-            f"≈ {h['check_n']} оценок на вариант, чтобы заметить половину эффекта"
+            f"≈ {h['check_n']} оценок на вариант при целевой разнице в половину указанной величины"
             if h["check_n"]
-            else "эффект слишком мал для живого теста"
+            else "объём живого теста не рассчитан"
+        )
+        metric = (
+            "Разница между вариантами в главном сегменте симуляции"
+            if h["kind"] == "segment_offer"
+            else "Доля отказов по этой причине среди ответов главного сегмента"
         )
         blocks.append(
             f"<h3>{escape(h['lever'])}</h3><p>{escape(h['change'])}.</p><ul>{evidence}</ul>"
             f"<p><b>Новый текст:</b> {escape(h['proposal'])}</p>"
-            f"<p class='note'>Потолок эффекта в главном сегменте — +{_num(h['ceiling_pp'])} п.п., "
-            f"если причина отказа исчезнет полностью; проверка: {check}.</p>"
+            f"<p class='note'>{metric} — {_num(h['ceiling_pp'])} п.п. Ориентир для опроса — {check}.</p>"
         )
     return "".join(blocks)
 
@@ -361,6 +400,7 @@ h2{{break-after:avoid}}table{{break-inside:avoid}}}}
 <p><b>Вопрос:</b> {escape(scenario["question"])}</p>
 <h2>Паспорт исследования</h2>{_passport(record)}
 <h2>Предложения</h2><ul>{offers}</ul>
+{_paired_comparison(record)}
 <h2>{"Интерес по сегментам" if eligibility is not None else "Доли согласий по сегментам"}</h2>{_matrix(record)}
 {access}
 <p class="note">Выделены наибольшие доли в строке; статистическая значимость не проверялась.</p>

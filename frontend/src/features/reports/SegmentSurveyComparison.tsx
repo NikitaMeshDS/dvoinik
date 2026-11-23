@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { decimal } from "../../components";
 import { plural } from "../../data";
-import type { ValidationCell } from "../../types";
+import type { SurveyContrast, ValidationCell } from "../../types";
 
-function difference(first: number, second: number) {
-  const delta = (first - second) * 100;
+function points(delta: number) {
   const magnitude = decimal(Math.abs(delta));
   const sign = magnitude === decimal(0) ? "" : delta > 0 ? "+" : "−";
   return `${sign}${magnitude} п.п.`;
@@ -13,9 +12,11 @@ function difference(first: number, second: number) {
 export default function SegmentSurveyComparison({
   cells,
   segment,
+  contrasts = [],
 }: {
   cells: ValidationCell[];
   segment: string;
+  contrasts?: SurveyContrast[];
 }) {
   const [selected, setSelected] = useState("");
   const variants = [...cells].sort((a, b) =>
@@ -31,6 +32,10 @@ export default function SegmentSurveyComparison({
   const pair = pairs.find(({ id }) => id === selected) ?? pairs[0];
   if (!pair) return null;
   const { first, second } = pair;
+  const contrast = contrasts.find(
+    ({ pair }) => pair[0] === first.variant && pair[1] === second.variant,
+  );
+  const model = contrast?.model_pair;
   return (
     <section
       className="segment-survey-comparison"
@@ -62,11 +67,17 @@ export default function SegmentSurveyComparison({
       <dl className="segment-survey-differences">
         <div>
           <dt>По ответам опроса</dt>
-          <dd>{difference(first.actual, second.actual)}</dd>
+          <dd>{points((first.actual - second.actual) * 100)}</dd>
         </div>
         <div>
-          <dt>По симуляции</dt>
-          <dd>{difference(first.predicted, second.predicted)}</dd>
+          <dt>
+            {model ? "По общим профилям" : "По бинарным ответам симуляции"}
+          </dt>
+          <dd>
+            {points(
+              model?.gap_pp ?? (first.predicted - second.predicted) * 100,
+            )}
+          </dd>
         </div>
       </dl>
       <ul className="segment-survey-counts" aria-label="Число оценок в опросе">
@@ -77,10 +88,27 @@ export default function SegmentSurveyComparison({
           </li>
         ))}
       </ul>
-      <p className="help">
-        Сравнение описательное. Учитывайте число оценок и способ распределения
-        участников.
-      </p>
+      {model && (
+        <p className="help">
+          В парной оценке учтено профилей —{" "}
+          {model.matched_n.toLocaleString("ru-RU")}. Расхождение с опросом —{" "}
+          {decimal(model.absolute_error_pp)} п.п.
+        </p>
+      )}
+      {contrast?.interval_95_pp ? (
+        <p className="help" role="status">
+          95% интервал по опросу —{" "}
+          {contrast.interval_95_pp.map(points).join(" … ")}.{" "}
+          {contrast.direction === "uncertain"
+            ? "Направление различия пока неопределённо."
+            : `Интервал указывает на более высокую долю ответов «да» у варианта ${contrast.direction}.`}
+        </p>
+      ) : (
+        <p className="help">
+          Описательное сравнение. Интервал доступен, если в протоколе указано
+          случайное назначение одного варианта каждому участнику.
+        </p>
+      )}
     </section>
   );
 }

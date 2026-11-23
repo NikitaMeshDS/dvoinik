@@ -166,21 +166,13 @@
   }
 }
 .showcase-note {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 50;
-  max-width: min(520px, calc(100vw - 32px));
   background: var(--nav);
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
-  border-radius: 10px;
-  padding: 8px 12px;
-  box-shadow: 0 6px 20px rgba(20, 41, 67, 0.25);
+  padding: 10px 18px;
 }
-@media (max-width: 760px) {
-  .showcase-note {
-    bottom: 84px;
-  }
+.showcase-note a {
+  color: inherit;
+  text-decoration: underline;
 }

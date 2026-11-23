@@ -1,18 +1,21 @@
+import type { Ref } from "react";
 import { decimal, percent, LoadingState } from "../../components";
 import type { LivePlan as Plan } from "./types";
 export default function LivePlan({
   plan,
   analyticsError = "",
   mock,
+  headingRef,
 }: {
   plan: Plan | undefined;
   analyticsError?: string;
   mock: boolean;
+  headingRef?: Ref<HTMLHeadingElement>;
 }) {
   return (
     <section className="live-plan" aria-label="План живой проверки">
       <div className="section-heading">
-        <h2>
+        <h2 ref={headingRef} tabIndex={headingRef ? -1 : undefined}>
           <span className="validation-step" aria-hidden="true">
             1
           </span>{" "}

@@ -55,4 +55,12 @@ it("shows measured results with limits", () => {
   expect(screen.getByText("Что показали замеры")).toBeTruthy();
   expect(screen.getByText("qwen3-30b-a3b, SSR")).toBeTruthy();
   expect(screen.getByText(/Доли рынка двойники не прогнозируют/)).toBeTruthy();
+  expect(
+    screen.getByText(/57 опросах о товарах для личного ухода/),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      /Сопоставление с ответами людей по этой анкете ещё предстоит/,
+    ),
+  ).toBeTruthy();
 });

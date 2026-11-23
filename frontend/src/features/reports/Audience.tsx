@@ -58,7 +58,7 @@ export default function Audience({
                       <span key={h}>{h}</span>
                     ))}
                   </div>
-                  <p className="help">{p.attitude}</p>
+                  {p.attitude && <p className="help">{p.attitude}</p>}
                   {Object.entries(
                     p.traits ??
                       (p.digital ? { "Цифровые навыки": p.digital } : {}),

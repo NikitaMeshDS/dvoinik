@@ -94,9 +94,9 @@ def test_no_think_switch_and_auto_enable_for_qwen3(monkeypatch):
 
     messages = [{"role": "system", "content": "s"}, {"role": "user", "content": "u"}]
     monkeypatch.delenv("LLM_NO_THINK", raising=False)
-    assert llm_json._no_think(messages) is messages
+    assert llm_json.prepare_messages(messages) is messages
     monkeypatch.setenv("LLM_NO_THINK", "1")
-    patched = llm_json._no_think(messages)
+    patched = llm_json.prepare_messages(messages)
     assert patched[-1]["content"] == "u\n/no_think" and messages[-1]["content"] == "u"
     assert proof.planned_requests(True, False) < proof.planned_requests(False, True)
 

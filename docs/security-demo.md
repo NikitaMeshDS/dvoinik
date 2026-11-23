@@ -38,6 +38,7 @@ payload при ошибках: скрипт хранит их только во 
 | Отзыв | Выход, блокировка, сброс пароля и срок прекращают доступ; отзыв во время вычисления/ответа не раскрывает данные | `test_auth.py`: logout_disable_and_reset, idle_and_absolute; `test_api.py`: revoke_during_engine, revocation_before_response |
 | Смена аккаунта | Старая вкладка с прежним CSRF не читает данные нового пользователя | old_tab_read_is_rejected_after_browser_cookie_switches_account |
 | Опрос | Предпросмотр не меняет сохранённый отчёт; конфликт записи возвращает 409, оставляя прежние данные и экспорт предпросмотра | validation_cas_conflict_preserves_exportable_preview |
+| Маршрут модели | При `DVOINIK_LLM_LOOPBACK_ONLY=1` внешний адрес отклоняется до запроса. Клиент использует числовой loopback и отключает прокси окружения и перенаправления. | `test_no_egress.py` |
 | Браузер и сеть | CSP запрещает внешние browser-connect/script; проверенный демо-путь не открывает socket; тест LLM использует только заданный адрес | react_shell_rejects_framing_and_limits_scripts_to_local_assets, `test_no_egress.py` |
 
 Имена в таблице сокращены для читаемости; точный перечень исполняемых ID находится в `CHECKS`

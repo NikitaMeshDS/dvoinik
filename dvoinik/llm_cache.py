@@ -14,7 +14,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-from .settings import storage_path
+from .settings import llm_base_url, storage_path
 
 
 def enabled() -> bool:
@@ -29,7 +29,7 @@ def path() -> Path:
 def key(model: str, messages: list[dict], temperature: float) -> str:
     payload = {
         "model": model,
-        "base_url": os.getenv("LLM_BASE_URL", "http://localhost:11434/v1"),
+        "base_url": llm_base_url(),
         "messages": messages,
         "temperature": temperature,
     }

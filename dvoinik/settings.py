@@ -20,13 +20,25 @@ def storage_path() -> Path:
     return Path(os.getenv("DVOINIK_STORAGE_PATH", str(ROOT / ".data" / filename))).expanduser().resolve()
 
 
+def llm_loopback_only() -> bool:
+    value = os.getenv("DVOINIK_LLM_LOOPBACK_ONLY", "0")
+    if value not in {"0", "1"}:
+        raise ValueError("DVOINIK_LLM_LOOPBACK_ONLY принимает 0 или 1.")
+    return value == "1"
+
+
+def llm_base_url() -> str:
+    default = "http://127.0.0.1:11434/v1" if llm_loopback_only() else "http://localhost:11434/v1"
+    return os.getenv("LLM_BASE_URL", default)
+
+
 def model_identity(mock: bool) -> tuple[str, str | None]:
     if mock:
         return "Эвристика", None
     from .ssr import embed_model, mode
 
     model = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
-    config = model + "|" + os.getenv("LLM_BASE_URL", "http://localhost:11434/v1") + "|respondent-v2"
+    config = model + "|" + llm_base_url() + "|respondent-v2"
     if mode() == "ssr":
         return f"{model} · SSR", f"{config}|ssr:{embed_model()}"
     return model, config

@@ -18,8 +18,10 @@ from . import llm_cache, llm_json, ssr
 from .population import SEGMENTS, Twin
 from .report_stats import OTHER_OBJECTION as OTHER_OBJECTION
 from .report_stats import aggregate as aggregate
+from .report_stats import paired_probabilities
 from .run_usage import count_cache_hit
 from .scenarios import deposit_terms
+from .settings import llm_base_url, llm_loopback_only
 
 SYSTEM = (
     "Ты — конкретный клиент банка, описанный ниже. Отвечай от первого лица, как этот человек, "
@@ -51,13 +53,33 @@ BASELINE_SYSTEM = (
 
 
 def _client():
-    from openai import AsyncOpenAI
+    from httpx import URL, InvalidURL
+    from openai import AsyncOpenAI, DefaultAsyncHttpxClient
+
+    address = llm_base_url()
+    http_client = None
+    if llm_loopback_only():
+        error = "В локальном режиме LLM_BASE_URL должен указывать на 127.0.0.1 или [::1] по HTTP(S)."
+        try:
+            url = URL(address)
+        except InvalidURL:
+            raise ValueError(error) from None
+        if (
+            url.scheme not in {"http", "https"}
+            or url.host not in {"127.0.0.1", "::1"}
+            or url.userinfo
+            or url.query
+            or url.fragment
+        ):
+            raise ValueError(error)
+        http_client = DefaultAsyncHttpxClient(trust_env=False, follow_redirects=False)
 
     return AsyncOpenAI(
-        base_url=os.getenv("LLM_BASE_URL", "http://localhost:11434/v1"),
+        base_url=address,
         api_key=os.getenv("LLM_API_KEY", "ollama"),
         timeout=45,
         max_retries=2,
+        http_client=http_client,
     )
 
 
@@ -145,6 +167,18 @@ def _parse_ssr(content, scenario):
     return {"reaction": out["reaction"].strip()[:1000], "objection": objection}
 
 
+def respondent_messages(twin: Twin, scenario: dict, variant_text: str, *, use_ssr: bool) -> list[dict]:
+    terms = deposit_terms(scenario)
+    offer = f"{variant_text} {terms}" if terms else variant_text
+    user = (
+        f"Ты: {twin.profile()}\n\nБанк предлагает: {offer}\n\n"
+        f"Вопрос: {scenario['question']}\n"
+        f"Категории отказа: {', '.join(scenario['objections'])}"
+    )
+    system = SSR_SYSTEM if use_ssr else SYSTEM
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
 async def _ask_llm(
     client,
     model,
@@ -155,15 +189,7 @@ async def _ask_llm(
     guard: Callable[[], None] | None = None,
     references: ssr.References | None = None,
 ):
-    terms = deposit_terms(scenario)
-    offer = f"{variant_text} {terms}" if terms else variant_text
-    user = (
-        f"Ты: {twin.profile()}\n\nБанк предлагает: {offer}\n\n"
-        f"Вопрос: {scenario['question']}\n"
-        f"Категории отказа: {', '.join(scenario['objections'])}"
-    )
-    system = SSR_SYSTEM if references is not None else SYSTEM
-    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    messages = respondent_messages(twin, scenario, variant_text, use_ssr=references is not None)
     # Original probabilities cannot be recovered from the older corrected-only cache.
     identity = f"{model}|draw|raw-probability" if references is None else f"{model}|ssr:{ssr.embed_model()}"
     cache_key = llm_cache.key(identity, messages, 0.8)
@@ -310,6 +336,7 @@ def simulate(
     concurrency: int = 16,
     progress: Callable[[int, int], None] | None = None,
     guard: Callable[[], None] | None = None,
+    on_pairs: Callable[[list[dict]], None] | None = None,
 ) -> dict:
     """Оценивает варианты одной популяцией. Сбои отделены от клиентских отказов."""
     if not twins or not scenario.get("variants") or concurrency < 1:
@@ -368,12 +395,15 @@ def simulate(
                     results[vid] = [first, *rows] if vid == first_vid else rows
 
         asyncio.run(run())
+    if on_pairs is not None:
+        check_access()
+        on_pairs(paired_probabilities(results))
     return {vid: aggregate(rows) for vid, rows in results.items()}
 
 
 def _audience_text(scenario: dict) -> str:
     return "; ".join(
-        f"{SEGMENTS[sid]['name']} — {share * 100:.0f}%" for sid, share in scenario["population"].items()
+        f"{SEGMENTS[sid]['name']} — {share * 100:.12g}%" for sid, share in scenario["population"].items()
     )
 
 
@@ -394,13 +424,20 @@ def _parse_baseline(content, variants):
 
 
 def _demo_baseline(scenario: dict) -> dict:
-    """Правило без профилей для демо: те же ключевые слова, усреднённые по всем сегментам."""
+    """Правило без профилей на заданном составе аудитории."""
+    population = scenario["population"]
+    base = sum(weight * BASE[segment] for segment, weight in population.items())
     rates = {}
     for vid, text in scenario["variants"].items():
         t = text.lower()
-        effect = sum(sum(v.values()) / len(BASE) for k, v in KEYWORDS.items() if k in t)
-        rates[vid] = round(min(0.92, max(0.03, sum(BASE.values()) / len(BASE) + effect)), 4)
-    return {"method": "demo_rule", "rates": rates}
+        effect = sum(
+            weight * by_segment.get(segment, 0)
+            for word, by_segment in KEYWORDS.items()
+            if word in t
+            for segment, weight in population.items()
+        )
+        rates[vid] = round(min(0.92, max(0.03, base + effect)), 4)
+    return {"method": "demo_rule", "rates": rates, "population": dict(population)}
 
 
 async def _request_json(system: str, user: str, temperature: float) -> str:
@@ -431,6 +468,7 @@ def baseline_estimate(scenario: dict, mock: bool = False) -> dict:
     try:
         return {
             "method": "single_prompt",
+            "population": dict(scenario["population"]),
             "rates": _parse_baseline(asyncio.run(_request_json(BASELINE_SYSTEM, user, 0)), variants),
         }
     except (ValueError, TypeError, IndexError, AttributeError):

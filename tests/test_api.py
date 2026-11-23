@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from dvoinik import llm_cache
 from dvoinik.api import create_app
 from dvoinik.auth import IDLE_SECONDS, AuthStore
+from dvoinik.population import Twin
 from dvoinik.scenarios import SCENARIOS
 from dvoinik.storage import ExperimentStore, StorageError
 
@@ -149,6 +150,59 @@ def test_catalog_and_population_are_server_validated(app):
         response = start(client, n=value)
         assert response.status_code == 422 and isinstance(response.json()["detail"], str)
     assert client.post("/api/import", json={"content": "not JSON"}).status_code == 422
+
+
+def test_profile_preview_matches_saved_run_without_submitting_a_job(app):
+    client = login(app)
+    scenario = SCENARIOS["senior_deposit"]
+    preview = client.post(
+        "/api/preview",
+        json={
+            "n": 24,
+            "population": scenario["population"],
+            "seed": 42,
+            "scenario_key": "senior_deposit",
+            "deposit": True,
+        },
+    )
+    assert preview.status_code == 200
+    sample = preview.json()["profiles"]["senior"]
+    assert "Цифровые навыки" in sample["text"]
+    assert "предпочитает отделение" not in sample["text"]
+    assert client.get("/api/runs").json()["jobs"] == []
+    started = start(client, n=24, scenario=scenario, scenario_key="senior_deposit")
+    first = completed(client, started.json()["id"])["record"]["population_sample"][0]
+    assert first["id"] == sample["id"] and Twin(**first).profile() == sample["text"]
+    assert first["available_deposit_rub"] == sample["available_deposit_rub"]
+
+
+def test_profile_preview_shows_the_separate_llm_messages_for_each_offer(app, monkeypatch):
+    monkeypatch.setenv("DVOINIK_ELICITATION", "ssr")
+    monkeypatch.setenv("LLM_NO_THINK", "1")
+    client = login(app)
+    scenario = {**SCENARIOS["senior_deposit"], "description": "Внутренняя заметка команды"}
+    preview = client.post(
+        "/api/preview",
+        json={
+            "n": 24,
+            "population": scenario["population"],
+            "seed": 42,
+            "scenario_key": "senior_deposit",
+            "scenario": scenario,
+        },
+    )
+    assert preview.status_code == 200
+    data = preview.json()
+    assert "Не выставляй числовую оценку" in data["respondent_system"]
+    sample = data["profiles"]["senior"]
+    prompt = sample["offer_prompts"]["A"]
+    assert prompt == (
+        f"Ты: {sample['text']}\n\nБанк предлагает: {scenario['variants']['A']} Минимальный взнос — 50 000 ₽.\n\n"
+        f"Вопрос: {scenario['question']}\nКатегории отказа: {', '.join(scenario['objections'])}\n/no_think"
+    )
+    assert scenario["variants"]["B"] not in prompt and scenario["description"] not in prompt
+    assert scenario["variants"]["B"] in sample["offer_prompts"]["B"]
+    assert client.get("/api/runs").json()["jobs"] == []
 
 
 def test_owner_and_session_isolation_and_admin(app):
@@ -1064,12 +1118,18 @@ def test_survey_protocol_preview_save_export_and_conflict(app):
         "assignment": "random_one",
         "collected_from": "2026-11-01",
     }
-    payload = {"csv": csv_for(record), "protocol": protocol}
+    segment = next(iter(record["report"]["A"]["segments"]))
+    payload = {"csv": f"segment,variant,decision\n{segment},A,1\n{segment},B,0\n", "protocol": protocol}
     preview = client.post(endpoint + "/preview", json=payload)
     assert preview.status_code == 200
     value = preview.json()
     normalized = {**protocol, "recruitment": "приглашение в отделении"}
     assert value["record"]["validation"]["protocol"] == normalized
+    contrasts = value["record"]["validation"]["result"]["segment_contrasts"]
+    assert len(contrasts) == 1 and contrasts[0]["direction"] == "uncertain"
+    model = contrasts[0]["model_pair"]
+    assert model["matched_n"] == record["population_counts"][segment]
+    assert model["absolute_error_pp"] == pytest.approx(abs(model["gap_pp"] - 100))
     assert "validation" not in client.get(f"/api/experiments/{record['id']}").json()
     link = client.post(
         "/api/export",
@@ -1084,6 +1144,7 @@ def test_survey_protocol_preview_save_export_and_conflict(app):
     saved = client.put(endpoint, json={**payload, "base_validation": None})
     assert saved.status_code == 200
     assert saved.json()["validation"]["protocol"] == normalized
+    assert saved.json()["validation"]["result"]["segment_contrasts"] == contrasts
     stale = client.put(endpoint, json={**payload, "protocol": {"notes": "other"}, "base_validation": None})
     assert stale.status_code == 409
     assert client.get(f"/api/experiments/{record['id']}").json()["validation"]["protocol"] == normalized
@@ -1095,7 +1156,8 @@ def test_survey_protocol_preview_save_export_and_conflict(app):
         "/api/export", json={"record_id": record["id"], "kind": "validation", "format": "json"}
     ).json()["url"]
     metrics = client.get(link).json()
-    assert metrics["protocol"] == normalized and metrics["survey_n"] == 1
+    assert metrics["protocol"] == normalized and metrics["survey_n"] == 2
+    assert metrics["segment_contrasts"] == contrasts
     assert login(app, "bob").post(endpoint + "/preview", json=payload).status_code == 404
 
 

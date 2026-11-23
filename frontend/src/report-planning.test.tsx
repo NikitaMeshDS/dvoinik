@@ -101,6 +101,7 @@ it("keeps the run usable when the simple approach failed", () => {
 it("reports which approach was closer to the survey", () => {
   const result: ValidationResult = {
     mae_conversion: 0.155,
+    mae_interval_95_pp: [4.5, 27.3],
     spearman_variants: 0.5,
     winner_match: false,
     survey_n: 120,
@@ -120,6 +121,9 @@ it("reports which approach was closer to the survey", () => {
   render(<ValidationMetrics result={result} segments={{}} />);
   expect(screen.getByText("Простой подход")).toBeTruthy();
   expect(screen.getByText("8,0")).toBeTruthy();
+  expect(
+    screen.getByText(/95%-й интервал ошибки — 4,5–27,3 п.п./),
+  ).toBeTruthy();
 });
 
 it("explains why the survey ranking is unavailable and retains segment-level errors", () => {
@@ -148,7 +152,8 @@ it("explains why the survey ranking is unavailable and retains segment-level err
   expect(screen.getByText(/Доли сегментов отличаются/)).toBeTruthy();
   expect(screen.getByText("50,0%")).toBeTruthy();
   expect(screen.getByText("40,0%")).toBeTruthy();
-  expect(screen.queryByText("Кто ближе к опросу")).toBeNull();
+  expect(screen.queryByText("Чья ошибка ниже в этой выборке")).toBeNull();
+  expect(screen.queryByText(/95%-й интервал ошибки/)).toBeNull();
 });
 
 it("orders discrepancies by absolute size and shows direction with the response count", () => {
@@ -287,4 +292,84 @@ it("filters discrepancies to one segment and preserves the full-survey metrics",
     screen.queryByRole("combobox", { name: "Сегмент в таблице" }),
   ).toBeNull();
   expect(within(table).getAllByRole("row")).toHaveLength(3);
+});
+
+it("shows a wide survey interval instead of presenting a leader from two responses", () => {
+  const result: ValidationResult = {
+    mae_conversion: 0.25,
+    spearman_variants: 1,
+    winner_match: true,
+    survey_n: 2,
+    matched_cells: 2,
+    cells: [
+      {
+        variant: "A",
+        segment: "senior",
+        survey_n: 1,
+        actual: 1,
+        predicted: 0.8,
+        error: 0.2,
+      },
+      {
+        variant: "B",
+        segment: "senior",
+        survey_n: 1,
+        actual: 0,
+        predicted: 0.3,
+        error: 0.3,
+      },
+    ],
+    actual_winners: ["A"],
+    predicted_winners: ["A"],
+    segment_contrasts: [
+      {
+        segment: "senior",
+        pair: ["A", "B"],
+        interval_95_pp: [-12.2, 100],
+        direction: "uncertain",
+        model_pair: { matched_n: 24, gap_pp: 25, absolute_error_pp: 75 },
+      },
+    ],
+  };
+  render(<ValidationMetrics result={result} segments={{}} />);
+  expect(
+    screen.getByText(/95% интервал по опросу — −12,2 п.п. … \+100,0 п.п./),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(/Направление различия пока неопределённо/),
+  ).toBeTruthy();
+  expect(screen.queryByText("Совпадение лидера")).toBeNull();
+  expect(screen.getByText("По общим профилям")).toBeTruthy();
+  expect(screen.getByText("+25,0 п.п.")).toBeTruthy();
+  expect(screen.getByText(/Расхождение с опросом — 75,0 п.п./)).toBeTruthy();
+  expect(screen.queryByText("+50,0 п.п.")).toBeNull();
+});
+
+it("retains survey estimates and explains a mismatched baseline population", () => {
+  const result: ValidationResult = {
+    mae_conversion: 0.1,
+    spearman_variants: null,
+    winner_match: null,
+    survey_n: 10,
+    matched_cells: 1,
+    cells: [
+      {
+        variant: "A",
+        segment: "teen",
+        survey_n: 10,
+        actual: 0.5,
+        predicted: 0.4,
+        error: 0.1,
+      },
+    ],
+    actual_winners: [],
+    predicted_winners: [],
+    baseline_unavailable: "different_population",
+  };
+  render(<ValidationMetrics result={result} segments={{}} />);
+  expect(
+    screen.getByText(/Сегменты или их доли в опросе отличаются/),
+  ).toBeTruthy();
+  expect(screen.queryByText("Чья ошибка ниже в этой выборке")).toBeNull();
+  expect(screen.getByText("50,0%")).toBeTruthy();
 });

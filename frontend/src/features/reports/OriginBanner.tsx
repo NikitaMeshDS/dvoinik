@@ -74,14 +74,8 @@ export default function OriginBanner({
               {record.validation ? (
                 <>
                   В загруженном опросе оценок:{" "}
-                  {record.validation.result.survey_n}.
-                  {record.validation.result.winner_match === null
-                    ? " Сопоставить лидеров пока невозможно."
-                    : record.validation.result.winner_match
-                      ? " По составу загруженной выборки наибольшая доля согласий в опросе и симуляции у варианта " +
-                        record.validation.result.actual_winners[0] +
-                        "."
-                      : " По составу загруженной выборки опрос и симуляция дают разный порядок вариантов."}
+                  {record.validation.result.survey_n}. Разницу по группам и
+                  размеры выборок смотрите в проверке опросом.
                 </>
               ) : (
                 <>

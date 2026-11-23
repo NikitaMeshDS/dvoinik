@@ -153,7 +153,7 @@ it("opens survey preparation and reflects a saved survey", () => {
       onValidation={onValidation}
     />,
   );
-  expect(screen.getByText(/Сопоставить лидеров пока невозможно/)).toBeTruthy();
+  expect(screen.getByText(/Разницу по группам и размеры выборок/)).toBeTruthy();
   fireEvent.click(
     screen.getByRole("button", { name: "Посмотреть ответы опроса" }),
   );

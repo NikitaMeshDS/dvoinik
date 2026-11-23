@@ -32,6 +32,12 @@ class RunSettings:
             raise ValueError("Режим демо должен быть true или false.")
 
 
+def build_run_population(key, population, settings: RunSettings, *, deposit):
+    return build_population(
+        settings.n, population, settings.seed, deposit=deposit, omit_branch_preference=key == "senior_deposit"
+    )
+
+
 def run_experiment(
     key: str,
     scenario: dict,
@@ -45,8 +51,8 @@ def run_experiment(
     check_access = guard or (lambda: None)
     check_access()
     started = time.perf_counter()
-    twins = build_population(
-        settings.n, checked["population"], seed=settings.seed, deposit="deposit_minimum_rub" in checked
+    twins = build_run_population(
+        key, checked["population"], settings, deposit="deposit_minimum_rub" in checked
     )
 
     def advance(done: int, total: int):
@@ -54,6 +60,7 @@ def run_experiment(
         if progress:
             progress(done, total)
 
+    pairs: list[dict] = []
     with collect_usage() as usage:
         report = simulate(
             twins,
@@ -63,6 +70,7 @@ def run_experiment(
             concurrency=settings.concurrency,
             progress=advance,
             guard=check_access,
+            on_pairs=pairs.extend,
         )
         check_access()
         baseline = baseline_estimate(checked, mock=settings.mock)
@@ -77,7 +85,7 @@ def run_experiment(
         twins,
         time.perf_counter() - started,
         baseline=baseline,
-    ) | {"run_usage": usage.snapshot(settings.concurrency)}
+    ) | {"run_usage": usage.snapshot(settings.concurrency), "paired_probabilities": pairs}
 
 
 def seed_robustness(key: str, scenario: dict, settings: RunSettings, repeats: int) -> dict:
