@@ -58,7 +58,9 @@ trap 'exit 130' INT
 git -C "$work" init --quiet
 git -C "$work" fetch --quiet --depth=1 "$repo" "$ref"
 [[ "$(git -C "$work" rev-parse FETCH_HEAD)" == "$sha" ]]
-git -C "$work" checkout --quiet --detach FETCH_HEAD
+# Keep the enclosing build directory private, but make image sources readable
+# by the unprivileged runtime user after Docker COPY.
+(umask 022; git -C "$work" checkout --quiet --detach FETCH_HEAD)
 
 if ! docker image inspect "$image" >/dev/null 2>&1; then
   docker build --label "org.opencontainers.image.revision=$sha" --tag "$image" "$work"
@@ -81,7 +83,10 @@ check() {
   done
   return 1
 }
-check http://127.0.0.1:8502 -H "Host: $host" -H 'X-Forwarded-Proto: https'
+if ! check http://127.0.0.1:8502 -H "Host: $host" -H 'X-Forwarded-Proto: https'; then
+  docker logs --tail 30 "$candidate" >&2
+  exit 1
+fi
 
 # Avoid restarting the app if a newer revision was promoted while this image was building.
 [[ "$(git ls-remote "$repo" "$ref" | cut -f1)" == "$sha" ]]
