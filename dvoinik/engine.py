@@ -190,26 +190,30 @@ async def _ask_llm(
     references: ssr.References | None = None,
 ):
     messages = respondent_messages(twin, scenario, variant_text, use_ssr=references is not None)
-    # Original probabilities cannot be recovered from the older corrected-only cache.
     identity = f"{model}|draw|raw-probability" if references is None else f"{model}|ssr:{ssr.embed_model()}"
-    cache_key = llm_cache.key(identity, messages, 0.8)
     async with sem:
         # Check after waiting for capacity and outside the provider-error handler.
         # Access revocation must abort the run, never become a simulated refusal.
         if guard:
             guard()
-        cached = llm_cache.get(cache_key)
-        if cached is not None:
-            count_cache_hit()
-            return cached
         try:
+            cache_key = (
+                llm_cache.key(identity, messages, 0.8, references=references.sets if references else None)
+                if llm_cache.enabled()
+                else None
+            )
+            cached = llm_cache.get(cache_key) if cache_key is not None else None
+            if cached is not None:
+                count_cache_hit()
+                return _decide(cached, twin, variant_text)
             content = await llm_json.chat_json(client, model, messages, 0.8)
             if references is None:
-                answer = _decide(_parse_response(content, scenario), twin, variant_text)
+                rating = _parse_response(content, scenario)
             else:
-                answer = await _rate_ssr(client, content, scenario, twin, variant_text, references)
-            llm_cache.put(cache_key, answer)
-            return answer
+                rating = await _rate_ssr(client, content, scenario, references)
+            if cache_key is not None:
+                llm_cache.put(cache_key, rating)
+            return _decide(rating, twin, variant_text)
         except (ValueError, TypeError, IndexError, AttributeError) as exc:
             return {"error": f"Модель вернула ответ, не соответствующий JSON-схеме: {_schema_reason(exc)}."}
         except Exception as exc:
@@ -229,19 +233,17 @@ def _schema_reason(exc: Exception) -> str:
     return type(exc).__name__
 
 
-async def _rate_ssr(client, content, scenario, twin, variant_text, references):
-    """Ответ фразой → распределение по шкале 1–5 → доля «скорее да» и «точно да» → решение."""
+async def _rate_ssr(client, content, scenario, references):
+    """Ответ фразой → распределение по шкале 1–5 → доля «скорее да» и «точно да»."""
     parsed = _parse_ssr(content, scenario)
     model = ssr.embed_model()
     refs = await references.get(client, model)
     (vector,) = await ssr.embed(client, model, [parsed["reaction"]])
     distribution = ssr.pmf(vector, refs)
     probability = round(ssr.top_two(distribution), 4)
-    decision = ssr.draw(probability, twin.id, twin.segment, variant_text)
     return {
-        "decision": decision,
         "probability": probability,
-        "objection": None if decision else parsed["objection"],
+        "objection": parsed["objection"],
         "quote": parsed["reaction"],
         "likert": distribution,
     }

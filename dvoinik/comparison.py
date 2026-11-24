@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .experiments import normalize_scenario
+from .reporting import profile_policy_label
 
 
 def _row(variant, left, right, segment=None):
@@ -57,6 +58,12 @@ def compare_runs(left, right):
     )
     compare("n", "Размер аудитории", left["n"], right["n"])
     compare("seed", "Seed", left["seed"], right["seed"])
+    compare(
+        "profile_policy",
+        "Версия анкеты вклада",
+        profile_policy_label(left.get("profile_policy")),
+        profile_policy_label(right.get("profile_policy")),
+    )
     compare("mode", "Режим", "Демо" if left["mock"] else "LLM", "Демо" if right["mock"] else "LLM")
     compare("model", "Модель", left["model"], right["model"])
     variants, segments = [], []
@@ -107,6 +114,11 @@ def compare_runs(left, right):
         warn(
             "profile_sample",
             "Размер, распределение или seed выборки профилей изменены. Разница может зависеть от состава симуляции.",
+        )
+    if "profile_policy" in fields:
+        warn(
+            "profile_policy",
+            "Версия анкеты вклада сохранена только в одном снимке. Оценки LLM могли быть получены по разным описаниям профилей.",
         )
     if set(a["variants"]) != set(b["variants"]):
         warn("variant_set", "Набор предложений различается. Не все варианты имеют пару для сравнения.")

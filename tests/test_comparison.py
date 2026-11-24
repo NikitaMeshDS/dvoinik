@@ -4,10 +4,12 @@ import pytest
 
 from dvoinik.comparison import compare_runs
 from dvoinik.engine import simulate
+from dvoinik.experiments import load_experiment
 from dvoinik.population import build_population
-from dvoinik.reporting import make_record
+from dvoinik.reporting import export_json, make_record
 from dvoinik.runs import RunSettings, run_experiment
 from dvoinik.scenarios import SCENARIOS
+from dvoinik.summary import team_summary
 
 
 def record(seed=42, n=50):
@@ -71,6 +73,27 @@ def test_different_configuration_signatures_are_disclosed_even_with_same_model_n
     left, right = record(), record()
     right["signature"] = "different-endpoint"
     assert any(change["field"] == "configuration" for change in compare_runs(left, right)["changes"])
+
+
+def test_deposit_comparison_discloses_profile_rule_missing_from_an_older_snapshot():
+    scenario = SCENARIOS["senior_deposit"]
+    right = load_experiment(export_json(run_experiment("senior_deposit", scenario, RunSettings(n=24))))
+    left = copy.deepcopy(right)
+    left.pop("profile_policy", None)
+    left["population_sample"][0]["attitude"] = "предпочитает отделение"
+    left = load_experiment(export_json(left))
+
+    result = compare_runs(left, right)
+    (change,) = result["changes"]
+    assert change["field"] == "profile_policy" and change["before"] == "Не сохранена"
+    assert "предпочтения отделения" in change["after"]
+    assert [warning["code"] for warning in result["warnings"]] == ["profile_policy"]
+    assert compare_runs(right, right)["warnings"] == []
+    assert "<th>Версия анкеты вклада</th><td>Без готового предпочтения отделения</td>" in team_summary(right)
+    assert "<th>Версия анкеты вклада</th><td>Не сохранена</td>" in team_summary(left)
+    left["profile_policy"] = right["profile_policy"]
+    with pytest.raises(ValueError, match="анкеты"):
+        load_experiment(export_json(left))
 
 
 @pytest.mark.parametrize("previous_minimum", [None, 50_000])

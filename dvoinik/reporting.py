@@ -13,6 +13,7 @@ from collections import Counter
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from .population import DEPOSIT_PROFILE_POLICY
 from .settings import model_identity
 
 
@@ -74,6 +75,10 @@ def signature(scenario, n, mock, seed, model=None):
 
 
 PROFILES_PER_SEGMENT = 3
+
+
+def profile_policy_label(policy: str | None) -> str:
+    return "Без готового предпочтения отделения" if policy == DEPOSIT_PROFILE_POLICY else "Не сохранена"
 
 
 def make_record(key, scenario, n, mock, seed, report, twins, elapsed=0, sample=False, baseline=None):

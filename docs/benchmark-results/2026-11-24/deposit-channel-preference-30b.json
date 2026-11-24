@@ -1,0 +1,1315 @@
+{
+  "model": "qwen/qwen3-30b-a3b-2507",
+  "offers": {
+    "A": "Вклад на 6 месяцев под 15% годовых от 50 000 ₽. Открытие только в приложении банка.",
+    "B": "Вклад на 6 месяцев под 15% годовых от 50 000 ₽. Открытие только в отделении банка."
+  },
+  "question": "Если бы у вас была нужная сумма, заинтересовал бы вас этот вклад?",
+  "system": "Представь себя клиентом банка старше 60 лет. Отвечай от первого лица. Если дан профиль, придерживайся его. Ответ верни одним JSON-объектом.",
+  "format": "Оцени вероятность своего ответа «да» по шкале от 0 до 1. Верни JSON с одним числом \"interest\" в этом диапазоне.",
+  "population": [
+    {
+      "seed": 137,
+      "id": 0,
+      "group": "offline",
+      "profile": "Айгуль, 76 лет, Пермь. Доход: пенсия 20–35 тыс. ₽. Привычки: аптеки, вклады. Отношение к банкам: осторожен с новым. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 137,
+      "id": 1,
+      "group": "independent",
+      "profile": "Алина, 64 лет, Пермь. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, аптеки. Отношение к банкам: осторожен с новым. Цифровые навыки: сам пользуется мобильным приложением банка."
+    },
+    {
+      "seed": 137,
+      "id": 2,
+      "group": "offline",
+      "profile": "Амир, 72 лет, Москва. Доход: пенсия 20–35 тыс. ₽. Привычки: вклады, оплата ЖКХ. Отношение к банкам: боится мошенников. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 137,
+      "id": 3,
+      "group": "assisted",
+      "profile": "Айгуль, 70 лет, Тула. Доход: пенсия 20–35 тыс. ₽. Привычки: вклады, оплата ЖКХ. Отношение к банкам: осторожен с новым. Цифровые навыки: пользуется интернетом, но в приложении банка — только с помощью родственников."
+    },
+    {
+      "seed": 137,
+      "id": 4,
+      "group": "offline",
+      "profile": "Тимур, 70 лет, Москва. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, вклады. Отношение к банкам: предпочитает отделение. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 137,
+      "id": 5,
+      "group": "offline",
+      "profile": "Нгуен, 60 лет, Саратов. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, вклады. Отношение к банкам: боится мошенников. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 137,
+      "id": 6,
+      "group": "independent",
+      "profile": "Ли Вэй, 64 лет, Пермь. Доход: пенсия 20–35 тыс. ₽. Привычки: аптеки, вклады. Отношение к банкам: предпочитает отделение. Цифровые навыки: сам пользуется мобильным приложением банка."
+    },
+    {
+      "seed": 137,
+      "id": 7,
+      "group": "assisted",
+      "profile": "Дильноза, 75 лет, Саратов. Доход: пенсия 20–35 тыс. ₽. Привычки: вклады, аптеки. Отношение к банкам: боится мошенников. Цифровые навыки: пользуется интернетом, но в приложении банка — только с помощью родственников."
+    },
+    {
+      "seed": 137,
+      "id": 8,
+      "group": "independent",
+      "profile": "Нгуен, 62 лет, Саратов. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, вклады. Отношение к банкам: осторожен с новым. Цифровые навыки: сам пользуется мобильным приложением банка."
+    },
+    {
+      "seed": 137,
+      "id": 9,
+      "group": "assisted",
+      "profile": "Илья, 71 лет, Саратов. Доход: пенсия 20–35 тыс. ₽. Привычки: вклады, аптеки. Отношение к банкам: боится мошенников. Цифровые навыки: пользуется интернетом, но в приложении банка — только с помощью родственников."
+    },
+    {
+      "seed": 137,
+      "id": 10,
+      "group": "offline",
+      "profile": "Ли Вэй, 74 лет, Саратов. Доход: пенсия 20–35 тыс. ₽. Привычки: вклады, оплата ЖКХ. Отношение к банкам: осторожен с новым. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 137,
+      "id": 11,
+      "group": "offline",
+      "profile": "Айгуль, 65 лет, Пермь. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, аптеки. Отношение к банкам: боится мошенников. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 211,
+      "id": 0,
+      "group": "independent",
+      "profile": "Руслан, 73 лет, Саратов. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, вклады. Отношение к банкам: боится мошенников. Цифровые навыки: сам пользуется мобильным приложением банка."
+    },
+    {
+      "seed": 211,
+      "id": 1,
+      "group": "independent",
+      "profile": "Николай, 77 лет, Саратов. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, вклады. Отношение к банкам: осторожен с новым. Цифровые навыки: сам пользуется мобильным приложением банка."
+    },
+    {
+      "seed": 211,
+      "id": 2,
+      "group": "offline",
+      "profile": "Амир, 76 лет, Тула. Доход: пенсия 20–35 тыс. ₽. Привычки: аптеки, оплата ЖКХ. Отношение к банкам: осторожен с новым. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 211,
+      "id": 3,
+      "group": "offline",
+      "profile": "Кирилл, 72 лет, Пермь. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, аптеки. Отношение к банкам: осторожен с новым. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 211,
+      "id": 4,
+      "group": "offline",
+      "profile": "Алина, 69 лет, Саратов. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, аптеки. Отношение к банкам: боится мошенников. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 211,
+      "id": 5,
+      "group": "offline",
+      "profile": "Сергей, 77 лет, Тула. Доход: пенсия 20–35 тыс. ₽. Привычки: вклады, аптеки. Отношение к банкам: предпочитает отделение. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 211,
+      "id": 6,
+      "group": "assisted",
+      "profile": "Амир, 67 лет, Москва. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, аптеки. Отношение к банкам: боится мошенников. Цифровые навыки: пользуется интернетом, но в приложении банка — только с помощью родственников."
+    },
+    {
+      "seed": 211,
+      "id": 7,
+      "group": "assisted",
+      "profile": "Амир, 73 лет, Тула. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, вклады. Отношение к банкам: предпочитает отделение. Цифровые навыки: пользуется интернетом, но в приложении банка — только с помощью родственников."
+    },
+    {
+      "seed": 211,
+      "id": 8,
+      "group": "independent",
+      "profile": "Даша, 75 лет, Тула. Доход: пенсия 20–35 тыс. ₽. Привычки: аптеки, вклады. Отношение к банкам: боится мошенников. Цифровые навыки: сам пользуется мобильным приложением банка."
+    },
+    {
+      "seed": 211,
+      "id": 9,
+      "group": "offline",
+      "profile": "Нгуен, 68 лет, Саратов. Доход: пенсия 20–35 тыс. ₽. Привычки: вклады, аптеки. Отношение к банкам: осторожен с новым. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 211,
+      "id": 10,
+      "group": "offline",
+      "profile": "Руслан, 61 лет, Тула. Доход: пенсия 20–35 тыс. ₽. Привычки: аптеки, вклады. Отношение к банкам: предпочитает отделение. Цифровые навыки: интернетом не пользуется."
+    },
+    {
+      "seed": 211,
+      "id": 11,
+      "group": "assisted",
+      "profile": "Соня, 68 лет, Москва. Доход: пенсия 20–35 тыс. ₽. Привычки: оплата ЖКХ, вклады. Отношение к банкам: осторожен с новым. Цифровые навыки: пользуется интернетом, но в приложении банка — только с помощью родственников."
+    }
+  ],
+  "rows": [
+    {
+      "seed": 137,
+      "id": 0,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 0,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 0,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 0,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 1,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 1,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.7,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 1,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 1,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.7,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 2,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.1,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 2,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 2,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.1,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 2,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 3,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 3,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 3,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.4,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 3,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 4,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.1,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 4,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 4,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.1,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 4,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 5,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.2,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 5,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 5,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.2,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 5,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 6,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 6,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.9,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 6,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.9,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 6,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 7,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 7,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 7,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 7,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 8,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 8,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 8,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 8,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 9,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 9,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 9,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 9,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 10,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.2,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 10,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 10,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.2,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 10,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 11,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.1,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 11,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 11,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.1,
+      "attempts": 1
+    },
+    {
+      "seed": 137,
+      "id": 11,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 0,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 0,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.7,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 0,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 0,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.7,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 1,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 1,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 1,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 1,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 2,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.2,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 2,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 2,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.2,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 2,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 3,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.2,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 3,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 3,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.2,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 3,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 4,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.1,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 4,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 4,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.1,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 4,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 5,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.1,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 5,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 5,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.1,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 5,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 6,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 6,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 6,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 6,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 7,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 7,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 7,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 7,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.7,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 8,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 8,
+      "group": "independent",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.7,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 8,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 8,
+      "group": "independent",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.7,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 9,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 9,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 9,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 9,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 10,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.2,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 10,
+      "group": "offline",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 10,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 10,
+      "group": "offline",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.8,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 11,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "A",
+      "interest": 0.4,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 11,
+      "group": "assisted",
+      "mode": "with_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 11,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "A",
+      "interest": 0.3,
+      "attempts": 1
+    },
+    {
+      "seed": 211,
+      "id": 11,
+      "group": "assisted",
+      "mode": "without_preference",
+      "variant": "B",
+      "interest": 0.6,
+      "attempts": 1
+    }
+  ],
+  "human_comparison": null,
+  "requested_n": 24,
+  "matched_n": 24,
+  "overall": {
+    "n": 24,
+    "levels": {
+      "with_preference": {
+        "A": 0.3666666666666667,
+        "B": 0.575
+      },
+      "without_preference": {
+        "A": 0.3875,
+        "B": 0.5458333333333333
+      }
+    }
+  },
+  "groups": {
+    "independent": {
+      "n": 6,
+      "levels": {
+        "with_preference": {
+          "A": 0.8,
+          "B": 0.7666666666666666
+        },
+        "without_preference": {
+          "A": 0.8166666666666667,
+          "B": 0.75
+        }
+      }
+    },
+    "assisted": {
+      "n": 6,
+      "levels": {
+        "with_preference": {
+          "A": 0.31666666666666665,
+          "B": 0.5833333333333334
+        },
+        "without_preference": {
+          "A": 0.36666666666666664,
+          "B": 0.5666666666666667
+        }
+      }
+    },
+    "offline": {
+      "n": 12,
+      "levels": {
+        "with_preference": {
+          "A": 0.17500000000000002,
+          "B": 0.475
+        },
+        "without_preference": {
+          "A": 0.18333333333333335,
+          "B": 0.43333333333333335
+        }
+      }
+    }
+  },
+  "by_seed": {
+    "137": {
+      "independent": {
+        "n": 3,
+        "levels": {
+          "with_preference": {
+            "A": 0.8,
+            "B": 0.8
+          },
+          "without_preference": {
+            "A": 0.8333333333333334,
+            "B": 0.7666666666666667
+          }
+        }
+      },
+      "assisted": {
+        "n": 3,
+        "levels": {
+          "with_preference": {
+            "A": 0.3,
+            "B": 0.6
+          },
+          "without_preference": {
+            "A": 0.3333333333333333,
+            "B": 0.6
+          }
+        }
+      },
+      "offline": {
+        "n": 6,
+        "levels": {
+          "with_preference": {
+            "A": 0.16666666666666669,
+            "B": 0.43333333333333335
+          },
+          "without_preference": {
+            "A": 0.16666666666666669,
+            "B": 0.35
+          }
+        }
+      }
+    },
+    "211": {
+      "independent": {
+        "n": 3,
+        "levels": {
+          "with_preference": {
+            "A": 0.8,
+            "B": 0.7333333333333333
+          },
+          "without_preference": {
+            "A": 0.8,
+            "B": 0.7333333333333333
+          }
+        }
+      },
+      "assisted": {
+        "n": 3,
+        "levels": {
+          "with_preference": {
+            "A": 0.3333333333333333,
+            "B": 0.5666666666666667
+          },
+          "without_preference": {
+            "A": 0.39999999999999997,
+            "B": 0.5333333333333333
+          }
+        }
+      },
+      "offline": {
+        "n": 6,
+        "levels": {
+          "with_preference": {
+            "A": 0.18333333333333335,
+            "B": 0.5166666666666667
+          },
+          "without_preference": {
+            "A": 0.2,
+            "B": 0.5166666666666667
+          }
+        }
+      }
+    }
+  },
+  "errors": [],
+  "ablation": "branch_preference",
+  "temperature": 0,
+  "llm_json_mode": "text",
+  "request_options": {
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
+  },
+  "affected": {
+    "requested_n": 5,
+    "matched_n": 5,
+    "overall": {
+      "n": 5,
+      "levels": {
+        "with_preference": {
+          "A": 0.3,
+          "B": 0.8200000000000001
+        },
+        "without_preference": {
+          "A": 0.4,
+          "B": 0.68
+        }
+      }
+    },
+    "groups": {
+      "independent": {
+        "n": 1,
+        "levels": {
+          "with_preference": {
+            "A": 0.8,
+            "B": 0.9
+          },
+          "without_preference": {
+            "A": 0.9,
+            "B": 0.8
+          }
+        }
+      },
+      "assisted": {
+        "n": 1,
+        "levels": {
+          "with_preference": {
+            "A": 0.3,
+            "B": 0.8
+          },
+          "without_preference": {
+            "A": 0.6,
+            "B": 0.7
+          }
+        }
+      },
+      "offline": {
+        "n": 3,
+        "levels": {
+          "with_preference": {
+            "A": 0.13333333333333333,
+            "B": 0.8
+          },
+          "without_preference": {
+            "A": 0.16666666666666666,
+            "B": 0.6333333333333333
+          }
+        }
+      }
+    },
+    "by_seed": {
+      "137": {
+        "independent": {
+          "n": 1,
+          "levels": {
+            "with_preference": {
+              "A": 0.8,
+              "B": 0.9
+            },
+            "without_preference": {
+              "A": 0.9,
+              "B": 0.8
+            }
+          }
+        },
+        "assisted": {
+          "n": 0,
+          "levels": {
+            "with_preference": {
+              "A": null,
+              "B": null
+            },
+            "without_preference": {
+              "A": null,
+              "B": null
+            }
+          }
+        },
+        "offline": {
+          "n": 1,
+          "levels": {
+            "with_preference": {
+              "A": 0.1,
+              "B": 0.8
+            },
+            "without_preference": {
+              "A": 0.1,
+              "B": 0.3
+            }
+          }
+        }
+      },
+      "211": {
+        "independent": {
+          "n": 0,
+          "levels": {
+            "with_preference": {
+              "A": null,
+              "B": null
+            },
+            "without_preference": {
+              "A": null,
+              "B": null
+            }
+          }
+        },
+        "assisted": {
+          "n": 1,
+          "levels": {
+            "with_preference": {
+              "A": 0.3,
+              "B": 0.8
+            },
+            "without_preference": {
+              "A": 0.6,
+              "B": 0.7
+            }
+          }
+        },
+        "offline": {
+          "n": 2,
+          "levels": {
+            "with_preference": {
+              "A": 0.15000000000000002,
+              "B": 0.8
+            },
+            "without_preference": {
+              "A": 0.2,
+              "B": 0.8
+            }
+          }
+        }
+      }
+    },
+    "errors": []
+  }
+}

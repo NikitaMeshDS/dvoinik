@@ -8,7 +8,7 @@ from dataclasses import dataclass, replace
 
 from .engine import baseline_estimate, simulate
 from .experiments import normalize_scenario
-from .population import build_population
+from .population import DEPOSIT_PROFILE_POLICY, build_population
 from .reporting import make_record
 from .run_usage import collect_usage
 
@@ -51,9 +51,8 @@ def run_experiment(
     check_access = guard or (lambda: None)
     check_access()
     started = time.perf_counter()
-    twins = build_run_population(
-        key, checked["population"], settings, deposit="deposit_minimum_rub" in checked
-    )
+    deposit = "deposit_minimum_rub" in checked
+    twins = build_run_population(key, checked["population"], settings, deposit=deposit)
 
     def advance(done: int, total: int):
         check_access()
@@ -75,7 +74,7 @@ def run_experiment(
         check_access()
         baseline = baseline_estimate(checked, mock=settings.mock)
     check_access()
-    return make_record(
+    record = make_record(
         key,
         checked,
         settings.n,
@@ -86,6 +85,9 @@ def run_experiment(
         time.perf_counter() - started,
         baseline=baseline,
     ) | {"run_usage": usage.snapshot(settings.concurrency), "paired_probabilities": pairs}
+    if (key == "senior_deposit" or deposit) and record["population_counts"].get("senior"):
+        record["profile_policy"] = DEPOSIT_PROFILE_POLICY
+    return record
 
 
 def seed_robustness(key: str, scenario: dict, settings: RunSettings, repeats: int) -> dict:

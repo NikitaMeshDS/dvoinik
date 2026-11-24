@@ -15,7 +15,7 @@ from datetime import datetime
 from itertools import combinations
 from zoneinfo import ZoneInfo
 
-from .population import SEGMENTS
+from .population import BRANCH_PREFERENCE, DEPOSIT_PROFILE_POLICY, SEGMENTS
 from .report_stats import OTHER_OBJECTION, wilson_interval
 from .reporting import PROFILES_PER_SEGMENT
 from .scenarios import MAX_DEPOSIT_RUB
@@ -520,6 +520,13 @@ def load_experiment(source):
         if "paired_probabilities" in record:
             _check_paired_probabilities(record["paired_probabilities"], report)
         minimum = scenario.get("deposit_minimum_rub")
+        profile_policy = record.get("profile_policy")
+        if "profile_policy" in record and (
+            profile_policy != DEPOSIT_PROFILE_POLICY
+            or not counts.get("senior")
+            or (minimum is None and record["scenario_key"] != "senior_deposit")
+        ):
+            raise ValueError("Некорректная версия анкеты вклада.")
         eligibility = record.get("deposit_eligibility")
         if minimum is not None or "deposit_eligibility" in record:
             fields = {"available_n", "unavailable_n", "unknown_n"}
@@ -540,6 +547,12 @@ def load_experiment(source):
         for profile in profiles:
             if not isinstance(profile, dict) or profile.get("segment") not in counts:
                 raise ValueError("Неизвестный сегмент профиля.")
+            if (
+                profile_policy == DEPOSIT_PROFILE_POLICY
+                and profile["segment"] == "senior"
+                and profile.get("attitude") == BRANCH_PREFERENCE
+            ):
+                raise ValueError("Сохранённый профиль противоречит указанной версии анкеты вклада.")
             _integer(profile.get("id"), "ID профиля", maximum=n - 1)
             _integer(profile.get("age"), "Возраст", minimum=14, maximum=120)
             for field in ["name", "region", "income"]:

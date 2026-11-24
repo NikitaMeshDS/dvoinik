@@ -1,0 +1,10 @@
+[Unit]
+Description=Deploy the GitHub-tested Dvoinik revision
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/dvoinik-vps-update
+TimeoutStartSec=25min

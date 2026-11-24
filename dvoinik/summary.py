@@ -13,6 +13,7 @@ from .experiments import format_timestamp
 from .hypotheses import suggest
 from .planning import baseline_agreement, leader_stability, live_check_plan
 from .population import DISTORTION_RISK, SEGMENTS
+from .reporting import profile_policy_label
 from .scenarios import deposit_terms
 from .validate import BASELINE_LIMITS, RANKING_LIMITS
 
@@ -339,6 +340,10 @@ def _passport(record) -> str:
     ]
     if risky:
         rows.append(("Риск искажений", "Низкий доход, проверить в первую очередь: " + ", ".join(risky)))
+    if record["population_counts"].get("senior") and (
+        record["scenario_key"] == "senior_deposit" or "deposit_minimum_rub" in scenario
+    ):
+        rows.append(("Версия анкеты вклада", profile_policy_label(record.get("profile_policy"))))
     if origin:
         kind = (
             "проверка гипотезы «" + origin.get("lever", "") + "»"

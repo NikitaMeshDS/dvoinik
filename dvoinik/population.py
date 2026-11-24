@@ -13,6 +13,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field, replace
 
 BRANCH_PREFERENCE = "предпочитает отделение"
+DEPOSIT_PROFILE_POLICY = "deposit_without_branch_preference"
 
 SEGMENTS = {
     "student_msk": {

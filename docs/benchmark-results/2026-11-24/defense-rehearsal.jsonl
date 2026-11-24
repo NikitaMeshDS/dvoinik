@@ -1,0 +1,1 @@
+{"id": "94ef0e323c", "created_at": "2026-11-24T12:29:19+03:00", "scenario_key": "senior_deposit", "model": "qwen/qwen3-30b-a3b-2507", "mock": false, "sample": false, "seed": 42, "profiles": 1, "elapsed_seconds": 50.73, "valid_answers": 2, "failed_answers": 0, "baseline_ok": true, "concurrency": 2, "sdk_calls": 3, "cache_hits": 0, "calls_with_usage": 3, "reported_tokens": 1091}

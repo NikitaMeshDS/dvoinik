@@ -21,6 +21,8 @@ from ..storage import StorageConflict, StorageError
 from .runtime import Runtime
 
 COOKIE = "dvoinik_session"
+_DNS_LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+_PUBLIC_ORIGIN = re.compile(rf"https://(?:{_DNS_LABEL}\.)+{_DNS_LABEL}")
 
 
 class Security:
@@ -31,7 +33,12 @@ class Security:
         https_only = os.getenv("DVOINIK_HTTPS_ONLY", "0")
         if https_only not in {"0", "1"}:
             raise ValueError("DVOINIK_HTTPS_ONLY принимает 0 или 1.")
-        self.https_only = https_only == "1"
+        self.public_origin = os.getenv("DVOINIK_PUBLIC_ORIGIN", "")
+        if self.public_origin and (
+            len(self.public_origin) > 261 or not _PUBLIC_ORIGIN.fullmatch(self.public_origin)
+        ):
+            raise ValueError("DVOINIK_PUBLIC_ORIGIN должен быть HTTPS-адресом домена без порта и пути.")
+        self.https_only = https_only == "1" or bool(self.public_origin)
         self.csrf_secret = secrets.token_bytes(32)
 
     def csrf(self, token):
@@ -92,13 +99,16 @@ def install_security(app, security: Security):
     @app.middleware("http")
     async def origin_boundary(request, call_next):
         parsed = urlsplit(str(request.url))
-        if parsed.hostname not in {"127.0.0.1", "localhost"}:
+        request_origin = f"{parsed.scheme}://{parsed.netloc}"
+        if security.public_origin and request_origin != security.public_origin:
+            return JSONResponse({"detail": "Используйте разрешённый HTTPS-адрес сервиса."}, status_code=403)
+        if not security.public_origin and parsed.hostname not in {"127.0.0.1", "localhost"}:
             return JSONResponse({"detail": "Сервис доступен только через локальный адрес."}, status_code=403)
         if security.https_only and parsed.scheme != "https":
             return JSONResponse({"detail": "Сервис требует подключение по HTTPS."}, status_code=403)
         if request.url.path.startswith("/api"):
             origin = request.headers.get("origin")
-            if origin and origin != f"{parsed.scheme}://{parsed.netloc}":
+            if origin and origin != request_origin:
                 return JSONResponse({"detail": "Запрос с другого сайта запрещён."}, status_code=403)
             if request.headers.get("sec-fetch-site") in {"cross-site", "same-site"}:
                 return JSONResponse({"detail": "Запрос с другого сайта запрещён."}, status_code=403)

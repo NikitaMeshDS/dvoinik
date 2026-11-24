@@ -181,6 +181,7 @@ export type Experiment = {
   report: Record<string, ReportItem>;
   population_counts: Record<string, number>;
   population_sample: Profile[];
+  profile_policy?: "deposit_without_branch_preference";
   deposit_eligibility?: {
     available_n: number;
     unavailable_n: number;

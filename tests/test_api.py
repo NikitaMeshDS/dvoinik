@@ -137,6 +137,39 @@ def test_https_mode_requires_https_and_marks_session_cookie_on_login_and_logout(
         assert client.get("/api/session").status_code == 401
 
 
+def test_explicit_https_origin_allows_login_without_opening_other_origins(app, monkeypatch):
+    monkeypatch.setenv("DVOINIK_PUBLIC_ORIGIN", "https://demo.example.test")
+    with TestClient(
+        create_app(app.state.auth.path, mode="local"), base_url="https://demo.example.test"
+    ) as client:
+        creds = {"username": "alice", "password": PASSWORD}
+        response = client.post("/api/login", headers={"Origin": "https://demo.example.test"}, json=creds)
+        assert response.status_code == 200
+        assert "; secure" in response.headers["set-cookie"].lower()
+        assert client.get("/api/session").status_code == 200
+        for address in (
+            "https://other.example.test",
+            "http://demo.example.test",
+            "https://demo.example.test:8443",
+        ):
+            assert client.post(address + "/api/login", json=creds).status_code == 403
+        assert (
+            client.post(
+                "/api/login", json=creds, headers={"Origin": "https://other.example.test"}
+            ).status_code
+            == 403
+        )
+
+
+@pytest.mark.parametrize(
+    "origin", ["http://demo.example.test", "https://demo.example.test/path", "https://*"]
+)
+def test_public_origin_requires_exact_https_address(tmp_path, monkeypatch, origin):
+    monkeypatch.setenv("DVOINIK_PUBLIC_ORIGIN", origin)
+    with pytest.raises(ValueError, match="DVOINIK_PUBLIC_ORIGIN"):
+        create_app(tmp_path / "invalid.sqlite3", mode="local")
+
+
 def test_catalog_and_population_are_server_validated(app):
     client = login(app)
     catalog = client.get("/api/catalog").json()

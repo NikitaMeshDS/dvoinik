@@ -319,3 +319,70 @@ def test_probability_generation_does_not_reuse_cache_without_originals(monkeypat
     answer = asyncio.run(engine._ask_llm(client, "test", twin, scenario, "предложение", asyncio.Semaphore(1)))
     assert aggregate([(twin, answer)])["raw_probability"] == {"mean": 0.9, "sd": 0.0, "n": 1}
     assert llm_cache.get(legacy_key) == legacy
+
+
+@pytest.mark.parametrize("use_ssr", [False, True])
+def test_cache_reuses_model_answer_and_draws_a_decision_for_each_twin(monkeypatch, tmp_path, use_ssr):
+    from dataclasses import replace
+
+    from dvoinik import engine, ssr
+
+    monkeypatch.setenv("DVOINIK_LLM_CACHE", "1")
+    monkeypatch.setenv("DVOINIK_LLM_CACHE_PATH", str(tmp_path / "cache.sqlite3"))
+    twin = build_population(1, {"senior": 1})[0]
+    scenario = {"question": "Да?", "objections": ["плата"]}
+    offer = "Предложение"
+    yes_id = next(i for i in range(100) if ssr.draw(0.5, i, twin.segment, offer))
+    no_id = next(i for i in range(100) if not ssr.draw(0.5, i, twin.segment, offer))
+    calls = []
+
+    async def reply(*args):
+        calls.append(args)
+        if use_ssr:
+            return '{"reaction":"Сомневаюсь из-за платы","objection":"плата"}'
+        return '{"decision":true,"probability":0.5,"objection":"плата","quote":"Сомневаюсь"}'
+
+    async def embed(_client, _model, texts):
+        return [[1.0] for _ in texts]
+
+    monkeypatch.setattr(engine.llm_json, "chat_json", reply)
+    monkeypatch.setattr(ssr, "embed", embed)
+    monkeypatch.setattr(ssr, "pmf", lambda *_: [0.1, 0.1, 0.3, 0.25, 0.25])
+
+    async def answers():
+        references = ssr.References() if use_ssr else None
+        return [
+            await engine._ask_llm(
+                None,
+                "test",
+                replace(twin, id=i),
+                scenario,
+                offer,
+                asyncio.Semaphore(1),
+                references=references,
+            )
+            for i in (yes_id, no_id, yes_id)
+        ]
+
+    yes, no, repeated = asyncio.run(answers())
+    assert len(calls) == 1 and yes["probability"] == no["probability"] == 0.5
+    assert yes["decision"] and yes["objection"] is None
+    assert not no["decision"] and no["objection"] == "плата"
+    assert repeated == yes
+
+
+def test_cache_key_changes_when_provider_options_change(monkeypatch):
+    from dvoinik import llm_cache
+
+    monkeypatch.setenv("LLM_JSON_MODE", "text")
+    monkeypatch.delenv("LLM_EXTRA_BODY", raising=False)
+    monkeypatch.delenv("LLM_NO_THINK", raising=False)
+    messages = [{"role": "user", "content": "Анкета"}]
+    original = llm_cache.key("test", messages, 0.8)
+    monkeypatch.setenv("LLM_NO_THINK", "1")
+    with_suffix = llm_cache.key("test", messages, 0.8)
+    monkeypatch.setenv("LLM_JSON_MODE", "json_object")
+    json_mode = llm_cache.key("test", messages, 0.8)
+    monkeypatch.setenv("LLM_EXTRA_BODY", '{"seed":42}')
+    extra = llm_cache.key("test", messages, 0.8)
+    assert len({original, with_suffix, json_mode, extra}) == 4

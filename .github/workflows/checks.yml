@@ -45,3 +45,24 @@ jobs:
           curl -fsS http://127.0.0.1:8501/ | grep -q 'id="root"'
           curl -sS -D - -o /dev/null http://127.0.0.1:8501/ | grep -qi "content-security-policy: default-src 'self'"
           docker logs dvoinik
+  promote-vps:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [checks, frontend, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Publish tested revision for the VPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          current=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [[ "$current" != "$GITHUB_SHA" ]]; then
+            echo "Main has advanced; skipping this revision."
+            exit 0
+          fi
+          # A late run cannot replace a newer revision: no force push.
+          git push origin "$GITHUB_SHA:refs/heads/deploy/vps"

@@ -22,6 +22,17 @@ export default function Audience({
         Синтетические характеристики основаны на экспертных предположениях.
         Калибровка ещё не подтверждена.
       </p>
+      {record.population_counts.senior > 0 &&
+        (record.scenario_key === "senior_deposit" ||
+          record.scenario.deposit_minimum_rub !== undefined) && (
+          <p className="help">
+            <strong>Версия анкеты вклада</strong> ·{" "}
+            {record.profile_policy === "deposit_without_branch_preference"
+              ? "Без готового предпочтения отделения"
+              : "В этом снимке версия не сохранена"}
+            .
+          </p>
+        )}
       {groups.map(({ sid, profiles }) => (
         <section className="profile-group" key={sid}>
           <div className="profile-group-heading">
