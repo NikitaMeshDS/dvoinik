@@ -1,5 +1,6 @@
 import pytest
 
+from scripts import financial_model
 from scripts.financial_model import Assumptions, forecast
 
 
@@ -36,3 +37,25 @@ def test_zero_price_and_inference_price_are_permitted_but_nonfinite_is_not():
     assert rows[0]["revenue"] == rows[0]["inference"] == 0
     with pytest.raises(ValueError):
         forecast(Assumptions(annual_price=float("nan")), [1])
+
+
+def test_client_effect_distinguishes_value_of_time_from_break_even_price():
+    effect = financial_model.client_effect(6, 4, 2500, 1_500_000, 200_000)
+    assert effect["annual_time_value"] == 720_000
+    assert effect["first_year_cost"] == 1_700_000
+    assert effect["first_year_net_value"] == -980_000
+    assert effect["first_year_roi"] == pytest.approx(-0.576470588)
+    assert effect["break_even_hours_per_study"] == pytest.approx(9.4444444)
+    assert effect["max_break_even_subscription"] == 520_000
+
+
+def test_client_effect_accounts_for_costs_and_cannot_break_even_without_volume():
+    effect = financial_model.client_effect(6, 4, 2500, 1_500_000, 200_000, 600_000)
+    assert effect["first_year_cost"] == 2_300_000
+    assert effect["max_break_even_subscription"] is None
+    effect = financial_model.client_effect(0, 4, 2500, 0, 0)
+    assert effect["break_even_hours_per_study"] is None
+    assert effect["first_year_roi"] is None
+    assert financial_model.client_effect(6, -1, 2500, 0, 0)["annual_time_value"] == -180_000
+    with pytest.raises(ValueError):
+        financial_model.client_effect(6, float("nan"), 2500, 0, 0)

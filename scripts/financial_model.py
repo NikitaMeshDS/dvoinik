@@ -97,18 +97,49 @@ def forecast(a: Assumptions, new_clients: list[int]) -> list[dict]:
     return rows
 
 
+def client_effect(
+    studies_per_month: float,
+    hours_saved: float,
+    hour_cost: float,
+    annual_price: float,
+    implementation: float,
+    additional_year_cost: float = 0,
+) -> dict:
+    """Compare the first-year cost of buying against the value of time freed at the bank."""
+    costs = (studies_per_month, hour_cost, annual_price, implementation, additional_year_cost)
+    if any(not math.isfinite(v) or v < 0 for v in costs) or not math.isfinite(hours_saved):
+        raise ValueError("Client inputs must be finite; only hours saved may be negative.")
+    hours_factor = 12 * studies_per_month * hour_cost
+    time_value = hours_factor * hours_saved
+    cost = annual_price + implementation + additional_year_cost
+    subscription_ceiling = time_value - implementation - additional_year_cost
+    return {
+        "annual_time_value": time_value,
+        "first_year_cost": cost,
+        "first_year_net_value": time_value - cost,
+        "first_year_roi": (time_value - cost) / cost if cost else None,
+        "break_even_hours_per_study": cost / hours_factor if hours_factor else None,
+        "max_break_even_subscription": subscription_ceiling if subscription_ceiling >= 0 else None,
+    }
+
+
 def summary(a: Assumptions, rows: list[dict]) -> dict:
     unit = forecast(a, [1])[0]
     contribution = a.annual_price / 12 - unit["inference"] - unit["support"] - unit["hosting"]
-    savings = a.client_studies_month * a.client_hours_saved_study * a.client_hour_cost * 12
-    customer_cost = a.annual_price + a.client_implementation
+    effect = client_effect(
+        a.client_studies_month,
+        a.client_hours_saved_study,
+        a.client_hour_cost,
+        a.annual_price,
+        a.client_implementation,
+    )
     return {
         "monthly_contribution": contribution,
         "steady_state_break_even_clients": math.ceil(unit["fixed"] / contribution)
         if contribution > 0
         else None,
-        "client_annual_time_value": savings,
-        "client_first_year_roi": (savings - customer_cost) / customer_cost if customer_cost else None,
+        "client_annual_time_value": effect["annual_time_value"],
+        "client_first_year_roi": effect["first_year_roi"],
         "cash_funding_needed": max(0, -min([0, *(r["cash"] for r in rows)])),
         "collections": sum(r["collections"] for r in rows),
         "revenue": sum(r["revenue"] for r in rows),
@@ -116,11 +147,45 @@ def summary(a: Assumptions, rows: list[dict]) -> dict:
     }
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", choices=scenarios(), default="base")
+    parser.add_argument(
+        "--client-effect", action="store_true", help="Show only the bank's first-year scenario"
+    )
+    defaults = {
+        "studies_per_month": "client_studies_month",
+        "hours_saved": "client_hours_saved_study",
+        "hour_cost": "client_hour_cost",
+        "annual_price": "annual_price",
+        "implementation": "client_implementation",
+        "additional_year_cost": None,
+    }
+    for field in defaults:
+        parser.add_argument("--" + field.replace("_", "-"), type=float)
     args = parser.parse_args()
     assumptions, schedule = scenarios()[args.scenario]
+    if args.client_effect:
+        inputs = {}
+        for field, baseline in defaults.items():
+            value = getattr(args, field)
+            inputs[field] = (
+                value if value is not None else (getattr(assumptions, baseline) if baseline else 0)
+            )
+        try:
+            output = {
+                "kind": "illustrative_client_effect",
+                "scenario": args.scenario,
+                "assumptions": inputs,
+                "summary": client_effect(**inputs),
+            }
+            rendered = json.dumps(output, ensure_ascii=False, indent=2, allow_nan=False)
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(rendered)
+        return
+    if any(getattr(args, field) is not None for field in defaults):
+        parser.error("Client overrides require --client-effect.")
     result = forecast(assumptions, schedule)
     print(
         json.dumps(
@@ -134,3 +199,7 @@ if __name__ == "__main__":
             indent=2,
         )
     )
+
+
+if __name__ == "__main__":
+    main()
