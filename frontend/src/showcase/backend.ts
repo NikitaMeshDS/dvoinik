@@ -143,7 +143,7 @@ export function createBackend(data: Data) {
       concurrency,
       cost: null,
       currency: null,
-      detail: `≈ по ${e.chars_per_token} символа на токен и ${e.latency_s} с на запрос при параллельности ${concurrency}. Учтены пробный запрос и очередь вариантов. Фактическое время зависит от модели и сервера.`,
+      detail: `≈ по ${e.chars_per_token} символа на токен и ${e.latency_s} с на группу запросов при параллельности ${concurrency}. Оценка учитывает пробный запрос и порядок вариантов. Загрузка модели, ожидание в очереди и повторные запросы могут увеличить время.`,
     };
   }
   function startRun(body: {

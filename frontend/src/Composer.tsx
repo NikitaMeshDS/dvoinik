@@ -14,6 +14,14 @@ import RespondentPreview from "./features/composer/RespondentPreview";
 import AudienceDistribution from "./features/composer/AudienceDistribution";
 import ProfilePreview from "./features/composer/ProfilePreview";
 import { useLaunchPreview } from "./features/composer/useLaunchPreview";
+function estimatedDuration(minutes: number) {
+  if (minutes >= 5) return `${decimal(Math.ceil(minutes), 0)} мин`;
+  const seconds = Math.max(5, Math.ceil((minutes * 60) / 5) * 5);
+  if (seconds < 60) return `${seconds} с`;
+  const remainder = seconds % 60;
+  return `${Math.floor(seconds / 60)} мин${remainder ? ` ${remainder} с` : ""}`;
+}
+
 export default function Composer({
   catalog,
   draft,
@@ -564,13 +572,7 @@ export default function Composer({
                   токенов
                 </span>
                 <span>
-                  <strong>
-                    ≈{" "}
-                    {activeEstimate.minutes < 1
-                      ? "< 1"
-                      : decimal(Math.ceil(activeEstimate.minutes), 0)}{" "}
-                    мин
-                  </strong>
+                  <strong>≈ {estimatedDuration(activeEstimate.minutes)}</strong>
                 </span>
                 {activeEstimate.cost !== null && (
                   <span>

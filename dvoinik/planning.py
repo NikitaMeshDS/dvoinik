@@ -198,8 +198,9 @@ def run_estimate(scenario: dict, n: int, concurrency: int = 16, baseline: bool =
         "concurrency": concurrency,
         "cost": round((input_tokens + output_tokens) / 1000 * price, 2) if price is not None else None,
         "currency": os.getenv("DVOINIK_PRICE_CURRENCY", "₽") if price is not None else None,
-        "detail": f"≈ по {CHARS_PER_TOKEN:g} символа на токен и {latency:g} с на запрос при параллельности "
-        f"{concurrency}. Учтены пробный запрос и очередь вариантов. Фактическое время зависит от модели и сервера."
+        "detail": f"≈ по {CHARS_PER_TOKEN:g} символа на токен и {latency:g} с на группу запросов при параллельности "
+        f"{concurrency}. Оценка учитывает пробный запрос и порядок вариантов. "
+        "Загрузка модели, ожидание в очереди и повторные запросы могут увеличить время."
         + (" Кэш включён: повторные тексты не запрашиваются, это верхняя оценка." if _cache_on() else "")
         + (
             " Режим SSR: плюс короткие запросы к модели эмбеддингов — по одному на ответ и один на эталоны."
