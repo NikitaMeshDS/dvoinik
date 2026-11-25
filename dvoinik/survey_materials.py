@@ -117,6 +117,46 @@ def _sample_guide(record):
     return "\n".join(lines) + "\n"
 
 
+def _research_plan(record):
+    scenario = record["scenario"]
+    offers = "\n".join(f"{variant}. {text}" for variant, text in scenario["variants"].items())
+    audience = ", ".join(f"{SEGMENTS[sid]['name']} ({sid})" for sid in scenario["population"])
+    minimum = deposit_terms(scenario)
+    if minimum:
+        offers += f"\n{minimum}"
+    return f"""Двойник · черновик плана живой проверки
+Для исследовательской команды. Участникам показывайте только назначенный HTML-бланк.
+Исследование: {scenario["title"]}
+Снимок: {record["id"]}
+Вопрос: {scenario["question"]}
+
+Варианты из сохранённого исследования
+{offers}
+
+Группы в снимке
+{audience}
+
+Согласуйте до набора
+Решение, которое зависит от проверки:
+Основная гипотеза и один сравниваемый фактор:
+Основная пара вариантов:
+Критерии набора и ответственная роль:
+План показов и случайного назначения (один участник — один вариант):
+Основная метрика, знаменатель и обработка пропусков:
+Минимально полезный эффект (п. п.) и почему он важен:
+Плановый объём ответов на вариант:
+Правило остановки (объём или дата):
+Что делаем при неопределённом результате:
+Кто проверяет качество данных и принимает решение:
+
+Зафиксируйте работу команды
+Как обычно готовится сопоставимый план:
+Человеко-минуты подготовки, проверки и переделок по ролям:
+Календарное ожидание отдельно от активной работы:
+Какие этапы живого исследования остаются:
+"""
+
+
 def survey_kit(record):
     template = survey_template(record)
     scenario = record["scenario"]
@@ -137,6 +177,8 @@ questionnaire-A.html и другие бланки — по одному пред
 Откройте HTML в браузере. Печать и сохранение в PDF доступны через меню печати.
 responses.csv — пустой шаблон ответов в UTF-8. Пустые decision намеренно не принимаются
 за ответы. Запишите 0 для «нет» и 1 для «да» на вопрос анкеты.
+research-plan.txt — черновик для команды: заполните и согласуйте до набора.
+Участникам передавайте только назначенный HTML-бланк, без ZIP и черновика.
 
 Перед опросом
 1. Определите критерии набора целевой аудитории и правила отнесения к сегментам.
@@ -180,4 +222,5 @@ decision — строго 0 или 1. Разделитель — запятая,
             bundle.writestr(f"questionnaire-{variant}.html", questionnaire(record, variant=variant))
         bundle.writestr("responses.csv", template)
         bundle.writestr("README.txt", guide)
+        bundle.writestr("research-plan.txt", _research_plan(record))
     return stream.getvalue()

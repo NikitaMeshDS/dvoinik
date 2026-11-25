@@ -53,7 +53,8 @@ export default function SurveyPreparation({
           </h2>
           <p>
             Готовые материалы по этому снимку: тот же вопрос и те же условия,
-            без результатов симуляции для респондентов.
+            без результатов симуляции для респондентов. Участнику отправьте
+            только назначенный бланк.
           </p>
         </div>
         <Button kind="primary" disabled={busy || !covered} onClick={exportKit}>
@@ -79,8 +80,10 @@ export default function SurveyPreparation({
         <li>
           <BookOpen size={21} />
           <div>
-            <strong>Инструкция</strong>
-            <span>Коды и порядок сбора ответов</span>
+            <strong>План и инструкция для команды</strong>
+            <span>
+              Что согласовать до набора: критерий решения, выборка и сроки
+            </span>
           </div>
         </li>
       </ul>

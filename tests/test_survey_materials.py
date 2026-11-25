@@ -61,6 +61,7 @@ def test_kit_is_portable_safe_and_scoped_to_original_session(app):
             *(f"questionnaire-{variant}.html" for variant in scenario["variants"]),
             "responses.csv",
             "README.txt",
+            "research-plan.txt",
         }
         html = bundle.read("questionnaire-A.html").decode("utf-8")
         assert scenario["variants"]["B"] not in html
@@ -108,6 +109,7 @@ def test_deposit_survey_kit_has_one_form_per_offer_with_the_saved_terms(app):
             "questionnaire-B.html",
             "responses.csv",
             "README.txt",
+            "research-plan.txt",
         }
         form_a = bundle.read("questionnaire-A.html").decode("utf-8")
         form_b = bundle.read("questionnaire-B.html").decode("utf-8")
@@ -116,7 +118,15 @@ def test_deposit_survey_kit_has_one_form_per_offer_with_the_saved_terms(app):
         for form in (form_a, form_b):
             assert "Минимальный взнос — 75 000 ₽." in form
             assert scenario["question"] in form
-        assert "Случайно назначьте" in bundle.read("README.txt").decode("utf-8")
+        guide = bundle.read("README.txt").decode("utf-8")
+        assert "Случайно назначьте" in guide and "research-plan.txt" in guide
+        plan = bundle.read("research-plan.txt").decode("utf-8")
+        assert record["id"] in plan and scenario["question"] in plan
+        assert "Минимальный взнос — 75 000 ₽." in plan
+        assert all(text in plan for text in scenario["variants"].values())
+        for field in ("Решение", "Минимально полезный эффект", "Правило остановки", "Человеко-минуты"):
+            assert field in plan
+            assert field not in form_a and field not in form_b
         rows = list(csv.DictReader(io.StringIO(bundle.read("responses.csv").decode("utf-8"))))
         assert {(row["segment"], row["variant"], row["decision"]) for row in rows} == {
             ("senior", "A", ""),
