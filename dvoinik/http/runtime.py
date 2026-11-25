@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import csv
 import io
+import os
 import threading
 import uuid
 from collections import OrderedDict
@@ -52,7 +53,7 @@ class Runtime:
     def __init__(self, path, mode):
         self.mode = mode
         self.auth = AuthStore(path, allow_demo=mode == "demo")
-        self.jobs = Jobs(self.auth)
+        self.jobs = Jobs(self.auth, deploy_lock=os.getenv("DVOINIK_DEPLOY_LOCK"))
         self.snapshots = SessionSnapshots()
 
     def accessible(self, token, record_id):

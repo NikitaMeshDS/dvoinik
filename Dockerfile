@@ -13,7 +13,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DVOINIK_HOST=0.0.0.0 \
     DVOINIK_PORT=8501 \
-    DVOINIK_STORAGE_PATH=/data/experiments.sqlite3
+    DVOINIK_STORAGE_PATH=/data/experiments.sqlite3 \
+    DVOINIK_DEPLOY_LOCK=/data/.deploy-jobs.lock
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt

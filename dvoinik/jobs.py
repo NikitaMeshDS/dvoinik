@@ -8,6 +8,8 @@ import uuid
 from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import BinaryIO
 
 from .auth import AccessExpired, AuthError
 from .experiments import load_experiment
@@ -50,6 +52,7 @@ class Job:
     released: bool = field(default=False, repr=False)
     cancel_requested: bool = field(default=False, repr=False)
     future: Future | None = field(default=None, repr=False)
+    deploy_lease: BinaryIO | None = field(default=None, repr=False)
 
     def public(self):
         return copy.deepcopy(
@@ -61,8 +64,11 @@ class Job:
 
 
 class Jobs:
-    def __init__(self, auth, *, workers=2, queue_size=8, retained=128):
+    def __init__(self, auth, *, workers=2, queue_size=8, retained=128, deploy_lock=None):
         self.auth = auth
+        self.deploy_lock = Path(deploy_lock) if deploy_lock else None
+        if self.deploy_lock is not None:
+            self.deploy_lock.touch()
         self.pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="dvoinik-run")
         self.capacity = threading.BoundedSemaphore(workers + queue_size)
         self.lock = threading.RLock()
@@ -75,6 +81,22 @@ class Jobs:
     def active_count(self):
         with self.lock:
             return len(self.owners)
+
+    def _acquire_deploy_lease(self):
+        if self.deploy_lock is None:
+            return None
+
+        import fcntl
+
+        lease = self.deploy_lock.open("rb")
+        try:
+            fcntl.flock(lease, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except OSError as exc:
+            lease.close()
+            if isinstance(exc, BlockingIOError):
+                raise JobBusy("Сервис обновляется. Повторите запуск позже.") from None
+            raise
+        return lease
 
     def submit(self, token, key, scenario, settings: RunSettings):
         user = self.auth.resolve(token)
@@ -92,8 +114,6 @@ class Jobs:
                             self.jobs.pop(pending.id, None)
                 if len(self._recovery()) + len(self.owners) >= self.retained:
                     raise JobBusy("Сначала сохраните готовые результаты или завершите текущие исследования.")
-            if not self.capacity.acquire(blocking=False):
-                raise JobBusy("Очередь исследований заполнена. Повторите позже.")
             # Retain only application inputs: provider settings and credentials are
             # deliberately absent. Workers/public responses receive separate copies.
             request = {
@@ -111,6 +131,16 @@ class Jobs:
                 settings.n * len(request["scenario"]["variants"]),
                 request=request,
             )
+            if not self.capacity.acquire(blocking=False):
+                raise JobBusy("Очередь исследований заполнена. Повторите позже.")
+            try:
+                job.deploy_lease = self._acquire_deploy_lease()
+            except JobBusy:
+                self.capacity.release()
+                raise
+            except OSError as exc:
+                self.capacity.release()
+                raise StorageError("Не удалось проверить доступность запуска. Повторите позже.") from exc
             self.jobs[job.id] = job
             self.owners.add(user.id)
             try:
@@ -121,8 +151,7 @@ class Jobs:
                 future.add_done_callback(lambda done: self._cancelled(job) if done.cancelled() else None)
             except RuntimeError:
                 self.jobs.pop(job.id)
-                self.owners.remove(user.id)
-                self.capacity.release()
+                self._finish(job)
                 raise JobBusy("Сервис завершает работу. Повторите запуск позже.") from None
             return job.public()
 
@@ -215,6 +244,9 @@ class Jobs:
             keep = max(0, self.retained - len(recovery_ids))
             for jid in disposable[:-keep] if keep else disposable:
                 self.jobs.pop(jid, None)
+            if job.deploy_lease is not None:
+                job.deploy_lease.close()
+                job.deploy_lease = None
 
     def _recovery(self):
         return [

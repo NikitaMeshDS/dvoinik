@@ -87,10 +87,27 @@ if ! check http://127.0.0.1:8502 -H "Host: $host" -H 'X-Forwarded-Proto: https';
   docker logs --tail 30 "$candidate" >&2
   exit 1
 fi
+docker exec "$candidate" test -f /data/.deploy-jobs.lock
 
 # Avoid restarting the app if a newer revision was promoted while this image was building.
 [[ "$(git ls-remote "$repo" "$ref" | cut -f1)" == "$sha" ]]
 test "$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' dvoinik)" = "$volume"
+volume_path=$(docker volume inspect -f '{{.Mountpoint}}' "$volume")
+docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' dvoinik |
+  grep -Fx 'DVOINIK_DEPLOY_LOCK=/data/.deploy-jobs.lock' >/dev/null || {
+    echo "The running container must support the deployment lock before enabling this updater." >&2
+    exit 1
+  }
+# Keep the inode open through backup, replacement and any rollback.
+exec 8<"$volume_path/.deploy-jobs.lock"
+flock -n -E 75 8 || {
+  status=$?
+  if (( status == 75 )); then
+    echo "Active research jobs; deferring $sha to the next timer tick."
+    exit 0
+  fi
+  exit "$status"
+}
 install -d -m 700 "$backup_dir"
 # Online SQLite backup includes committed changes from WAL without copying a live database file.
 docker exec -i dvoinik python - > "$backup_dir/experiments.sqlite3.tmp" <<'PY_BACKUP'

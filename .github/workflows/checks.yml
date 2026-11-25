@@ -44,6 +44,7 @@ jobs:
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8501/ > /dev/null && break; sleep 1; done
           curl -fsS http://127.0.0.1:8501/ | grep -q 'id="root"'
           curl -sS -D - -o /dev/null http://127.0.0.1:8501/ | grep -qi "content-security-policy: default-src 'self'"
+          docker exec dvoinik test -f /data/.deploy-jobs.lock
           docker logs dvoinik
   promote-vps:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

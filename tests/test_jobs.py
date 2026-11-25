@@ -7,7 +7,7 @@ import time
 import pytest
 
 from dvoinik.auth import AuthStore
-from dvoinik.jobs import JobMissing, Jobs
+from dvoinik.jobs import JobBusy, JobMissing, Jobs
 from dvoinik.runs import RunSettings
 from dvoinik.scenarios import SCENARIOS
 
@@ -86,6 +86,49 @@ def test_failure_and_cancellation_retain_private_immutable_request(tmp_path, mon
         assert "token" not in result and "owner" not in result
         result["request"]["scenario"]["origin"]["hypothesis_id"] = "b" * 64
         assert jobs.get(alice, submitted["id"])["request"] == expected
+    finally:
+        release.set()
+        jobs.close()
+
+
+def test_deployment_waits_for_active_jobs_and_blocks_new_admission(tmp_path, monkeypatch):
+    flock = pytest.importorskip("fcntl")
+    auth = AuthStore(tmp_path / "research.sqlite3")
+    for name in ("alice", "bob"):
+        auth.create_user(name, name.title(), "test-password-long")
+    alice, bob = auth.login("alice", "test-password-long"), auth.login("bob", "test-password-long")
+    entered, release = threading.Event(), threading.Event()
+
+    def run(*args, **kwargs):
+        entered.set()
+        assert release.wait(5)
+        raise RuntimeError("Test worker finished")
+
+    monkeypatch.setattr("dvoinik.jobs.run_experiment", run)
+    lock_path = tmp_path / "deploy.lock"
+    jobs = Jobs(auth, workers=1, queue_size=1, deploy_lock=lock_path)
+    key = "senior_deposit"
+    args = key, SCENARIOS[key], RunSettings(n=50, mock=True)
+    try:
+        running = jobs.submit(alice, *args)
+        assert entered.wait(2)
+        future = jobs.jobs[running["id"]].future
+        queued = jobs.submit(bob, *args)
+        assert queued["status"] == "queued"
+        with lock_path.open("rb") as deployment:
+            with pytest.raises(BlockingIOError):
+                flock.flock(deployment, flock.LOCK_EX | flock.LOCK_NB)
+            assert jobs.cancel(bob, queued["id"])["status"] == "cancelled"
+            with pytest.raises(BlockingIOError):
+                flock.flock(deployment, flock.LOCK_EX | flock.LOCK_NB)
+            release.set()
+            future.result(timeout=5)
+            assert jobs.active_count == 0
+            flock.flock(deployment, flock.LOCK_EX | flock.LOCK_NB)
+            with pytest.raises(JobBusy, match="обновляется"):
+                jobs.submit(alice, *args)
+            assert jobs.active_count == 0
+        assert jobs.submit(alice, *args)["status"] == "queued"
     finally:
         release.set()
         jobs.close()

@@ -79,6 +79,25 @@ def csv_for(record, decision=1):
     return f"segment,variant,decision\n{sid},A,{decision}\n"
 
 
+def test_deployment_lock_returns_retryable_conflict(tmp_path, monkeypatch):
+    flock = pytest.importorskip("fcntl")
+    lock_path = tmp_path / "deploy.lock"
+    monkeypatch.setenv("DVOINIK_DEPLOY_LOCK", str(lock_path))
+    app = create_app(tmp_path / "demo.sqlite3", mode="demo")
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        session = client.get("/api/session")
+        assert session.status_code == 200
+        client.headers["X-CSRF-Token"] = session.json()["csrf_token"]
+        with lock_path.open("rb") as deployment:
+            flock.flock(deployment, flock.LOCK_EX | flock.LOCK_NB)
+            blocked = start(client)
+            assert blocked.status_code == 409
+            assert "Сервис обновляется" in blocked.json()["detail"]
+            assert client.get("/api/runs").json() == {"jobs": []}
+            assert client.get("/api/experiments").status_code == 200
+        run(client)
+
+
 def test_session_boundary_and_csrf(app):
     public = TestClient(app, base_url="http://127.0.0.1")
     assert public.get("/api/experiments").status_code == 401
