@@ -1,4 +1,4 @@
-import type { Catalog, Draft } from "../types";
+import type { Draft } from "../types";
 
 const PREFIX = "dvoinik:drafts:v1:";
 export type DraftSnapshot = {
@@ -14,6 +14,11 @@ const finite = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 function validDraft(value: unknown, key: string): value is Draft {
   if (!object(value) || value.key !== key) return false;
+  if (
+    value.restoredAsCustom !== undefined &&
+    (key !== "custom" || value.restoredAsCustom !== true)
+  )
+    return false;
   if (
     !["title", "description", "question"].every(
       (field) => typeof value[field] === "string",
@@ -72,10 +77,10 @@ function validDraft(value: unknown, key: string): value is Draft {
   }
   return true;
 }
-export function readDrafts(
-  owner: string,
-  catalog: Catalog,
-): { snapshot: DraftSnapshot | null; warning: string } {
+export function readDrafts(owner: string): {
+  snapshot: DraftSnapshot | null;
+  warning: string;
+} {
   try {
     const text = sessionStorage.getItem(PREFIX + encodeURIComponent(owner));
     if (!text) return { snapshot: null, warning: "" };
@@ -96,9 +101,8 @@ export function readDrafts(
     )
       throw new Error("Missing active draft");
     if (
-      !Object.entries(value.drafts).every(
-        ([key, draft]) =>
-          Object.hasOwn(catalog.scenarios, key) && validDraft(draft, key),
+      !Object.entries(value.drafts).every(([key, draft]) =>
+        validDraft(draft, key),
       )
     )
       throw new Error("Invalid draft");

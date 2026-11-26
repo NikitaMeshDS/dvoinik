@@ -145,13 +145,21 @@ it.each([true, false])(
           return Promise.resolve({ jobs: [interrupted] }) as Promise<T>;
         if (path === "/recovery/interrupted-run" && method === "DELETE")
           dismiss();
-        if (path === "/runs" && method === "POST") starts.push(body);
+        if (path === "/preview")
+          return Promise.resolve({ counts: {}, shares: {} }) as Promise<T>;
+        if (path === "/runs" && method === "POST") {
+          starts.push(body);
+          return Promise.resolve({
+            id: "new-run",
+            status: "queued",
+          }) as Promise<T>;
+        }
         if (path === "/runs")
           return Promise.resolve({ jobs: [] }) as Promise<T>;
         return Promise.resolve(interrupted) as Promise<T>;
       },
     );
-    render(
+    const workspace = (
       <Workspace
         session={{
           user: {
@@ -165,8 +173,9 @@ it.each([true, false])(
           model: "demo",
         }}
         onLogout={() => {}}
-      />,
+      />
     );
+    const view = render(workspace);
     fireEvent.click(
       await screen.findByRole("button", {
         name: `Удалить настройки: ${request.scenario.title}`,
@@ -192,9 +201,26 @@ it.each([true, false])(
       "value",
       templateAvailable ? request.scenario_key : "custom",
     );
-    if (!templateAvailable) {
-      expect(screen.getByText(/восстановлены в вашем сценарии/)).toBeTruthy();
-    }
     expect(starts).toHaveLength(0);
+    if (!templateAvailable) {
+      view.unmount();
+      render(workspace);
+      expect(
+        await screen.findByText(/восстановлены в вашем сценарии/),
+      ).toBeTruthy();
+      await screen.findByText(/Сохранено в этой вкладке/);
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Далее: аудитория" }));
+    const submit = await screen.findByRole<HTMLButtonElement>("button", {
+      name: "Запустить исследование",
+    });
+    await waitFor(() => expect(submit.disabled).toBe(false));
+    fireEvent.click(submit);
+    expect(starts).toEqual([
+      {
+        ...request,
+        scenario_key: templateAvailable ? request.scenario_key : "custom",
+      },
+    ]);
   },
 );

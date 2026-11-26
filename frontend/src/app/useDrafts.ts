@@ -7,7 +7,7 @@ type DraftState = DraftSnapshot & { ready: boolean; warning: string };
 function initial(catalog: Catalog | null, session: Session): DraftState {
   const owner = session.user.id;
   const restored = catalog
-    ? readDrafts(owner, catalog)
+    ? readDrafts(owner)
     : { snapshot: null, warning: "" };
   const activeKey =
     catalog && !catalog.scenarios.student_card
@@ -28,8 +28,22 @@ function initial(catalog: Catalog | null, session: Session): DraftState {
         }
       : {},
   };
+  let snapshot = restored.snapshot ?? fallback;
+  if (catalog && !Object.hasOwn(catalog.scenarios, snapshot.activeKey)) {
+    // Keep dormant drafts so that they can reopen if the template returns.
+    const availableKey = Object.keys(snapshot.drafts).find((key) =>
+      Object.hasOwn(catalog.scenarios, key),
+    );
+    snapshot = {
+      ...snapshot,
+      activeKey: availableKey ?? fallback.activeKey,
+      drafts: availableKey
+        ? snapshot.drafts
+        : { ...fallback.drafts, ...snapshot.drafts },
+    };
+  }
   return {
-    ...(restored.snapshot ?? fallback),
+    ...snapshot,
     ready: catalog !== null,
     warning: restored.warning,
   };

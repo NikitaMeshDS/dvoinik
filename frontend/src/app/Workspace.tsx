@@ -312,15 +312,12 @@ export default function Workspace({
               );
               if (
                 !drafts.reuseDraft(
-                  templateAvailable ? draft : { ...draft, key: "custom" },
+                  templateAvailable
+                    ? draft
+                    : { ...draft, key: "custom", restoredAsCustom: true },
                 )
               )
                 return;
-              if (!templateAvailable) {
-                setToast(
-                  "Исходный шаблон больше недоступен. Настройки восстановлены в вашем сценарии. При новом запуске будут применены правила этого сценария.",
-                );
-              }
               navigate("create");
             }}
           />

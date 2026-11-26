@@ -128,6 +128,12 @@ export default function Composer({
         title="Новое исследование"
         description="Сравните предложения до запуска. Начните с вопроса, который хотите проверить."
       />
+      {draft.restoredAsCustom && (
+        <Notice>
+          Настройки восстановлены в вашем сценарии. При новом запуске будут
+          применены правила «Своего сценария».
+        </Notice>
+      )}
       <div className="stepper" aria-label="Этапы исследования">
         <button
           className={step === 0 ? "current" : "complete"}

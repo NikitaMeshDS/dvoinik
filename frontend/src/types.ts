@@ -210,6 +210,7 @@ export type Estimate = {
 };
 export type Draft = {
   origin?: Origin;
+  restoredAsCustom?: true;
   depositMinimumRub?: number;
   key: string;
   title: string;

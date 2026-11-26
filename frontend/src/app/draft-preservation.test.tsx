@@ -88,6 +88,33 @@ it("waits for catalog without replacing a recovered draft with defaults", () => 
   next.rerender({ data: catalog });
   expect(next.result.current.draft?.title).toBe("Saved");
 });
+it("keeps independent drafts when a template disappears and returns", () => {
+  const first = renderHook(() => useDrafts(catalog, session()));
+  act(() =>
+    first.result.current.update({
+      ...first.result.current.draft!,
+      title: "Template edits",
+    }),
+  );
+  act(() => first.result.current.choose("custom"));
+  act(() =>
+    first.result.current.update({
+      ...first.result.current.draft!,
+      title: "Custom edits",
+    }),
+  );
+  act(() => first.result.current.setStep(1));
+  act(() => first.result.current.choose("student_card"));
+  first.unmount();
+  const reduced = { ...catalog, scenarios: { custom: sample.scenario } };
+  const next = renderHook(() => useDrafts(reduced, session()));
+  expect(next.result.current.draft?.title).toBe("Custom edits");
+  expect(next.result.current.step).toBe(1);
+  next.unmount();
+  const restored = renderHook(() => useDrafts(catalog, session()));
+  act(() => restored.result.current.choose("student_card"));
+  expect(restored.result.current.draft?.title).toBe("Template edits");
+});
 it("ignores corrupt storage with a visible explanation", () => {
   const first = renderHook(() => useDrafts(catalog, session()));
   first.unmount();
