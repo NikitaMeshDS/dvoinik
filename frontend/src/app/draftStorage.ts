@@ -1,6 +1,7 @@
-import type { Draft } from "../types";
+import type { Catalog, Draft } from "../types";
 
 const PREFIX = "dvoinik:drafts:v1:";
+const DORMANT_PREFIX = PREFIX + "dormant:";
 export type DraftSnapshot = {
   version: 1;
   owner: string;
@@ -77,12 +78,15 @@ function validDraft(value: unknown, key: string): value is Draft {
   }
   return true;
 }
-export function readDrafts(owner: string): {
+function readSnapshot(
+  key: string,
+  owner: string,
+): {
   snapshot: DraftSnapshot | null;
   warning: string;
 } {
   try {
-    const text = sessionStorage.getItem(PREFIX + encodeURIComponent(owner));
+    const text = sessionStorage.getItem(key);
     if (!text) return { snapshot: null, warning: "" };
     if (text.length > 2_000_000) throw new Error("Draft too large");
     const value: unknown = JSON.parse(text);
@@ -122,12 +126,75 @@ export function readDrafts(owner: string): {
     };
   }
 }
-export function saveDrafts(snapshot: DraftSnapshot): boolean {
+
+export function readDrafts(owner: string) {
+  const encoded = encodeURIComponent(owner);
+  const current = readSnapshot(PREFIX + encoded, owner);
+  const dormant = readSnapshot(DORMANT_PREFIX + encoded, owner);
+  const snapshot = current.snapshot ?? dormant.snapshot;
+  return {
+    snapshot: snapshot && {
+      ...snapshot,
+      drafts: { ...dormant.snapshot?.drafts, ...current.snapshot?.drafts },
+      steps: { ...dormant.snapshot?.steps, ...current.snapshot?.steps },
+    },
+    warning:
+      current.warning ||
+      (dormant.warning &&
+        "Не удалось загрузить черновики недоступных шаблонов."),
+  };
+}
+
+function selectDrafts(
+  snapshot: DraftSnapshot,
+  keys: string[],
+  activeKey: string,
+): DraftSnapshot {
+  return {
+    ...snapshot,
+    activeKey,
+    drafts: Object.fromEntries(keys.map((key) => [key, snapshot.drafts[key]])),
+    steps: Object.fromEntries(
+      keys
+        .filter((key) => Object.hasOwn(snapshot.steps, key))
+        .map((key) => [key, snapshot.steps[key]]),
+    ),
+  };
+}
+
+export function saveDrafts(snapshot: DraftSnapshot, catalog: Catalog): boolean {
   try {
-    sessionStorage.setItem(
-      PREFIX + encodeURIComponent(snapshot.owner),
-      JSON.stringify(snapshot),
+    const encoded = encodeURIComponent(snapshot.owner);
+    const dormantKey = DORMANT_PREFIX + encoded;
+    const known = (key: string) => Object.hasOwn(catalog.scenarios, key);
+    const keys = Object.keys(snapshot.drafts);
+    const available = selectDrafts(
+      snapshot,
+      keys.filter(known),
+      snapshot.activeKey,
     );
+    const hidden = keys.filter((key) => !known(key));
+    if (hidden.length) {
+      // Stage both previously hidden and newly missing drafts before updating v1.
+      // This preserves a copy if the browser rejects the main write.
+      const previous = readSnapshot(dormantKey, snapshot.owner).snapshot;
+      const protectedKeys = [
+        ...new Set([...hidden, ...Object.keys(previous?.drafts ?? {})]),
+      ].filter((key) => Object.hasOwn(snapshot.drafts, key));
+      sessionStorage.setItem(
+        dormantKey,
+        JSON.stringify(selectDrafts(snapshot, protectedKeys, hidden[0])),
+      );
+    }
+    sessionStorage.setItem(PREFIX + encoded, JSON.stringify(available));
+    if (hidden.length) {
+      sessionStorage.setItem(
+        dormantKey,
+        JSON.stringify(selectDrafts(snapshot, hidden, hidden[0])),
+      );
+    } else {
+      sessionStorage.removeItem(dormantKey);
+    }
     return true;
   } catch {
     return false;

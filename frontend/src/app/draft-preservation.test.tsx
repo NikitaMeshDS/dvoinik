@@ -89,7 +89,9 @@ it("waits for catalog without replacing a recovered draft with defaults", () => 
   expect(next.result.current.draft?.title).toBe("Saved");
 });
 it("keeps independent drafts when a template disappears and returns", () => {
-  const first = renderHook(() => useDrafts(catalog, session()));
+  const first = renderHook(({ data }) => useDrafts(data, session()), {
+    initialProps: { data: catalog },
+  });
   act(() =>
     first.result.current.update({
       ...first.result.current.draft!,
@@ -105,13 +107,26 @@ it("keeps independent drafts when a template disappears and returns", () => {
   );
   act(() => first.result.current.setStep(1));
   act(() => first.result.current.choose("student_card"));
-  first.unmount();
   const reduced = { ...catalog, scenarios: { custom: sample.scenario } };
-  const next = renderHook(() => useDrafts(reduced, session()));
-  expect(next.result.current.draft?.title).toBe("Custom edits");
-  expect(next.result.current.step).toBe(1);
-  next.unmount();
+  first.rerender({ data: reduced });
+  expect(first.result.current.draft?.title).toBe("Custom edits");
+  expect(first.result.current.step).toBe(0);
+  expect(first.result.current.status).toContain(
+    "Прежний шаблон больше недоступен",
+  );
+  first.unmount();
+
+  // Older clients reject the entire v1 record if it references an absent template.
+  const key = "dvoinik:drafts:v1:alice";
+  const legacy = JSON.parse(sessionStorage.getItem(key)!);
+  expect(legacy.activeKey).toBe("custom");
+  expect(Object.keys(legacy.drafts)).toEqual(["custom"]);
+  expect(Object.keys(legacy.steps)).toEqual(["custom"]);
+  legacy.drafts.custom.title = "Edited during rollback";
+  sessionStorage.setItem(key, JSON.stringify(legacy));
+
   const restored = renderHook(() => useDrafts(catalog, session()));
+  expect(restored.result.current.draft?.title).toBe("Edited during rollback");
   act(() => restored.result.current.choose("student_card"));
   expect(restored.result.current.draft?.title).toBe("Template edits");
 });

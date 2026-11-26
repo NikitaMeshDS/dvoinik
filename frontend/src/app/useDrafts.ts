@@ -29,41 +29,50 @@ function initial(catalog: Catalog | null, session: Session): DraftState {
       : {},
   };
   let snapshot = restored.snapshot ?? fallback;
+  let warning = restored.warning;
   if (catalog && !Object.hasOwn(catalog.scenarios, snapshot.activeKey)) {
     // Keep dormant drafts so that they can reopen if the template returns.
     const availableKey = Object.keys(snapshot.drafts).find((key) =>
       Object.hasOwn(catalog.scenarios, key),
     );
+    const nextKey = availableKey ?? fallback.activeKey;
     snapshot = {
       ...snapshot,
-      activeKey: availableKey ?? fallback.activeKey,
+      activeKey: nextKey,
       drafts: availableKey
         ? snapshot.drafts
         : { ...fallback.drafts, ...snapshot.drafts },
+      steps: { ...snapshot.steps, [nextKey]: 0 },
     };
+    warning =
+      "Прежний шаблон больше недоступен. Проверьте открытый сценарий перед запуском.";
   }
   return {
     ...snapshot,
     ready: catalog !== null,
-    warning: restored.warning,
+    warning,
   };
 }
 export function useDrafts(catalog: Catalog | null, session: Session) {
   const owner = session.user.id;
   const [state, setState] = useState(() => initial(catalog, session));
   const [saved, setSaved] = useState(false);
+  const available =
+    catalog !== null &&
+    state.ready &&
+    state.owner === owner &&
+    Object.hasOwn(catalog.scenarios, state.activeKey);
   useEffect(() => {
-    if (catalog && (!state.ready || state.owner !== owner)) {
+    if (catalog && !available) {
       setState(initial(catalog, session));
       setSaved(false);
     }
-  }, [catalog, owner, state.ready, state.owner, session.default_mock]);
+  }, [catalog, owner, available, session.default_mock]);
   useEffect(() => {
-    if (!state.ready || state.owner !== owner) return;
+    if (!catalog || !available) return;
     const { version, activeKey, drafts, steps } = state;
-    setSaved(saveDrafts({ version, owner, activeKey, drafts, steps }));
-  }, [state, owner]);
-  const available = state.ready && state.owner === owner;
+    setSaved(saveDrafts({ version, owner, activeKey, drafts, steps }, catalog));
+  }, [state, owner, catalog, available]);
   const visible = available ? state : initial(catalog, session);
   const change = (patch: Partial<DraftSnapshot>) => {
     if (!available) return;
