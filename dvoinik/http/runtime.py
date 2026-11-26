@@ -17,6 +17,7 @@ from ..comparison import compare_runs
 from ..experiments import MAX_IMPORT_BYTES, attach_validation
 from ..jobs import Jobs
 from ..reporting import export_csv, export_json
+from ..run_recovery import RunRecoveryStore
 from ..runs import RunSettings, run_experiment
 from ..scenarios import SCENARIOS
 from ..storage import StorageError
@@ -50,10 +51,12 @@ class SessionSnapshots:
 class Runtime:
     """Own every mutable service/cache for one factory invocation."""
 
-    def __init__(self, path, mode):
+    def __init__(self, path, mode, *, persist_runs=False):
         self.mode = mode
-        self.auth = AuthStore(path, allow_demo=mode == "demo")
-        self.jobs = Jobs(self.auth, deploy_lock=os.getenv("DVOINIK_DEPLOY_LOCK"))
+        persist_runs = persist_runs and mode == "local"
+        self.auth = AuthStore(path, allow_demo=mode == "demo", persist_runs=persist_runs)
+        journal = RunRecoveryStore(self.auth) if persist_runs else None
+        self.jobs = Jobs(self.auth, deploy_lock=os.getenv("DVOINIK_DEPLOY_LOCK"), journal=journal)
         self.snapshots = SessionSnapshots()
 
     def accessible(self, token, record_id):

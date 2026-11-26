@@ -35,6 +35,7 @@ export default function Workspace({
     report = useRecord(route);
   const { record } = report;
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [dismissBusy, setDismissBusy] = useState<string | null>(null);
   const [runBusy, setRunBusy] = useState(false),
     [toast, setToast] = useState("");
   const [library, setLibrary] = useState<LibraryState>(INITIAL_LIBRARY);
@@ -50,8 +51,11 @@ export default function Workspace({
       void archive.reload();
       if (route !== "job/" + value.id)
         setToast("Исследование завершено. Результат доступен в архиве.");
-    } else if (route !== "job/" + value.id)
-      setToast(value.error ?? "Запуск завершён без результата.");
+    } else {
+      if (value.status === "interrupted") void archive.reload();
+      if (route !== "job/" + value.id)
+        setToast(value.error ?? "Запуск завершён без результата.");
+    }
   });
   useEffect(() => {
     if (runs.job?.status === "completed" && runs.job.record)
@@ -75,6 +79,17 @@ export default function Workspace({
   const updated = (value: Experiment) => {
     report.updated(value);
     archive.updated(value);
+  };
+  const dismissInterrupted = async (id: string) => {
+    setDismissBusy(id);
+    try {
+      await api.request("/recovery/" + encodeURIComponent(id), "DELETE");
+      await archive.reload();
+    } catch (e) {
+      onError(e);
+    } finally {
+      setDismissBusy(null);
+    }
   };
   const reuse = () => {
     if (record) {
@@ -306,26 +321,56 @@ export default function Workspace({
             </Notice>
           )
         ) : (
-          <Library
-            records={archive.records}
-            state={library}
-            onState={setLibrary}
-            onNew={() => navigate("create")}
-            onOpen={(id, tab) => {
-              navigate(
-                "report/" +
-                  id +
-                  (tab === "validation" ? "?tab=validation" : ""),
-              );
-            }}
-            onImport={() => setModal("import")}
-            onSample={openSample}
-            onCompare={compare}
-            pending={new Set(Object.keys(archive.pending))}
-            loading={archive.loading}
-            error={archive.error}
-            onReload={archive.reload}
-          />
+          <>
+            {archive.interrupted.length > 0 && (
+              <section className="notice" aria-label="Прерванные исследования">
+                <strong>Прерванные исследования</strong>
+                <p>Настройки доступны в течение 7 дней с момента запуска.</p>
+                <ul>
+                  {archive.interrupted.map((job) => {
+                    const title = job.request?.scenario.title ?? "Исследование";
+                    return (
+                      <li key={job.id}>
+                        <div className="inline-actions">
+                          <a className="text-link" href={"#/job/" + job.id}>
+                            {title}
+                          </a>
+                          <button
+                            className="text-link"
+                            aria-label={`Убрать из списка: ${title}`}
+                            disabled={dismissBusy !== null}
+                            onClick={() => void dismissInterrupted(job.id)}
+                          >
+                            {dismissBusy === job.id ? "Убираем…" : "Убрать"}
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+            <Library
+              records={archive.records}
+              state={library}
+              onState={setLibrary}
+              onNew={() => navigate("create")}
+              onOpen={(id, tab) => {
+                navigate(
+                  "report/" +
+                    id +
+                    (tab === "validation" ? "?tab=validation" : ""),
+                );
+              }}
+              onImport={() => setModal("import")}
+              onSample={openSample}
+              onCompare={compare}
+              pending={new Set(Object.keys(archive.pending))}
+              loading={archive.loading}
+              error={archive.error}
+              onReload={archive.reload}
+            />
+          </>
         )}
       </WorkspaceShell>
       {modal === "import" && (

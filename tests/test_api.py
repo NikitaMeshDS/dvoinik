@@ -98,6 +98,58 @@ def test_deployment_lock_returns_retryable_conflict(tmp_path, monkeypatch):
         run(client)
 
 
+def test_interrupted_run_is_recoverable_by_owner_after_restart(tmp_path, monkeypatch):
+    import dvoinik.jobs as module
+
+    path = tmp_path / "live.sqlite3"
+    before = create_app(path, mode="local", persist_runs=True)
+    for name in ("alice", "bob"):
+        before.state.auth.create_user(name, name.title(), PASSWORD)
+    alice = login(before)
+    completed_id = run(alice)["id"]
+    entered, release = threading.Event(), threading.Event()
+
+    def blocked(*args, **kwargs):
+        entered.set()
+        assert release.wait(5)
+        kwargs["guard"]()
+        raise RuntimeError("Test worker stopped")
+
+    monkeypatch.setattr(module, "run_experiment", blocked)
+    snapshot = tmp_path / "after-crash.sqlite3"
+    try:
+        response = start(alice, seed=773)
+        assert response.status_code == 202
+        job_id = response.json()["id"]
+        assert entered.wait(2)
+        assert alice.get("/api/recovery").json() == {"jobs": []}
+        original = alice.get(f"/api/runs/{job_id}").json()["request"]
+        with closing(sqlite3.connect(path)) as source, closing(sqlite3.connect(snapshot)) as target:
+            source.backup(target)
+    finally:
+        release.set()
+        before.state.jobs.close()
+
+    after = create_app(snapshot, mode="local", persist_runs=True)
+    try:
+        owner, other = login(after), login(after, "bob")
+        assert owner.get("/api/runs").json() == {"jobs": []}
+        recovered = owner.get("/api/recovery").json()["jobs"]
+        assert [job["id"] for job in recovered] == [job_id]
+        assert recovered[0]["request"] == original
+        assert recovered[0]["status"] == "interrupted" and recovered[0]["record"] is None
+        assert owner.get(f"/api/runs/{job_id}").json() == recovered[0]
+        assert owner.get(f"/api/runs/{completed_id}").status_code == 404
+        assert other.get("/api/recovery").json() == {"jobs": []}
+        assert other.get(f"/api/runs/{job_id}").status_code == 404
+        endpoint = f"/api/recovery/{job_id}"
+        assert other.delete(endpoint).status_code == 404
+        assert owner.delete(endpoint).status_code == 200
+        assert owner.get("/api/recovery").json() == {"jobs": []}
+    finally:
+        after.state.jobs.close()
+
+
 def test_session_boundary_and_csrf(app):
     public = TestClient(app, base_url="http://127.0.0.1")
     assert public.get("/api/experiments").status_code == 401

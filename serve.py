@@ -79,7 +79,7 @@ def main(argv=None):
     print(f"Двойник: http://127.0.0.1:{port}/", flush=True)
     # В контейнере слушаем все интерфейсы контейнера: DVOINIK_HOST=0.0.0.0. Локально — только 127.0.0.1.
     host = os.getenv("DVOINIK_HOST", "127.0.0.1")
-    uvicorn.run(create_app(static_dir=static), host=host, port=port, access_log=False)
+    uvicorn.run(create_app(static_dir=static, persist_runs=True), host=host, port=port, access_log=False)
     return 0
 
 

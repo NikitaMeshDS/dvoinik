@@ -61,10 +61,11 @@ def _password(value):
 
 
 class AuthStore:
-    def __init__(self, path, *, clock=time.time, allow_demo=False):
+    def __init__(self, path, *, clock=time.time, allow_demo=False, persist_runs=False):
         self.path = Path(path)
         self.clock = clock
         self.allow_demo = allow_demo
+        self.persist_runs = persist_runs
         with self.connection() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS users (
@@ -255,7 +256,7 @@ class AuthStore:
             except AuthError as exc:
                 raise AccessExpired("Доступ завершён. Войдите снова.") from exc
 
-        return ExperimentStore(self.path, owner_id=user.id, guard=guard)
+        return ExperimentStore(self.path, owner_id=user.id, guard=guard, persist_runs=self.persist_runs)
 
     def issue_export(self, token, data, mime, filename):
         if isinstance(data, str):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 import threading
 import uuid
 from collections import OrderedDict
@@ -35,6 +36,7 @@ class JobCancelled(JobInterrupted):
 
 
 ACTIVE_STATUSES = {"queued", "running", "cancelling"}
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -64,8 +66,9 @@ class Job:
 
 
 class Jobs:
-    def __init__(self, auth, *, workers=2, queue_size=8, retained=128, deploy_lock=None):
+    def __init__(self, auth, *, workers=2, queue_size=8, retained=128, deploy_lock=None, journal=None):
         self.auth = auth
+        self.journal = journal
         self.deploy_lock = Path(deploy_lock) if deploy_lock else None
         if self.deploy_lock is not None:
             self.deploy_lock.touch()
@@ -135,7 +138,13 @@ class Jobs:
                 raise JobBusy("Очередь исследований заполнена. Повторите позже.")
             try:
                 job.deploy_lease = self._acquire_deploy_lease()
+                if self.journal is not None:
+                    self.journal.add(job)
             except JobBusy:
+                self.capacity.release()
+                raise
+            except AuthError:
+                self._release_deploy_lease(job)
                 self.capacity.release()
                 raise
             except OSError as exc:
@@ -151,6 +160,7 @@ class Jobs:
                 future.add_done_callback(lambda done: self._cancelled(job) if done.cancelled() else None)
             except RuntimeError:
                 self.jobs.pop(job.id)
+                job.status = "failed"
                 self._finish(job)
                 raise JobBusy("Сервис завершает работу. Повторите запуск позже.") from None
             return job.public()
@@ -180,6 +190,8 @@ class Jobs:
 
             record = run_experiment(key, scenario, settings, progress=progress, guard=store.guard)
             # A finished engine still cannot supply unchecked, exportable data.
+            if self.journal is not None:
+                record["id"] = job.id
             record = load_experiment(export_json(record))
             error, saved = None, False
             with self.lock:
@@ -232,6 +244,11 @@ class Jobs:
             if job.released:
                 return
             job.released = True
+            if self.journal is not None and job.status == "failed" and not self.closed:
+                try:
+                    self.journal.remove(job.owner, job.id)
+                except AuthError:
+                    LOGGER.warning("Could not remove the snapshot of a failed research run.")
             job.future = None
             self.owners.discard(job.owner)
             self.capacity.release()
@@ -244,9 +261,13 @@ class Jobs:
             keep = max(0, self.retained - len(recovery_ids))
             for jid in disposable[:-keep] if keep else disposable:
                 self.jobs.pop(jid, None)
-            if job.deploy_lease is not None:
-                job.deploy_lease.close()
-                job.deploy_lease = None
+            self._release_deploy_lease(job)
+
+    @staticmethod
+    def _release_deploy_lease(job):
+        if job.deploy_lease is not None:
+            job.deploy_lease.close()
+            job.deploy_lease = None
 
     def _recovery(self):
         return [
@@ -263,9 +284,16 @@ class Jobs:
         return job
 
     def get(self, token, job_id):
+        owner = self.auth.resolve(token).id
         with self.lock:
-            job = self._get(token, job_id)
-            return job.public()
+            job = self.jobs.get(job_id)
+            if job and job.token == token:
+                return job.public()
+            if self.journal is not None:
+                interrupted = self.journal.interrupted(owner, job_id)
+                if interrupted:
+                    return interrupted[0]
+            raise JobMissing("Исследование недоступно в этой сессии.")
 
     def active(self, token):
         self.auth.resolve(token)
@@ -281,6 +309,8 @@ class Jobs:
             job = self._get(token, job_id)
             if job.status not in ACTIVE_STATUSES:
                 return job.public()
+            if self.journal is not None and not job.cancel_requested:
+                self.journal.remove(job.owner, job.id)
             job.cancel_requested = True
             job.status = "cancelling"
             # A running worker keeps its capacity until guard/cleanup finishes.
@@ -290,9 +320,17 @@ class Jobs:
             return job.public()
 
     def recovery(self, token):
-        self.auth.resolve(token)
+        owner = self.auth.resolve(token).id
         with self.lock:
-            return [job.public() for job in self._recovery() if job.token == token]
+            pending = [job.public() for job in self._recovery() if job.token == token]
+            if self.journal is not None:
+                pending += self.journal.interrupted(owner)
+            return pending
+
+    def dismiss_interrupted(self, token, job_id):
+        owner = self.auth.resolve(token).id
+        if self.journal is None or not self.journal.remove(owner, job_id, interrupted_only=True):
+            raise JobMissing("Прерванное исследование недоступно.")
 
     def reconcile_saved(self, token, record):
         self.auth.resolve(token)

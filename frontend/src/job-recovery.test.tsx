@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { api } from "./api";
@@ -105,5 +106,65 @@ it("recovers failed job settings after a fresh workspace load without starting a
       await screen.findByRole("textbox", { name: "Название исследования" })
     ).getAttribute("value"),
   ).toBe(request.scenario.title);
+  expect(starts).toHaveLength(0);
+});
+
+it("discovers interrupted runs from the archive and opens their settings", async () => {
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  window.location.hash = "/archive";
+  const interrupted: Job = {
+    id: "interrupted-run",
+    status: "interrupted",
+    done: 0,
+    total: 300,
+    request,
+  };
+  const starts: unknown[] = [];
+  vi.spyOn(api, "request").mockImplementation(
+    <T,>(path: string, method?: string, body?: unknown) => {
+      if (path === "/catalog")
+        return Promise.resolve({
+          scenarios: { student_card: sample.scenario, custom: sample.scenario },
+          segments: {},
+        }) as Promise<T>;
+      if (path === "/experiments")
+        return Promise.resolve({ records: [] }) as Promise<T>;
+      if (path === "/recovery")
+        return Promise.resolve({ jobs: [interrupted] }) as Promise<T>;
+      if (path === "/runs" && method === "POST") starts.push(body);
+      if (path === "/runs") return Promise.resolve({ jobs: [] }) as Promise<T>;
+      return Promise.resolve(interrupted) as Promise<T>;
+    },
+  );
+  render(
+    <Workspace
+      session={{
+        user: {
+          id: "interrupted-owner",
+          name: "Test",
+          username: "test",
+          role: "analyst",
+        },
+        csrf_token: "x",
+        mode: "local",
+        model: "demo",
+      }}
+      onLogout={() => {}}
+    />,
+  );
+  fireEvent.click(
+    await screen.findByRole("link", { name: request.scenario.title }),
+  );
+  expect(
+    await screen.findByRole("heading", { name: "Исследование прервано" }),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Восстановить настройки запуска" }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole("textbox", { name: "Название исследования" }),
+    ).toHaveProperty("value", request.scenario.title),
+  );
   expect(starts).toHaveLength(0);
 });

@@ -15,7 +15,7 @@ from .http.static import install_static
 from .settings import auth_mode, storage_path
 
 
-def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
+def create_app(path=None, mode=None, static_dir=None, *, persist_runs=False) -> FastAPI:
     mode = auth_mode() if mode is None else mode
     if mode not in {"local", "demo"}:
         raise ValueError("Режим доступа: local или demo.")
@@ -23,7 +23,7 @@ def create_app(path=None, mode=None, static_dir=None) -> FastAPI:
         path = storage_path()
         if not os.getenv("DVOINIK_STORAGE_PATH"):
             path = path.with_name("demo.sqlite3" if mode == "demo" else "experiments.sqlite3")
-    runtime = Runtime(path, mode)
+    runtime = Runtime(path, mode, persist_runs=persist_runs)
     security = Security(runtime)
 
     @asynccontextmanager

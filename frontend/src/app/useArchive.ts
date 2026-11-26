@@ -6,6 +6,7 @@ export type PendingRecord = { record: Experiment; job: string; error: string };
 export function useArchive() {
   const [records, setRecords] = useState<Experiment[]>([]);
   const [pending, setPending] = useState<Record<string, PendingRecord>>({});
+  const [interrupted, setInterrupted] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   const scope = useRef(new RequestScope());
@@ -23,6 +24,9 @@ export function useArchive() {
             signal,
           );
           if (signal.aborted) return;
+          setInterrupted(
+            recovered.jobs.filter((j) => j.status === "interrupted"),
+          );
           setPending(
             Object.fromEntries(
               recovered.jobs
@@ -104,6 +108,7 @@ export function useArchive() {
   return {
     records: allRecords,
     pending,
+    interrupted,
     loading,
     error,
     reload,

@@ -236,7 +236,13 @@ export type Job = {
   request?: RunPayload;
   id: string;
   status:
-    "queued" | "running" | "cancelling" | "cancelled" | "completed" | "failed";
+    | "queued"
+    | "running"
+    | "cancelling"
+    | "cancelled"
+    | "completed"
+    | "failed"
+    | "interrupted";
   done: number;
   total: number;
   record?: Experiment | null;

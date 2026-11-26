@@ -25,10 +25,11 @@ KEEP_VALIDATION = object()
 
 
 class ExperimentStore:
-    def __init__(self, path, *, owner_id=None, guard=None):
+    def __init__(self, path, *, owner_id=None, guard=None, persist_runs=False):
         self.path = Path(path)
         self.owner_id = owner_id
         self.guard = guard or (lambda: None)
+        self.persist_runs = persist_runs
 
     @contextmanager
     def _connection(self):
@@ -115,6 +116,11 @@ class ExperimentStore:
                     self.owner_id,
                 ),
             )
+            if self.persist_runs:
+                connection.execute(
+                    "DELETE FROM research_jobs WHERE id = ? AND owner_id = ?",
+                    (checked["id"], self.owner_id),
+                )
         return checked
 
     def get_record(self, record_id):

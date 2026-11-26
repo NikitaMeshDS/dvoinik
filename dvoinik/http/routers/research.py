@@ -127,6 +127,12 @@ def recovery(access=Depends(identity), runtime=Depends(get_runtime)):
     return {"jobs": runtime.jobs.recovery(access[0])}
 
 
+@router.delete("/api/recovery/{job_id}")
+def dismiss_interrupted(job_id: str, access=Depends(identity), runtime=Depends(get_runtime)):
+    runtime.jobs.dismiss_interrupted(access[0], job_id)
+    return {"ok": True}
+
+
 @router.post("/api/runs/{job_id}/retry")
 def retry(job_id: str, access=Depends(identity), runtime=Depends(get_runtime)):
     return runtime.jobs.retry(access[0], job_id)
