@@ -300,22 +300,28 @@ export default function Workspace({
             cancelBusy={cancelBusy}
             onBackground={() => navigate("archive")}
             onBack={() => {
-              if (!runs.job?.request) {
+              const request = runs.job?.request;
+              if (!request) {
                 navigate("create");
                 return;
               }
+              const draft = draftFromRun(request, session.user.role === "demo");
+              const templateAvailable = Object.hasOwn(
+                catalog.scenarios,
+                draft.key,
+              );
               if (
-                !Object.hasOwn(catalog.scenarios, runs.job.request.scenario_key)
-              ) {
-                setToast("Шаблон этого исследования больше недоступен.");
-                return;
-              }
-              if (
-                drafts.reuseDraft(
-                  draftFromRun(runs.job.request, session.user.role === "demo"),
+                !drafts.reuseDraft(
+                  templateAvailable ? draft : { ...draft, key: "custom" },
                 )
               )
-                navigate("create");
+                return;
+              if (!templateAvailable) {
+                setToast(
+                  "Исходный шаблон больше недоступен. Настройки восстановлены в вашем сценарии. При новом запуске будут применены правила этого сценария.",
+                );
+              }
+              navigate("create");
             }}
           />
         ) : route === "methodology" ? (

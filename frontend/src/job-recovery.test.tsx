@@ -113,77 +113,88 @@ it("recovers failed job settings after a fresh workspace load without starting a
   expect(starts).toHaveLength(0);
 });
 
-it("discovers interrupted runs from the archive and opens their settings", async () => {
-  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-  window.location.hash = "/archive";
-  const interrupted: Job = {
-    id: "interrupted-run",
-    status: "interrupted",
-    done: 0,
-    total: 300,
-    request,
-  };
-  const starts: unknown[] = [];
-  const dismiss = vi.fn();
-  const confirmation = vi.spyOn(window, "confirm").mockReturnValue(false);
-  vi.spyOn(api, "request").mockImplementation(
-    <T,>(path: string, method?: string, body?: unknown) => {
-      if (path === "/catalog")
-        return Promise.resolve({
-          scenarios: {
-            student_card: sample.scenario,
-            senior_deposit: sample.scenario,
-            custom: sample.scenario,
+it.each([true, false])(
+  "opens interrupted settings with original template available: %s",
+  async (templateAvailable) => {
+    vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    window.location.hash = "/archive";
+    const interrupted: Job = {
+      id: "interrupted-run",
+      status: "interrupted",
+      done: 0,
+      total: 300,
+      request,
+    };
+    const starts: unknown[] = [];
+    const dismiss = vi.fn();
+    const confirmation = vi.spyOn(window, "confirm").mockReturnValue(false);
+    vi.spyOn(api, "request").mockImplementation(
+      <T,>(path: string, method?: string, body?: unknown) => {
+        if (path === "/catalog")
+          return Promise.resolve({
+            scenarios: {
+              student_card: sample.scenario,
+              ...(templateAvailable ? { senior_deposit: sample.scenario } : {}),
+              custom: sample.scenario,
+            },
+            segments: {},
+          }) as Promise<T>;
+        if (path === "/experiments")
+          return Promise.resolve({ records: [] }) as Promise<T>;
+        if (path === "/recovery")
+          return Promise.resolve({ jobs: [interrupted] }) as Promise<T>;
+        if (path === "/recovery/interrupted-run" && method === "DELETE")
+          dismiss();
+        if (path === "/runs" && method === "POST") starts.push(body);
+        if (path === "/runs")
+          return Promise.resolve({ jobs: [] }) as Promise<T>;
+        return Promise.resolve(interrupted) as Promise<T>;
+      },
+    );
+    render(
+      <Workspace
+        session={{
+          user: {
+            id: "interrupted-owner",
+            name: "Test",
+            username: "test",
+            role: "analyst",
           },
-          segments: {},
-        }) as Promise<T>;
-      if (path === "/experiments")
-        return Promise.resolve({ records: [] }) as Promise<T>;
-      if (path === "/recovery")
-        return Promise.resolve({ jobs: [interrupted] }) as Promise<T>;
-      if (path === "/recovery/interrupted-run" && method === "DELETE")
-        dismiss();
-      if (path === "/runs" && method === "POST") starts.push(body);
-      if (path === "/runs") return Promise.resolve({ jobs: [] }) as Promise<T>;
-      return Promise.resolve(interrupted) as Promise<T>;
-    },
-  );
-  render(
-    <Workspace
-      session={{
-        user: {
-          id: "interrupted-owner",
-          name: "Test",
-          username: "test",
-          role: "analyst",
-        },
-        csrf_token: "x",
-        mode: "local",
-        model: "demo",
-      }}
-      onLogout={() => {}}
-    />,
-  );
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: `Удалить настройки: ${request.scenario.title}`,
-    }),
-  );
-  expect(confirmation).toHaveBeenCalled();
-  expect(dismiss).not.toHaveBeenCalled();
-  fireEvent.click(
-    await screen.findByRole("link", { name: request.scenario.title }),
-  );
-  expect(
-    await screen.findByRole("heading", { name: "Исследование прервано" }),
-  ).toBeTruthy();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Восстановить настройки запуска" }),
-  );
-  await waitFor(() =>
+          csrf_token: "x",
+          mode: "local",
+          model: "demo",
+        }}
+        onLogout={() => {}}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: `Удалить настройки: ${request.scenario.title}`,
+      }),
+    );
+    expect(confirmation).toHaveBeenCalled();
+    expect(dismiss).not.toHaveBeenCalled();
+    fireEvent.click(
+      await screen.findByRole("link", { name: request.scenario.title }),
+    );
     expect(
-      screen.getByRole("textbox", { name: "Название исследования" }),
-    ).toHaveProperty("value", request.scenario.title),
-  );
-  expect(starts).toHaveLength(0);
-});
+      await screen.findByRole("heading", { name: "Исследование прервано" }),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Восстановить настройки запуска" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("textbox", { name: "Название исследования" }),
+      ).toHaveProperty("value", request.scenario.title),
+    );
+    expect(screen.getByRole("combobox", { name: "Сценарий" })).toHaveProperty(
+      "value",
+      templateAvailable ? request.scenario_key : "custom",
+    );
+    if (!templateAvailable) {
+      expect(screen.getByText(/восстановлены в вашем сценарии/)).toBeTruthy();
+    }
+    expect(starts).toHaveLength(0);
+  },
+);
