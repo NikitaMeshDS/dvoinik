@@ -211,6 +211,42 @@ it("shows the write failure alongside the warning about a missing template", () 
     "student_card",
   );
 });
+it("keeps a third draft through a second rollback and a rejected choice", () => {
+  const first = draftFromScenario(sample.scenario, "student_card");
+  const base = { version: 1, owner: "alice", activeKey: first.key, steps: {} };
+  for (const [suffix, title] of [
+    ["alice", "Current"],
+    ["dormant:alice", "During rollback"],
+    ["backup:alice", "Before rollback"],
+  ]) {
+    sessionStorage.setItem(
+      "dvoinik:drafts:v1:" + suffix,
+      JSON.stringify({
+        ...base,
+        drafts: { [first.key]: { ...first, title } },
+      }),
+    );
+  }
+  const initial = renderHook(() => useDrafts(catalog, session()));
+  initial.unmount();
+  const reopened = renderHook(() => useDrafts(catalog, session()));
+  expect(reopened.result.current.backup?.title).toBe("Before rollback");
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  const setItem = Storage.prototype.setItem;
+  const quota = vi
+    .spyOn(Storage.prototype, "setItem")
+    .mockImplementation(function (this: Storage, key, value) {
+      if (key === "dvoinik:drafts:v1:alice") throw new Error("quota");
+      setItem.call(this, key, value);
+    });
+  act(() => reopened.result.current.resolveBackup(true));
+  expect(reopened.result.current.draft?.title).toBe("Current");
+  expect(reopened.result.current.backup?.title).toBe("Before rollback");
+  quota.mockRestore();
+  act(() => reopened.result.current.resolveBackup(true));
+  expect(reopened.result.current.draft?.title).toBe("Before rollback");
+  expect(reopened.result.current.backup?.title).toBe("During rollback");
+});
 it("keeps editing available when browser storage fails", () => {
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
     throw new Error("quota");

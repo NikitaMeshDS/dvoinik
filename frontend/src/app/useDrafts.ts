@@ -163,9 +163,11 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
       steps: { ...state.steps, [state.activeKey]: 0 },
     });
   };
-  const backup = visible.backups[visible.activeKey];
+  const copies = visible.backups[visible.activeKey] ?? [];
+  const backup = copies[0];
   const resolveBackup = (restore: boolean) => {
     if (
+      !catalog ||
       !available ||
       !backup ||
       !window.confirm(
@@ -177,18 +179,21 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
       return;
     const key = state.activeKey;
     const backups = { ...state.backups };
-    delete backups[key];
-    change({
+    if (copies.length > 1) backups[key] = copies.slice(1);
+    else delete backups[key];
+    const drafts = restore ? { ...state.drafts, [key]: backup } : state.drafts;
+    const steps = restore ? { ...state.steps, [key]: 0 } : state.steps;
+    const written = saveDrafts(
+      { version: state.version, owner, activeKey: key, drafts, steps },
+      catalog,
       backups,
-      ...(restore && {
-        drafts: { ...state.drafts, [key]: backup.draft },
-        steps: { ...state.steps, [key]: 0 },
-      }),
-    });
+    );
+    setSaved(written);
+    if (written) change({ backups, drafts, steps });
   };
   return {
     draft: visible.drafts[visible.activeKey] ?? null,
-    backup: backup?.draft,
+    backup,
     resolveBackup,
     step: visible.steps[visible.activeKey] ?? 0,
     setStep: (step: number) => {

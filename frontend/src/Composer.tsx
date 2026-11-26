@@ -35,7 +35,7 @@ export default function Composer({
   onStepChange,
   draftStatus,
   onReset,
-  backupTitle,
+  backup,
   onResolveBackup,
 }: {
   catalog: Catalog;
@@ -50,7 +50,7 @@ export default function Composer({
   onStepChange?: (step: number) => void;
   draftStatus?: string;
   onReset?: () => void;
-  backupTitle?: string;
+  backup?: Draft;
   onResolveBackup?: (restore: boolean) => void;
 }) {
   const [localStep, setLocalStep] = useState(0);
@@ -138,9 +138,23 @@ export default function Composer({
           применены правила «Своего сценария».
         </Notice>
       )}
-      {backupTitle !== undefined && (
+      {backup && (
         <Notice>
-          Найдена сохранённая копия этого черновика «{backupTitle}».
+          Найдена сохранённая копия черновика «{backup.title}».
+          <details>
+            <summary>Посмотреть содержимое копии</summary>
+            <p>{backup.description}</p>
+            <p>{backup.question}</p>
+            {VARIANTS.slice(0, backup.variantCount).map((variant) => (
+              <p key={variant}>
+                <strong>{variant}</strong> {backup.variants[variant]}
+              </p>
+            ))}
+            <p>
+              {backup.n} профилей · seed {backup.seed} ·{" "}
+              {backup.mock ? "демо" : "LLM"}
+            </p>
+          </details>
           <div className="inline-actions">
             <Button onClick={() => onResolveBackup?.(true)} disabled={busy}>
               Восстановить копию

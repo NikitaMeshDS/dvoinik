@@ -3,7 +3,7 @@ import type { Catalog, Draft } from "../types";
 const PREFIX = "dvoinik:drafts:v1:";
 const DORMANT_PREFIX = PREFIX + "dormant:";
 const BACKUP_PREFIX = PREFIX + "backup:";
-export type DraftBackups = Record<string, { draft: Draft; step: number }>;
+export type DraftBackups = Record<string, Draft[]>;
 export type DraftSnapshot = {
   version: 1;
   owner: string;
@@ -129,35 +129,81 @@ function readSnapshot(
   }
 }
 
+function readBackups(
+  key: string,
+  owner: string,
+): { backups: DraftBackups; warning: string } {
+  try {
+    const text = sessionStorage.getItem(key);
+    if (!text) return { backups: {}, warning: "" };
+    if (text.length > 2_000_000) throw new Error("Draft too large");
+    const value: unknown = JSON.parse(text);
+    if (
+      object(value) &&
+      value.version === 2 &&
+      value.owner === owner &&
+      object(value.backups) &&
+      Object.entries(value.backups).every(
+        ([key, copies]) =>
+          Array.isArray(copies) &&
+          copies.every((draft) => validDraft(draft, key)),
+      )
+    ) {
+      return { backups: value.backups as DraftBackups, warning: "" };
+    }
+    // The first release stored a single copy in the v1 snapshot format.
+    const legacy = readSnapshot(key, owner);
+    return {
+      backups: Object.fromEntries(
+        Object.entries(legacy.snapshot?.drafts ?? {}).map(([key, draft]) => [
+          key,
+          [draft],
+        ]),
+      ),
+      warning: legacy.warning,
+    };
+  } catch {
+    return { backups: {}, warning: "Не удалось прочитать сохранённые копии." };
+  }
+}
+
+function mergeBackups(base: DraftBackups, extra: DraftBackups): DraftBackups {
+  const keys = new Set([...Object.keys(base), ...Object.keys(extra)]);
+  return Object.fromEntries(
+    [...keys].map((key) => {
+      const copies = [...(base[key] ?? []), ...(extra[key] ?? [])];
+      const unique = new Map(
+        copies.map((draft) => [JSON.stringify(draft), draft]),
+      );
+      return [key, [...unique.values()]];
+    }),
+  );
+}
+
 export function readDrafts(owner: string) {
   const encoded = encodeURIComponent(owner);
   const current = readSnapshot(PREFIX + encoded, owner);
   const dormant = readSnapshot(DORMANT_PREFIX + encoded, owner);
-  const savedBackups = readSnapshot(BACKUP_PREFIX + encoded, owner);
+  const savedBackups = readBackups(BACKUP_PREFIX + encoded, owner);
   const snapshot = current.snapshot ?? dormant.snapshot;
-  const backups: DraftBackups = Object.fromEntries(
-    Object.entries({
-      ...dormant.snapshot?.drafts,
-      ...savedBackups.snapshot?.drafts,
-    })
+  const collisions: DraftBackups = Object.fromEntries(
+    Object.entries(dormant.snapshot?.drafts ?? {})
       .filter(([key, draft]) => {
         const active = current.snapshot?.drafts[key];
-        return (
-          Object.hasOwn(savedBackups.snapshot?.drafts ?? {}, key) ||
-          (active && JSON.stringify(active) !== JSON.stringify(draft))
-        );
+        return active && JSON.stringify(active) !== JSON.stringify(draft);
       })
-      .map(([key, draft]) => [
-        key,
-        {
-          draft,
-          step:
-            savedBackups.snapshot?.steps[key] ??
-            dormant.snapshot?.steps[key] ??
-            0,
-        },
-      ]),
+      .map(([key, draft]) => [key, [draft]]),
   );
+  const backups = mergeBackups(savedBackups.backups, collisions);
+  for (const [key, copies] of Object.entries(backups)) {
+    const active =
+      current.snapshot?.drafts[key] ?? dormant.snapshot?.drafts[key];
+    const distinct = copies.filter(
+      (draft) => JSON.stringify(draft) !== JSON.stringify(active),
+    );
+    if (distinct.length) backups[key] = distinct;
+    else delete backups[key];
+  }
   return {
     backups,
     snapshot: snapshot && {
@@ -197,25 +243,13 @@ function selectDrafts(
 }
 
 function storeBackups(key: string, owner: string, backups: DraftBackups) {
-  const entries = Object.entries(backups);
-  if (!entries.length) {
+  if (!Object.keys(backups).length) {
     sessionStorage.removeItem(key);
     return;
   }
-  sessionStorage.setItem(
-    key,
-    JSON.stringify({
-      version: 1,
-      owner,
-      activeKey: entries[0][0],
-      drafts: Object.fromEntries(
-        entries.map(([key, value]) => [key, value.draft]),
-      ),
-      steps: Object.fromEntries(
-        entries.map(([key, value]) => [key, value.step]),
-      ),
-    }),
-  );
+  const text = JSON.stringify({ version: 2, owner, backups });
+  if (text.length > 2_000_000) throw new Error("Draft too large");
+  if (sessionStorage.getItem(key) !== text) sessionStorage.setItem(key, text);
 }
 
 export function saveDrafts(
@@ -237,14 +271,12 @@ export function saveDrafts(
     const hidden = keys.filter((key) => !known(key));
     if (Object.keys(backups).length) {
       // Preserve unresolved copies until the selected draft is written.
-      const previous = readSnapshot(backupKey, snapshot.owner).snapshot;
-      const oldBackups = Object.fromEntries(
-        Object.entries(previous?.drafts ?? {}).map(([key, draft]) => [
-          key,
-          { draft, step: previous?.steps[key] ?? 0 },
-        ]),
+      const previous = readBackups(backupKey, snapshot.owner);
+      storeBackups(
+        backupKey,
+        snapshot.owner,
+        mergeBackups(previous.backups, backups),
       );
-      storeBackups(backupKey, snapshot.owner, { ...oldBackups, ...backups });
     }
     if (hidden.length) {
       // Stage both previously hidden and newly missing drafts before updating v1.
