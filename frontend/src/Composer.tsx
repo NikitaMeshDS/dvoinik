@@ -157,6 +157,11 @@ export default function Composer({
                 {backup.n} профилей · seed {backup.seed} ·{" "}
                 {backup.mock ? "демо" : "LLM"}
               </p>
+              <p>
+                {backup.depositMinimumRub === undefined
+                  ? "Минимальный взнос не задан"
+                  : `Минимальный взнос ${decimal(backup.depositMinimumRub, 0)} ₽`}
+              </p>
               <ul>
                 {Object.entries(backup.weights)
                   .filter(([, weight]) => weight > 0)

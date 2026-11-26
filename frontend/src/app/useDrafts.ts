@@ -3,6 +3,7 @@ import { draftFromScenario, draftFromRecord } from "../draft";
 import type { Catalog, Draft, Experiment, Session } from "../types";
 import {
   readDrafts,
+  saveActiveDrafts,
   saveDrafts,
   type DraftSnapshot,
   type DraftBackups,
@@ -66,7 +67,7 @@ function initial(catalog: Catalog | null, session: Session): DraftState {
 export function useDrafts(catalog: Catalog | null, session: Session) {
   const owner = session.user.id;
   const [state, setState] = useState(() => initial(catalog, session));
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<boolean | "partial">(false);
   const available =
     catalog !== null &&
     state.ready &&
@@ -81,12 +82,10 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
   useEffect(() => {
     if (!catalog || !available) return;
     const { version, activeKey, drafts, steps, backups } = state;
+    const snapshot = { version, owner, activeKey, drafts, steps };
     setSaved(
-      saveDrafts(
-        { version, owner, activeKey, drafts, steps },
-        catalog,
-        backups,
-      ),
+      saveDrafts(snapshot, catalog, backups) ||
+        (saveActiveDrafts(snapshot, catalog) && "partial"),
     );
   }, [state, owner, catalog, available]);
   const visible = available ? state : initial(catalog, session);
@@ -202,10 +201,12 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
     },
     status: [
       visible.warning,
-      saved && available
-        ? !visible.warning &&
-          "Сохранено в этой вкладке. После обновления черновик восстановится; при выходе он удалится."
-        : "Черновик не сохранён в браузере. Не обновляйте страницу; редактирование доступно.",
+      saved === "partial" && available
+        ? "Текущий черновик сохранён в этой вкладке. Перенос копий пока не завершён."
+        : saved && available
+          ? !visible.warning &&
+            "Сохранено в этой вкладке. После обновления черновик восстановится; при выходе он удалится."
+          : "Черновик не сохранён в браузере. Не обновляйте страницу; редактирование доступно.",
     ]
       .filter(Boolean)
       .join(" "),

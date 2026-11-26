@@ -311,6 +311,28 @@ export function saveDrafts(
     return false;
   }
 }
+
+export function saveActiveDrafts(
+  snapshot: DraftSnapshot,
+  catalog: Catalog,
+): boolean {
+  // A pending move of an unavailable draft must protect that draft first.
+  if (
+    Object.keys(snapshot.drafts).some(
+      (key) => !Object.hasOwn(catalog.scenarios, key),
+    )
+  )
+    return false;
+  try {
+    sessionStorage.setItem(
+      PREFIX + encodeURIComponent(snapshot.owner),
+      JSON.stringify(snapshot),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 /** Remove only our draft namespace, including other owners left in this tab. */
 export function clearDrafts(): void {
   try {

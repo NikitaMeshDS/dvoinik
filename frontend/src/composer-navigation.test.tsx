@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import Composer from "./Composer";
 import { draftFromScenario } from "./draft";
@@ -22,6 +28,38 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.useRealTimers();
+});
+it("shows a minimum deposit in each copy of the same draft", () => {
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const draft = draftFromScenario(sample.scenario, "custom");
+  const resolve = vi.fn();
+  render(
+    <Composer
+      catalog={catalog}
+      draft={draft}
+      onChange={vi.fn()}
+      onTemplate={vi.fn()}
+      onRun={vi.fn()}
+      demo
+      busy={false}
+      backups={[
+        { ...draft, depositMinimumRub: 10000 },
+        { ...draft, depositMinimumRub: 50000 },
+        { ...draft, depositMinimumRub: undefined },
+      ]}
+      onResolveBackup={resolve}
+    />,
+  );
+  const details = screen.getByText(/^Копия 2/).closest("details")!;
+  fireEvent.click(within(details).getByText(/^Копия 2/));
+  expect(within(details).getByText(/Минимальный взнос/).textContent).toMatch(
+    /50\s000\s₽/,
+  );
+  expect(screen.getByText(/Минимальный взнос не задан/)).toBeTruthy();
+  fireEvent.click(
+    within(details).getByRole("button", { name: "Восстановить копию" }),
+  );
+  expect(resolve).toHaveBeenCalledWith(true, 1);
 });
 it("changing wizard steps focuses the new stage while editing its parameters preserves field focus", () => {
   vi.useFakeTimers();
