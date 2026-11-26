@@ -10,9 +10,10 @@ env_file=/etc/dvoinik/runtime.active.env
 volume=dvoinik-misisx-data
 
 git_remote() {
-  local attempt status
+  local attempt status output
   for attempt in 1 2; do
-    if timeout --kill-after=5s 35s git "$@"; then
+    if output=$(timeout --kill-after=5s 35s git "$@"); then
+      printf '%s' "$output"
       return 0
     else
       status=$?
