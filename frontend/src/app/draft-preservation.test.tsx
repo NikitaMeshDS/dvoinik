@@ -351,6 +351,24 @@ it.each([
     );
   }
 });
+it("keeps a readable snapshot when changed text exceeds the storage format limit", () => {
+  const first = renderHook(() => useDrafts(catalog, session()));
+  const key = "dvoinik:drafts:v1:alice";
+  const previous = sessionStorage.getItem(key);
+  act(() =>
+    first.result.current.update({
+      ...first.result.current.draft!,
+      description: "x".repeat(2_000_001),
+    }),
+  );
+  expect(sessionStorage.getItem(key) === previous).toBe(true);
+  expect(first.result.current.status).toContain("Черновик не сохранён");
+  first.unmount();
+  expect(
+    renderHook(() => useDrafts(catalog, session())).result.current.draft
+      ?.description,
+  ).toBe(sample.scenario.description);
+});
 it("preserves custom work when replacement is declined and replaces explicitly", () => {
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
   const hook = renderHook(() => useDrafts(catalog, session()));

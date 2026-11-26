@@ -1,5 +1,6 @@
 import type { Catalog, Draft } from "../types";
 
+const SNAPSHOT_LIMIT = 2_000_000;
 const PREFIX = "dvoinik:drafts:v1:";
 const DORMANT_PREFIX = PREFIX + "dormant:";
 const LEGACY_BACKUP_PREFIX = PREFIX + "backup:";
@@ -91,7 +92,7 @@ function readSnapshot(
   try {
     const text = sessionStorage.getItem(key);
     if (!text) return { snapshot: null, warning: "" };
-    if (text.length > 2_000_000) throw new Error("Draft too large");
+    if (text.length > SNAPSHOT_LIMIT) throw new Error("Draft too large");
     const value: unknown = JSON.parse(text);
     if (
       !object(value) ||
@@ -137,7 +138,7 @@ function readBackups(
   try {
     const text = sessionStorage.getItem(key);
     if (!text) return { backups: {}, warning: "" };
-    if (text.length > 2_000_000) throw new Error("Draft too large");
+    if (text.length > SNAPSHOT_LIMIT) throw new Error("Draft too large");
     const value: unknown = JSON.parse(text);
     if (
       object(value) &&
@@ -247,13 +248,18 @@ function selectDrafts(
   };
 }
 
+function encodeSnapshot(value: unknown): string {
+  const text = JSON.stringify(value);
+  if (text.length > SNAPSHOT_LIMIT) throw new Error("Draft too large");
+  return text;
+}
+
 function storeBackups(key: string, owner: string, backups: DraftBackups) {
   if (!Object.keys(backups).length) {
     sessionStorage.removeItem(key);
     return;
   }
-  const text = JSON.stringify({ version: 2, owner, backups });
-  if (text.length > 2_000_000) throw new Error("Draft too large");
+  const text = encodeSnapshot({ version: 2, owner, backups });
   if (sessionStorage.getItem(key) !== text) sessionStorage.setItem(key, text);
 }
 
@@ -273,6 +279,7 @@ export function saveDrafts(
       keys.filter(known),
       snapshot.activeKey,
     );
+    const main = encodeSnapshot(available);
     const hidden = keys.filter((key) => !known(key));
     if (Object.keys(backups).length) {
       // Preserve unresolved copies until the selected draft is written.
@@ -292,14 +299,14 @@ export function saveDrafts(
       ].filter((key) => Object.hasOwn(snapshot.drafts, key));
       sessionStorage.setItem(
         dormantKey,
-        JSON.stringify(selectDrafts(snapshot, protectedKeys, hidden[0])),
+        encodeSnapshot(selectDrafts(snapshot, protectedKeys, hidden[0])),
       );
     }
-    sessionStorage.setItem(PREFIX + encoded, JSON.stringify(available));
+    sessionStorage.setItem(PREFIX + encoded, main);
     if (hidden.length) {
       sessionStorage.setItem(
         dormantKey,
-        JSON.stringify(selectDrafts(snapshot, hidden, hidden[0])),
+        encodeSnapshot(selectDrafts(snapshot, hidden, hidden[0])),
       );
     } else {
       sessionStorage.removeItem(dormantKey);
@@ -329,6 +336,9 @@ export function saveActiveDrafts(
     const dormantKey = DORMANT_PREFIX + encoded;
     const keys = Object.keys(snapshot.drafts);
     const known = (key: string) => Object.hasOwn(catalog.scenarios, key);
+    const main = encodeSnapshot(
+      selectDrafts(snapshot, keys.filter(known), snapshot.activeKey),
+    );
     const hidden = keys.filter((key) => !known(key));
     const dormant = readSnapshot(dormantKey, snapshot.owner).snapshot;
     if (hidden.length) {
@@ -355,7 +365,7 @@ export function saveActiveDrafts(
               : remaining[0];
             sessionStorage.setItem(
               dormantKey,
-              JSON.stringify(selectDrafts(dormant, remaining, activeKey)),
+              encodeSnapshot(selectDrafts(dormant, remaining, activeKey)),
             );
           } else {
             sessionStorage.removeItem(dormantKey);
@@ -365,12 +375,7 @@ export function saveActiveDrafts(
         }
       }
     }
-    sessionStorage.setItem(
-      mainKey,
-      JSON.stringify(
-        selectDrafts(snapshot, keys.filter(known), snapshot.activeKey),
-      ),
-    );
+    sessionStorage.setItem(mainKey, main);
     return true;
   } catch {
     return false;
