@@ -237,6 +237,8 @@ export default function Workspace({
             step={drafts.step}
             onStepChange={drafts.setStep}
             draftStatus={drafts.status}
+            backupTitle={drafts.backup?.title}
+            onResolveBackup={drafts.resolveBackup}
             onReset={drafts.reset}
             onChange={drafts.update}
             onTemplate={drafts.choose}

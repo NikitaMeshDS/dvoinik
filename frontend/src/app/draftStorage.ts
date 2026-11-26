@@ -2,6 +2,8 @@ import type { Catalog, Draft } from "../types";
 
 const PREFIX = "dvoinik:drafts:v1:";
 const DORMANT_PREFIX = PREFIX + "dormant:";
+const BACKUP_PREFIX = PREFIX + "backup:";
+export type DraftBackups = Record<string, { draft: Draft; step: number }>;
 export type DraftSnapshot = {
   version: 1;
   owner: string;
@@ -131,17 +133,49 @@ export function readDrafts(owner: string) {
   const encoded = encodeURIComponent(owner);
   const current = readSnapshot(PREFIX + encoded, owner);
   const dormant = readSnapshot(DORMANT_PREFIX + encoded, owner);
+  const savedBackups = readSnapshot(BACKUP_PREFIX + encoded, owner);
   const snapshot = current.snapshot ?? dormant.snapshot;
+  const backups: DraftBackups = Object.fromEntries(
+    Object.entries({
+      ...dormant.snapshot?.drafts,
+      ...savedBackups.snapshot?.drafts,
+    })
+      .filter(([key, draft]) => {
+        const active = current.snapshot?.drafts[key];
+        return (
+          Object.hasOwn(savedBackups.snapshot?.drafts ?? {}, key) ||
+          (active && JSON.stringify(active) !== JSON.stringify(draft))
+        );
+      })
+      .map(([key, draft]) => [
+        key,
+        {
+          draft,
+          step:
+            savedBackups.snapshot?.steps[key] ??
+            dormant.snapshot?.steps[key] ??
+            0,
+        },
+      ]),
+  );
   return {
+    backups,
     snapshot: snapshot && {
       ...snapshot,
       drafts: { ...dormant.snapshot?.drafts, ...current.snapshot?.drafts },
-      steps: { ...dormant.snapshot?.steps, ...current.snapshot?.steps },
+      steps: {
+        ...Object.fromEntries(
+          Object.entries(dormant.snapshot?.steps ?? {}).filter(
+            ([key]) => !Object.hasOwn(current.snapshot?.drafts ?? {}, key),
+          ),
+        ),
+        ...current.snapshot?.steps,
+      },
     },
     warning:
       current.warning ||
-      (dormant.warning &&
-        "Не удалось загрузить черновики недоступных шаблонов."),
+      ((dormant.warning || savedBackups.warning) &&
+        "Не удалось загрузить часть сохранённых копий черновиков."),
   };
 }
 
@@ -162,10 +196,37 @@ function selectDrafts(
   };
 }
 
-export function saveDrafts(snapshot: DraftSnapshot, catalog: Catalog): boolean {
+function storeBackups(key: string, owner: string, backups: DraftBackups) {
+  const entries = Object.entries(backups);
+  if (!entries.length) {
+    sessionStorage.removeItem(key);
+    return;
+  }
+  sessionStorage.setItem(
+    key,
+    JSON.stringify({
+      version: 1,
+      owner,
+      activeKey: entries[0][0],
+      drafts: Object.fromEntries(
+        entries.map(([key, value]) => [key, value.draft]),
+      ),
+      steps: Object.fromEntries(
+        entries.map(([key, value]) => [key, value.step]),
+      ),
+    }),
+  );
+}
+
+export function saveDrafts(
+  snapshot: DraftSnapshot,
+  catalog: Catalog,
+  backups: DraftBackups,
+): boolean {
   try {
     const encoded = encodeURIComponent(snapshot.owner);
     const dormantKey = DORMANT_PREFIX + encoded;
+    const backupKey = BACKUP_PREFIX + encoded;
     const known = (key: string) => Object.hasOwn(catalog.scenarios, key);
     const keys = Object.keys(snapshot.drafts);
     const available = selectDrafts(
@@ -174,6 +235,17 @@ export function saveDrafts(snapshot: DraftSnapshot, catalog: Catalog): boolean {
       snapshot.activeKey,
     );
     const hidden = keys.filter((key) => !known(key));
+    if (Object.keys(backups).length) {
+      // Preserve unresolved copies until the selected draft is written.
+      const previous = readSnapshot(backupKey, snapshot.owner).snapshot;
+      const oldBackups = Object.fromEntries(
+        Object.entries(previous?.drafts ?? {}).map(([key, draft]) => [
+          key,
+          { draft, step: previous?.steps[key] ?? 0 },
+        ]),
+      );
+      storeBackups(backupKey, snapshot.owner, { ...oldBackups, ...backups });
+    }
     if (hidden.length) {
       // Stage both previously hidden and newly missing drafts before updating v1.
       // This preserves a copy if the browser rejects the main write.
@@ -195,6 +267,7 @@ export function saveDrafts(snapshot: DraftSnapshot, catalog: Catalog): boolean {
     } else {
       sessionStorage.removeItem(dormantKey);
     }
+    storeBackups(backupKey, snapshot.owner, backups);
     return true;
   } catch {
     return false;

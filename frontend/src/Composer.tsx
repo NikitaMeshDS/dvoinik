@@ -35,6 +35,8 @@ export default function Composer({
   onStepChange,
   draftStatus,
   onReset,
+  backupTitle,
+  onResolveBackup,
 }: {
   catalog: Catalog;
   draft: Draft;
@@ -48,6 +50,8 @@ export default function Composer({
   onStepChange?: (step: number) => void;
   draftStatus?: string;
   onReset?: () => void;
+  backupTitle?: string;
+  onResolveBackup?: (restore: boolean) => void;
 }) {
   const [localStep, setLocalStep] = useState(0);
   const [error, setError] = useState<DraftIssue | null>(null);
@@ -132,6 +136,23 @@ export default function Composer({
         <Notice>
           Настройки восстановлены в вашем сценарии. При новом запуске будут
           применены правила «Своего сценария».
+        </Notice>
+      )}
+      {backupTitle !== undefined && (
+        <Notice>
+          Найдена сохранённая копия этого черновика «{backupTitle}».
+          <div className="inline-actions">
+            <Button onClick={() => onResolveBackup?.(true)} disabled={busy}>
+              Восстановить копию
+            </Button>
+            <button
+              className="text-link"
+              onClick={() => onResolveBackup?.(false)}
+              disabled={busy}
+            >
+              Оставить текущий черновик
+            </button>
+          </div>
         </Notice>
       )}
       <div className="stepper" aria-label="Этапы исследования">

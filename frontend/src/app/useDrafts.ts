@@ -1,14 +1,23 @@
 import { useEffect, useState } from "react";
 import { draftFromScenario, draftFromRecord } from "../draft";
 import type { Catalog, Draft, Experiment, Session } from "../types";
-import { readDrafts, saveDrafts, type DraftSnapshot } from "./draftStorage";
+import {
+  readDrafts,
+  saveDrafts,
+  type DraftSnapshot,
+  type DraftBackups,
+} from "./draftStorage";
 
-type DraftState = DraftSnapshot & { ready: boolean; warning: string };
+type DraftState = DraftSnapshot & {
+  ready: boolean;
+  warning: string;
+  backups: DraftBackups;
+};
 function initial(catalog: Catalog | null, session: Session): DraftState {
   const owner = session.user.id;
   const restored = catalog
     ? readDrafts(owner)
-    : { snapshot: null, warning: "" };
+    : { snapshot: null, warning: "", backups: {} };
   const activeKey =
     catalog && !catalog.scenarios.student_card
       ? Object.keys(catalog.scenarios)[0]
@@ -50,6 +59,7 @@ function initial(catalog: Catalog | null, session: Session): DraftState {
   return {
     ...snapshot,
     ready: catalog !== null,
+    backups: restored.backups,
     warning,
   };
 }
@@ -70,11 +80,19 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
   }, [catalog, owner, available, session.default_mock]);
   useEffect(() => {
     if (!catalog || !available) return;
-    const { version, activeKey, drafts, steps } = state;
-    setSaved(saveDrafts({ version, owner, activeKey, drafts, steps }, catalog));
+    const { version, activeKey, drafts, steps, backups } = state;
+    setSaved(
+      saveDrafts(
+        { version, owner, activeKey, drafts, steps },
+        catalog,
+        backups,
+      ),
+    );
   }, [state, owner, catalog, available]);
   const visible = available ? state : initial(catalog, session);
-  const change = (patch: Partial<DraftSnapshot>) => {
+  const change = (
+    patch: Partial<DraftSnapshot & { backups: DraftBackups }>,
+  ) => {
     if (!available) return;
     setState((previous) =>
       previous.owner === owner
@@ -145,18 +163,47 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
       steps: { ...state.steps, [state.activeKey]: 0 },
     });
   };
+  const backup = visible.backups[visible.activeKey];
+  const resolveBackup = (restore: boolean) => {
+    if (
+      !available ||
+      !backup ||
+      !window.confirm(
+        restore
+          ? "Заменить открытый черновик сохранённой копией?"
+          : "Оставить открытый черновик и удалить сохранённую копию?",
+      )
+    )
+      return;
+    const key = state.activeKey;
+    const backups = { ...state.backups };
+    delete backups[key];
+    change({
+      backups,
+      ...(restore && {
+        drafts: { ...state.drafts, [key]: backup.draft },
+        steps: { ...state.steps, [key]: 0 },
+      }),
+    });
+  };
   return {
     draft: visible.drafts[visible.activeKey] ?? null,
+    backup: backup?.draft,
+    resolveBackup,
     step: visible.steps[visible.activeKey] ?? 0,
     setStep: (step: number) => {
       if (step === 0 || step === 1)
         change({ steps: { ...state.steps, [state.activeKey]: step } });
     },
-    status:
-      visible.warning ||
-      (saved && available
-        ? "Сохранено в этой вкладке. После обновления черновик восстановится; при выходе он удалится."
-        : "Черновик не сохранён в браузере. Не обновляйте страницу; редактирование доступно."),
+    status: [
+      visible.warning,
+      saved && available
+        ? !visible.warning &&
+          "Сохранено в этой вкладке. После обновления черновик восстановится; при выходе он удалится."
+        : "Черновик не сохранён в браузере. Не обновляйте страницу; редактирование доступно.",
+    ]
+      .filter(Boolean)
+      .join(" "),
     choose,
     reuseDraft,
     reset,

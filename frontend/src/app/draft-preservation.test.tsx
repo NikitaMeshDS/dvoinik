@@ -142,6 +142,75 @@ it("ignores corrupt storage with a visible explanation", () => {
   expect(next.result.current.draft?.title).toBe(sample.scenario.title);
   expect(next.result.current.status).toMatch(/восстановить/);
 });
+it.each([true, false])(
+  "keeps both drafts until a choice after rollback (restore: %s)",
+  (restore) => {
+    const key = "dvoinik:drafts:v1:alice";
+    const earlier = {
+      ...draftFromScenario(sample.scenario, "student_card"),
+      title: "Before rollback",
+    };
+    const current = draftFromScenario(sample.scenario, "student_card");
+    const snapshot = {
+      version: 1,
+      owner: "alice",
+      activeKey: "student_card",
+      steps: {},
+    };
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({ ...snapshot, drafts: { student_card: current } }),
+    );
+    sessionStorage.setItem(
+      "dvoinik:drafts:v1:dormant:alice",
+      JSON.stringify({ ...snapshot, drafts: { student_card: earlier } }),
+    );
+
+    const first = renderHook(() => useDrafts(catalog, session()));
+    expect(first.result.current.draft?.title).toBe(current.title);
+    expect(first.result.current.backup?.title).toBe("Before rollback");
+    first.unmount();
+    const next = renderHook(() => useDrafts(catalog, session()));
+    expect(next.result.current.backup?.title).toBe("Before rollback");
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    act(() => next.result.current.resolveBackup(restore));
+    expect(next.result.current.draft?.title).toBe(current.title);
+    confirm.mockReturnValue(true);
+    act(() => next.result.current.resolveBackup(restore));
+    const selectedTitle = restore ? earlier.title : current.title;
+    expect(next.result.current.draft?.title).toBe(selectedTitle);
+    expect(next.result.current.backup).toBeUndefined();
+    next.unmount();
+    const restored = renderHook(() => useDrafts(catalog, session()));
+    expect(restored.result.current.draft?.title).toBe(selectedTitle);
+    expect(restored.result.current.backup).toBeUndefined();
+  },
+);
+it("shows the write failure alongside the warning about a missing template", () => {
+  const first = renderHook(() => useDrafts(catalog, session()));
+  first.unmount();
+  const key = "dvoinik:drafts:v1:alice";
+  const saved = sessionStorage.getItem(key);
+  const setItem = Storage.prototype.setItem;
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
+    this: Storage,
+    name,
+    value,
+  ) {
+    if (name === key) throw new Error("quota");
+    setItem.call(this, name, value);
+  });
+  const reduced = { ...catalog, scenarios: { custom: sample.scenario } };
+  const next = renderHook(() => useDrafts(reduced, session()));
+  expect(next.result.current.status).toContain(
+    "Прежний шаблон больше недоступен",
+  );
+  expect(next.result.current.status).toContain("Черновик не сохранён");
+  expect(sessionStorage.getItem(key)).toBe(saved);
+  expect(sessionStorage.getItem("dvoinik:drafts:v1:dormant:alice")).toContain(
+    "student_card",
+  );
+});
 it("keeps editing available when browser storage fails", () => {
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
     throw new Error("quota");
