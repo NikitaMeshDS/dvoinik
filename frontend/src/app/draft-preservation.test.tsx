@@ -263,69 +263,94 @@ it("keeps editing available when browser storage fails", () => {
   expect(hook.result.current.draft?.title).toBe("Not lost in memory");
   expect(hook.result.current.status).toMatch(/не сохранён/);
 });
-it.each(["absent", "saved", "different stage"])(
-  "handles a rejected copy migration with inactive draft: %s",
-  (inactive) => {
-    const draft = draftFromScenario(sample.scenario, "student_card");
-    const main = "dvoinik:drafts:v1:alice";
-    const legacy = "dvoinik:drafts:v1:backup:alice";
-    const dormant = "dvoinik:drafts:v1:dormant:alice";
-    const removed = draftFromScenario(sample.scenario, "removed");
-    const snapshot = {
-      version: 1,
-      owner: "alice",
-      activeKey: draft.key,
-      drafts: {
-        [draft.key]: draft,
-        ...(inactive === "different stage" ? { removed } : {}),
-      },
-      steps: inactive === "different stage" ? { removed: 1 } : {},
-    };
-    sessionStorage.setItem(main, JSON.stringify(snapshot));
-    const dormantSnapshot =
-      inactive === "absent"
-        ? null
-        : JSON.stringify({
-            ...snapshot,
-            activeKey: "removed",
-            drafts: { removed },
-            steps: { removed: 0 },
-          });
-    if (dormantSnapshot) sessionStorage.setItem(dormant, dormantSnapshot);
-    const copy = JSON.stringify({
-      ...snapshot,
-      drafts: { [draft.key]: { ...draft, title: "Retained copy" } },
-    });
-    sessionStorage.setItem(legacy, copy);
-    const setItem = Storage.prototype.setItem;
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
-      this: Storage,
-      key,
-      value,
-    ) {
-      if (key.includes(":alternates:") || key === dormant)
-        throw new Error("quota");
-      setItem.call(this, key, value);
-    });
-    const hook = renderHook(() => useDrafts(catalog, session()));
-    act(() =>
-      hook.result.current.update({
-        ...hook.result.current.draft!,
-        title: "Latest edit",
-      }),
-    );
+it.each([
+  "absent",
+  "saved",
+  "different stage",
+  "staged duplicate",
+  "distinct copy",
+])("handles a rejected copy migration with inactive draft: %s", (inactive) => {
+  const draft = draftFromScenario(sample.scenario, "student_card");
+  const main = "dvoinik:drafts:v1:alice";
+  const legacy = "dvoinik:drafts:v1:backup:alice";
+  const dormant = "dvoinik:drafts:v1:dormant:alice";
+  const removed = draftFromScenario(sample.scenario, "removed");
+  const staged =
+    inactive === "staged duplicate" || inactive === "distinct copy";
+  const stagedDraft =
+    inactive === "distinct copy"
+      ? { ...draft, title: "Independent draft" }
+      : draft;
+  const snapshot = {
+    version: 1,
+    owner: "alice",
+    activeKey: draft.key,
+    drafts: {
+      [draft.key]: draft,
+      ...(inactive === "different stage" ? { removed } : {}),
+    },
+    steps: inactive === "different stage" ? { removed: 1 } : {},
+  };
+  sessionStorage.setItem(main, JSON.stringify(snapshot));
+  const dormantSnapshot =
+    inactive === "absent"
+      ? null
+      : JSON.stringify({
+          ...snapshot,
+          activeKey: "removed",
+          drafts: { removed, ...(staged ? { [draft.key]: stagedDraft } : {}) },
+          steps: { removed: 0 },
+        });
+  if (dormantSnapshot) sessionStorage.setItem(dormant, dormantSnapshot);
+  const copy = JSON.stringify({
+    ...snapshot,
+    drafts: { [draft.key]: { ...draft, title: "Retained copy" } },
+  });
+  sessionStorage.setItem(legacy, copy);
+  const setItem = Storage.prototype.setItem;
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
+    this: Storage,
+    key,
+    value,
+  ) {
+    if (key.includes(":alternates:") || (!staged && key === dormant))
+      throw new Error("quota");
+    setItem.call(this, key, value);
+  });
+  const hook = renderHook(() => useDrafts(catalog, session()));
+  act(() =>
+    hook.result.current.update({
+      ...hook.result.current.draft!,
+      title: "Latest edit",
+    }),
+  );
+  expect(
+    JSON.parse(sessionStorage.getItem(main)!).drafts[draft.key].title,
+  ).toBe(inactive === "different stage" ? draft.title : "Latest edit");
+  expect(sessionStorage.getItem(legacy)).toBe(copy);
+  if (inactive === "staged duplicate") {
     expect(
-      JSON.parse(sessionStorage.getItem(main)!).drafts[draft.key].title,
-    ).toBe(inactive === "different stage" ? draft.title : "Latest edit");
-    expect(sessionStorage.getItem(legacy)).toBe(copy);
+      Object.keys(JSON.parse(sessionStorage.getItem(dormant)!).drafts),
+    ).toEqual(["removed"]);
+  } else {
     expect(sessionStorage.getItem(dormant)).toBe(dormantSnapshot);
-    expect(hook.result.current.status).toContain(
-      inactive === "different stage"
-        ? "Черновик не сохранён"
-        : "Текущий черновик сохранён",
+  }
+  expect(hook.result.current.status).toContain(
+    inactive === "different stage"
+      ? "Черновик не сохранён"
+      : "Текущий черновик сохранён",
+  );
+  if (staged) {
+    hook.unmount();
+    const reopened = renderHook(() => useDrafts(catalog, session()));
+    expect(reopened.result.current.draft?.title).toBe("Latest edit");
+    expect(reopened.result.current.backups.map((draft) => draft.title)).toEqual(
+      inactive === "distinct copy"
+        ? ["Retained copy", "Independent draft"]
+        : ["Retained copy"],
     );
-  },
-);
+  }
+});
 it("preserves custom work when replacement is declined and replaces explicitly", () => {
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
   const hook = renderHook(() => useDrafts(catalog, session()));

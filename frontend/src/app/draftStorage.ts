@@ -312,34 +312,61 @@ export function saveDrafts(
   }
 }
 
+function sameDraft(left: DraftSnapshot, right: DraftSnapshot, key: string) {
+  return (
+    JSON.stringify(left.drafts[key]) === JSON.stringify(right.drafts[key]) &&
+    (left.steps[key] ?? 0) === (right.steps[key] ?? 0)
+  );
+}
+
 export function saveActiveDrafts(
   snapshot: DraftSnapshot,
   catalog: Catalog,
 ): boolean {
   try {
     const encoded = encodeURIComponent(snapshot.owner);
+    const mainKey = PREFIX + encoded;
+    const dormantKey = DORMANT_PREFIX + encoded;
     const keys = Object.keys(snapshot.drafts);
     const known = (key: string) => Object.hasOwn(catalog.scenarios, key);
     const hidden = keys.filter((key) => !known(key));
+    const dormant = readSnapshot(dormantKey, snapshot.owner).snapshot;
     if (hidden.length) {
       // Replacing the main slot must leave a durable copy of every hidden draft and its step.
-      const dormant = readSnapshot(
-        DORMANT_PREFIX + encoded,
-        snapshot.owner,
-      ).snapshot;
-      if (
-        !dormant ||
-        hidden.some(
-          (key) =>
-            JSON.stringify(dormant.drafts[key]) !==
-              JSON.stringify(snapshot.drafts[key]) ||
-            (dormant.steps[key] ?? 0) !== (snapshot.steps[key] ?? 0),
-        )
-      )
+      if (!dormant || hidden.some((key) => !sameDraft(dormant, snapshot, key)))
         return false;
     }
+    const previous = dormant && readSnapshot(mainKey, snapshot.owner).snapshot;
+    if (dormant && previous) {
+      const dormantKeys = Object.keys(dormant.drafts);
+      const remaining = dormantKeys.filter(
+        (key) =>
+          !known(key) ||
+          !Object.hasOwn(snapshot.drafts, key) ||
+          !sameDraft(dormant, previous, key) ||
+          sameDraft(previous, snapshot, key),
+      );
+      if (remaining.length < dormantKeys.length) {
+        // Remove identical staging copies while the previous main snapshot is still durable.
+        try {
+          if (remaining.length) {
+            const activeKey = remaining.includes(dormant.activeKey)
+              ? dormant.activeKey
+              : remaining[0];
+            sessionStorage.setItem(
+              dormantKey,
+              JSON.stringify(selectDrafts(dormant, remaining, activeKey)),
+            );
+          } else {
+            sessionStorage.removeItem(dormantKey);
+          }
+        } catch {
+          // Prefer saving current edits even when the browser refuses to prune an old copy.
+        }
+      }
+    }
     sessionStorage.setItem(
-      PREFIX + encoded,
+      mainKey,
       JSON.stringify(
         selectDrafts(snapshot, keys.filter(known), snapshot.activeKey),
       ),
