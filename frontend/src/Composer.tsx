@@ -35,7 +35,7 @@ export default function Composer({
   onStepChange,
   draftStatus,
   onReset,
-  backup,
+  backups = [],
   onResolveBackup,
 }: {
   catalog: Catalog;
@@ -50,8 +50,8 @@ export default function Composer({
   onStepChange?: (step: number) => void;
   draftStatus?: string;
   onReset?: () => void;
-  backup?: Draft;
-  onResolveBackup?: (restore: boolean) => void;
+  backups?: Draft[];
+  onResolveBackup?: (restore: boolean, index: number) => void;
 }) {
   const [localStep, setLocalStep] = useState(0);
   const [error, setError] = useState<DraftIssue | null>(null);
@@ -138,35 +138,52 @@ export default function Composer({
           применены правила «Своего сценария».
         </Notice>
       )}
-      {backup && (
+      {backups.length > 0 && (
         <Notice>
-          Найдена сохранённая копия черновика «{backup.title}».
-          <details>
-            <summary>Посмотреть содержимое копии</summary>
-            <p>{backup.description}</p>
-            <p>{backup.question}</p>
-            {VARIANTS.slice(0, backup.variantCount).map((variant) => (
-              <p key={variant}>
-                <strong>{variant}</strong> {backup.variants[variant]}
+          <strong>Сохранённые копии этого черновика</strong>
+          {backups.map((backup, index) => (
+            <details key={JSON.stringify(backup)}>
+              <summary>
+                Копия {index + 1} · {backup.title}
+              </summary>
+              <p>{backup.description}</p>
+              <p>{backup.question}</p>
+              {VARIANTS.slice(0, backup.variantCount).map((variant) => (
+                <p key={variant}>
+                  <strong>{variant}</strong> {backup.variants[variant]}
+                </p>
+              ))}
+              <p>
+                {backup.n} профилей · seed {backup.seed} ·{" "}
+                {backup.mock ? "демо" : "LLM"}
               </p>
-            ))}
-            <p>
-              {backup.n} профилей · seed {backup.seed} ·{" "}
-              {backup.mock ? "демо" : "LLM"}
-            </p>
-          </details>
-          <div className="inline-actions">
-            <Button onClick={() => onResolveBackup?.(true)} disabled={busy}>
-              Восстановить копию
-            </Button>
-            <button
-              className="text-link"
-              onClick={() => onResolveBackup?.(false)}
-              disabled={busy}
-            >
-              Оставить текущий черновик
-            </button>
-          </div>
+              <ul>
+                {Object.entries(backup.weights)
+                  .filter(([, weight]) => weight > 0)
+                  .map(([segment, weight]) => (
+                    <li key={segment}>
+                      {catalog.segments[segment]?.name ?? segment} · вес{" "}
+                      {decimal(weight)}
+                    </li>
+                  ))}
+              </ul>
+              <div className="inline-actions">
+                <Button
+                  onClick={() => onResolveBackup?.(true, index)}
+                  disabled={busy}
+                >
+                  Восстановить копию
+                </Button>
+                <button
+                  className="text-link"
+                  onClick={() => onResolveBackup?.(false, index)}
+                  disabled={busy}
+                >
+                  Удалить копию
+                </button>
+              </div>
+            </details>
+          ))}
         </Notice>
       )}
       <div className="stepper" aria-label="Этапы исследования">

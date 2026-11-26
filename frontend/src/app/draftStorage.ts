@@ -2,7 +2,8 @@ import type { Catalog, Draft } from "../types";
 
 const PREFIX = "dvoinik:drafts:v1:";
 const DORMANT_PREFIX = PREFIX + "dormant:";
-const BACKUP_PREFIX = PREFIX + "backup:";
+const LEGACY_BACKUP_PREFIX = PREFIX + "backup:";
+const BACKUP_PREFIX = PREFIX + "alternates:";
 export type DraftBackups = Record<string, Draft[]>;
 export type DraftSnapshot = {
   version: 1;
@@ -185,6 +186,7 @@ export function readDrafts(owner: string) {
   const current = readSnapshot(PREFIX + encoded, owner);
   const dormant = readSnapshot(DORMANT_PREFIX + encoded, owner);
   const savedBackups = readBackups(BACKUP_PREFIX + encoded, owner);
+  const legacyBackups = readBackups(LEGACY_BACKUP_PREFIX + encoded, owner);
   const snapshot = current.snapshot ?? dormant.snapshot;
   const collisions: DraftBackups = Object.fromEntries(
     Object.entries(dormant.snapshot?.drafts ?? {})
@@ -194,7 +196,10 @@ export function readDrafts(owner: string) {
       })
       .map(([key, draft]) => [key, [draft]]),
   );
-  const backups = mergeBackups(savedBackups.backups, collisions);
+  const backups = mergeBackups(
+    mergeBackups(savedBackups.backups, legacyBackups.backups),
+    collisions,
+  );
   for (const [key, copies] of Object.entries(backups)) {
     const active =
       current.snapshot?.drafts[key] ?? dormant.snapshot?.drafts[key];
@@ -220,7 +225,7 @@ export function readDrafts(owner: string) {
     },
     warning:
       current.warning ||
-      ((dormant.warning || savedBackups.warning) &&
+      ((dormant.warning || savedBackups.warning || legacyBackups.warning) &&
         "Не удалось загрузить часть сохранённых копий черновиков."),
   };
 }
@@ -300,6 +305,7 @@ export function saveDrafts(
       sessionStorage.removeItem(dormantKey);
     }
     storeBackups(backupKey, snapshot.owner, backups);
+    sessionStorage.removeItem(LEGACY_BACKUP_PREFIX + encoded);
     return true;
   } catch {
     return false;

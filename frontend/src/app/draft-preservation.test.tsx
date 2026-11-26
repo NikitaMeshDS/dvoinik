@@ -168,10 +168,10 @@ it.each([true, false])(
 
     const first = renderHook(() => useDrafts(catalog, session()));
     expect(first.result.current.draft?.title).toBe(current.title);
-    expect(first.result.current.backup?.title).toBe("Before rollback");
+    expect(first.result.current.backups[0]?.title).toBe("Before rollback");
     first.unmount();
     const next = renderHook(() => useDrafts(catalog, session()));
-    expect(next.result.current.backup?.title).toBe("Before rollback");
+    expect(next.result.current.backups[0]?.title).toBe("Before rollback");
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     act(() => next.result.current.resolveBackup(restore));
     expect(next.result.current.draft?.title).toBe(current.title);
@@ -179,11 +179,11 @@ it.each([true, false])(
     act(() => next.result.current.resolveBackup(restore));
     const selectedTitle = restore ? earlier.title : current.title;
     expect(next.result.current.draft?.title).toBe(selectedTitle);
-    expect(next.result.current.backup).toBeUndefined();
+    expect(next.result.current.backups[0]).toBeUndefined();
     next.unmount();
     const restored = renderHook(() => useDrafts(catalog, session()));
     expect(restored.result.current.draft?.title).toBe(selectedTitle);
-    expect(restored.result.current.backup).toBeUndefined();
+    expect(restored.result.current.backups[0]).toBeUndefined();
   },
 );
 it("shows the write failure alongside the warning about a missing template", () => {
@@ -229,8 +229,10 @@ it("keeps a third draft through a second rollback and a rejected choice", () => 
   }
   const initial = renderHook(() => useDrafts(catalog, session()));
   initial.unmount();
+  // The previous client may remove its own key on a routine save.
+  sessionStorage.removeItem("dvoinik:drafts:v1:backup:alice");
   const reopened = renderHook(() => useDrafts(catalog, session()));
-  expect(reopened.result.current.backup?.title).toBe("Before rollback");
+  expect(reopened.result.current.backups[0]?.title).toBe("Before rollback");
   vi.spyOn(window, "confirm").mockReturnValue(true);
   const setItem = Storage.prototype.setItem;
   const quota = vi
@@ -241,11 +243,11 @@ it("keeps a third draft through a second rollback and a rejected choice", () => 
     });
   act(() => reopened.result.current.resolveBackup(true));
   expect(reopened.result.current.draft?.title).toBe("Current");
-  expect(reopened.result.current.backup?.title).toBe("Before rollback");
+  expect(reopened.result.current.backups[0]?.title).toBe("Before rollback");
   quota.mockRestore();
   act(() => reopened.result.current.resolveBackup(true));
   expect(reopened.result.current.draft?.title).toBe("Before rollback");
-  expect(reopened.result.current.backup?.title).toBe("During rollback");
+  expect(reopened.result.current.backups[0]?.title).toBe("During rollback");
 });
 it("keeps editing available when browser storage fails", () => {
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {

@@ -164,8 +164,8 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
     });
   };
   const copies = visible.backups[visible.activeKey] ?? [];
-  const backup = copies[0];
-  const resolveBackup = (restore: boolean) => {
+  const resolveBackup = (restore: boolean, index = 0) => {
+    const backup = copies[index];
     if (
       !catalog ||
       !available ||
@@ -179,7 +179,7 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
       return;
     const key = state.activeKey;
     const backups = { ...state.backups };
-    if (copies.length > 1) backups[key] = copies.slice(1);
+    if (copies.length > 1) backups[key] = copies.filter((_, i) => i !== index);
     else delete backups[key];
     const drafts = restore ? { ...state.drafts, [key]: backup } : state.drafts;
     const steps = restore ? { ...state.steps, [key]: 0 } : state.steps;
@@ -193,7 +193,7 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
   };
   return {
     draft: visible.drafts[visible.activeKey] ?? null,
-    backup,
+    backups: copies,
     resolveBackup,
     step: visible.steps[visible.activeKey] ?? 0,
     setStep: (step: number) => {
