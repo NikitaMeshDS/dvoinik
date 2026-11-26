@@ -160,7 +160,7 @@ export default function Composer({
               <p>
                 {backup.depositMinimumRub === undefined
                   ? "Минимальный взнос не задан"
-                  : `Минимальный взнос ${decimal(backup.depositMinimumRub, 0)} ₽`}
+                  : `Минимальный взнос ${backup.depositMinimumRub.toLocaleString("ru-RU", { maximumSignificantDigits: 21 })} ₽`}
               </p>
               <ul>
                 {Object.entries(backup.weights)

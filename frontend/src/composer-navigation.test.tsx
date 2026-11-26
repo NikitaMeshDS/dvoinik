@@ -43,8 +43,8 @@ it("shows a minimum deposit in each copy of the same draft", () => {
       demo
       busy={false}
       backups={[
-        { ...draft, depositMinimumRub: 10000 },
-        { ...draft, depositMinimumRub: 50000 },
+        { ...draft, depositMinimumRub: 10000.1 },
+        { ...draft, depositMinimumRub: 10000.2 },
         { ...draft, depositMinimumRub: undefined },
       ]}
       onResolveBackup={resolve}
@@ -53,8 +53,9 @@ it("shows a minimum deposit in each copy of the same draft", () => {
   const details = screen.getByText(/^Копия 2/).closest("details")!;
   fireEvent.click(within(details).getByText(/^Копия 2/));
   expect(within(details).getByText(/Минимальный взнос/).textContent).toMatch(
-    /50\s000\s₽/,
+    /10\s000,2\s₽/,
   );
+  expect(screen.getByText(/10\s000,1\s₽/)).toBeTruthy();
   expect(screen.getByText(/Минимальный взнос не задан/)).toBeTruthy();
   fireEvent.click(
     within(details).getByRole("button", { name: "Восстановить копию" }),

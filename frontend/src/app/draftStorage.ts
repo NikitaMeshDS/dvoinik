@@ -316,17 +316,33 @@ export function saveActiveDrafts(
   snapshot: DraftSnapshot,
   catalog: Catalog,
 ): boolean {
-  // A pending move of an unavailable draft must protect that draft first.
-  if (
-    Object.keys(snapshot.drafts).some(
-      (key) => !Object.hasOwn(catalog.scenarios, key),
-    )
-  )
-    return false;
   try {
+    const encoded = encodeURIComponent(snapshot.owner);
+    const keys = Object.keys(snapshot.drafts);
+    const known = (key: string) => Object.hasOwn(catalog.scenarios, key);
+    const hidden = keys.filter((key) => !known(key));
+    if (hidden.length) {
+      // Replacing the main slot must leave a durable copy of every hidden draft and its step.
+      const dormant = readSnapshot(
+        DORMANT_PREFIX + encoded,
+        snapshot.owner,
+      ).snapshot;
+      if (
+        !dormant ||
+        hidden.some(
+          (key) =>
+            JSON.stringify(dormant.drafts[key]) !==
+              JSON.stringify(snapshot.drafts[key]) ||
+            (dormant.steps[key] ?? 0) !== (snapshot.steps[key] ?? 0),
+        )
+      )
+        return false;
+    }
     sessionStorage.setItem(
-      PREFIX + encodeURIComponent(snapshot.owner),
-      JSON.stringify(snapshot),
+      PREFIX + encoded,
+      JSON.stringify(
+        selectDrafts(snapshot, keys.filter(known), snapshot.activeKey),
+      ),
     );
     return true;
   } catch {
