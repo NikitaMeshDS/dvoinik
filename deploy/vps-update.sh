@@ -9,11 +9,25 @@ ref=refs/heads/deploy/vps
 env_file=/etc/dvoinik/runtime.active.env
 volume=dvoinik-misisx-data
 
+git_remote() {
+  local attempt status
+  for attempt in 1 2; do
+    if timeout --kill-after=5s 35s git "$@"; then
+      return 0
+    else
+      status=$?
+    fi
+    echo "Git network operation failed (attempt $attempt, exit $status)." >&2
+    if (( attempt == 1 )); then sleep 2; fi
+  done
+  return "$status"
+}
+
 install -d -m 700 "$state" "$state/backups"
 exec 9>"$state/lock"
 flock -n 9 || exit 0
 
-result=$(git ls-remote "$repo" "$ref")
+result=$(git_remote ls-remote "$repo" "$ref") || exit $?
 [[ -n "$result" ]] || { echo "No tested revision has been promoted yet."; exit 0; }
 sha=${result%%$'\t'*}
 [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
@@ -54,16 +68,20 @@ trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 
-# Fetch only the promoted ref. If it moved since ls-remote, try again on the next tick.
-git -C "$work" init --quiet
-git -C "$work" fetch --quiet --depth=1 "$repo" "$ref"
-[[ "$(git -C "$work" rev-parse FETCH_HEAD)" == "$sha" ]]
-# Keep the enclosing build directory private, but make image sources readable
-# by the unprivileged runtime user after Docker COPY.
-(umask 022; git -C "$work" checkout --quiet --detach FETCH_HEAD)
-
 if ! docker image inspect "$image" >/dev/null 2>&1; then
+  # Fetch only the promoted ref. If it moved since ls-remote, try on the next tick.
+  git -C "$work" init --quiet
+  git_remote -C "$work" fetch --quiet --depth=1 "$repo" "$ref" || exit $?
+  [[ "$(git -C "$work" rev-parse FETCH_HEAD)" == "$sha" ]] || exit 1
+  # Keep the enclosing build directory private, but make image sources readable
+  # by the unprivileged runtime user after Docker COPY.
+  (umask 022; git -C "$work" checkout --quiet --detach FETCH_HEAD)
   docker build --label "org.opencontainers.image.revision=$sha" --tag "$image" "$work"
+fi
+image_sha=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")
+if [[ "$image_sha" != "$sha" ]]; then
+  echo "Image revision does not match the promoted commit." >&2
+  exit 1
 fi
 docker run -d --name "$candidate" --network host --no-healthcheck \
   --env-file "$env_file" -e DVOINIK_PORT=8502 \
@@ -90,7 +108,11 @@ fi
 docker exec "$candidate" test -f /data/.deploy-jobs.lock
 
 # Avoid restarting the app if a newer revision was promoted while this image was building.
-[[ "$(git ls-remote "$repo" "$ref" | cut -f1)" == "$sha" ]]
+result=$(git_remote ls-remote "$repo" "$ref") || exit $?
+if [[ "${result%%$'\t'*}" != "$sha" ]]; then
+  echo "Promoted commit changed during deployment; retrying on the next timer tick." >&2
+  exit 1
+fi
 test "$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' dvoinik)" = "$volume"
 volume_path=$(docker volume inspect -f '{{.Mountpoint}}' "$volume")
 docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' dvoinik |
