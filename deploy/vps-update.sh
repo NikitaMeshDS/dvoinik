@@ -29,6 +29,94 @@ install -d -m 700 "$state" "$state/backups"
 exec 9>"$state/lock"
 flock -n 9 || exit 0
 
+pending="$state/pending"
+origin=$(sed -n 's/^DVOINIK_PUBLIC_ORIGIN=//p' "$env_file")
+[[ "$origin" =~ ^https://[a-z0-9.-]+$ ]]
+
+lock_jobs() {
+  local volume_path
+  volume_path=$(docker volume inspect -f '{{.Mountpoint}}' "$volume") || return
+  # Keep the inode open through backup, replacement and rollback.
+  exec 8<"$volume_path/.deploy-jobs.lock" || return
+  flock -n -E 75 8
+}
+
+container_id() {
+  docker ps -a --no-trunc --filter "name=^/$1$" --format '{{.ID}}'
+}
+
+remove_transaction_container() {
+  local id=$1 expected=$2 actual
+  actual=$(docker container inspect -f '{{index .Config.Labels "io.dvoinik.deploy-attempt"}}' "$id") || return
+  if [[ "$actual" != "$expected" ]]; then
+    echo "Refusing to remove a container outside the pending deployment." >&2
+    return 1
+  fi
+  docker rm -f "$id" >/dev/null
+}
+
+remove_candidate() {
+  local token=$1 id
+  id=$(container_id "dvoinik-candidate-$token") || return
+  [[ -z "$id" ]] || remove_transaction_container "$id" "$token"
+}
+
+clear_pending() {
+  rm -- "$pending" || return
+  sync -f "$state"
+}
+
+check() {
+  local base="$1"
+  shift
+  local page status
+  for _ in {1..20}; do
+    if page=$(curl --noproxy '*' -fsS --max-time 3 "$@" "$base/") && [[ "$page" == *'id="root"'* ]]; then
+      status=$(curl --noproxy '*' -sS --max-time 3 -o /dev/null -w '%{http_code}' "$@" "$base/api/experiments")
+      [[ "$status" == 401 ]] && return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+recover_pending() {
+  local original token extra live running
+  read -r original token extra < "$pending" || return
+  if [[ ! "$original" =~ ^[0-9a-f]{64}$ || ! "$token" =~ ^[A-Za-z0-9]{8}$ || -n "$extra" ]]; then
+    echo "Invalid pending deployment journal." >&2
+    return 1
+  fi
+  running=$(docker container inspect -f '{{.State.Running}}' "$original") || return
+  live=$(container_id dvoinik) || return
+  remove_candidate "$token" || return
+  if [[ "$live" != "$original" ]]; then
+    if [[ -n "$live" ]]; then remove_transaction_container "$live" "$token" || return; fi
+    docker rename "$original" dvoinik || return
+  fi
+  if [[ "$running" != true ]]; then docker start "$original" >/dev/null || return; fi
+  check "$origin" || return
+  live=$(container_id dvoinik) || return
+  running=$(docker container inspect -f '{{.State.Running}}' "$original") || return
+  [[ "$live" == "$original" && "$running" == true ]] || return 1
+  clear_pending || return
+  echo "Recovered the previous container from the pending deployment."
+}
+
+if [[ -f "$pending" ]]; then
+  if lock_jobs; then
+    recover_pending
+    exit $?
+  else
+    status=$?
+    if (( status == 75 )); then
+      echo "Active research jobs; deferring deployment recovery."
+      exit 0
+    fi
+    exit "$status"
+  fi
+fi
+
 result=$(git_remote 35s ls-remote "$repo" "$ref") || exit $?
 [[ -n "$result" ]] || { echo "No tested revision has been promoted yet."; exit 0; }
 sha=${result%%$'\t'*}
@@ -36,32 +124,18 @@ sha=${result%%$'\t'*}
 running=$(docker inspect -f '{{if .State.Running}}{{index .Config.Labels "org.opencontainers.image.revision"}}{{end}}' dvoinik)
 [[ "$running" != "$sha" ]] || exit 0
 
-origin=$(sed -n 's/^DVOINIK_PUBLIC_ORIGIN=//p' "$env_file")
-[[ "$origin" =~ ^https://[a-z0-9.-]+$ ]]
 host=${origin#https://}
 image="dvoinik:git-$sha"
 work=$(mktemp -d "$state/build.XXXXXXXX")
-candidate="dvoinik-candidate-${sha:0:12}"
+token=${work##*.}
+candidate="dvoinik-candidate-$token"
 previous="dvoinik-previous-$(date -u +%Y%m%d%H%M%S)"
 backup_dir="$state/backups/$previous"
-candidate_started=0
-promoted=0
-replacement_started=0
-old_stopped=0
 cleanup() {
   local status=$?
   trap - EXIT
-  if (( candidate_started )); then
-    docker rm -f "$candidate" >/dev/null 2>&1 || true
-  fi
-  if (( status != 0 && promoted )); then
-    echo "Deployment failed; restoring $previous." >&2
-    if (( replacement_started )); then
-      docker rm -f dvoinik >/dev/null 2>&1 || true
-    fi
-    docker rename "$previous" dvoinik && docker start dvoinik >/dev/null
-  elif (( status != 0 && old_stopped )); then
-    docker start dvoinik >/dev/null
+  if (( status != 0 )) && [[ -f "$pending" ]]; then
+    recover_pending || echo "Recovery pending; the timer will retry." >&2
   fi
   rm -rf -- "$work"
   exit "$status"
@@ -86,24 +160,15 @@ if [[ "$image_sha" != "$sha" ]]; then
   echo "Image revision does not match the promoted commit." >&2
   exit 1
 fi
+original=$(container_id dvoinik)
+[[ "$original" =~ ^[0-9a-f]{64}$ ]] || exit 1
+printf '%s %s\n' "$original" "$token" > "$work/pending"
+mv "$work/pending" "$pending"
+sync -f "$state"
 docker run -d --name "$candidate" --network host --no-healthcheck \
-  --env-file "$env_file" -e DVOINIK_PORT=8502 \
+  --label "io.dvoinik.deploy-attempt=$token" --env-file "$env_file" -e DVOINIK_PORT=8502 \
   --tmpfs /data:uid=10001,gid=10001,mode=0700 "$image" >/dev/null
-candidate_started=1
 
-check() {
-  local base="$1"
-  shift
-  local page status
-  for _ in {1..20}; do
-    if page=$(curl --noproxy '*' -fsS --max-time 3 "$@" "$base/") && [[ "$page" == *'id="root"'* ]]; then
-      status=$(curl --noproxy '*' -sS --max-time 3 -o /dev/null -w '%{http_code}' "$@" "$base/api/experiments")
-      [[ "$status" == 401 ]] && return 0
-    fi
-    sleep 1
-  done
-  return 1
-}
 if ! check http://127.0.0.1:8502 -H "Host: $host" -H 'X-Forwarded-Proto: https'; then
   docker logs --tail 30 "$candidate" >&2
   exit 1
@@ -117,22 +182,21 @@ if [[ "${result%%$'\t'*}" != "$sha" ]]; then
   exit 1
 fi
 test "$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' dvoinik)" = "$volume"
-volume_path=$(docker volume inspect -f '{{.Mountpoint}}' "$volume")
 docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' dvoinik |
   grep -Fx 'DVOINIK_DEPLOY_LOCK=/data/.deploy-jobs.lock' >/dev/null || {
     echo "The running container must support the deployment lock before enabling this updater." >&2
     exit 1
   }
-# Keep the inode open through backup, replacement and any rollback.
-exec 8<"$volume_path/.deploy-jobs.lock"
-flock -n -E 75 8 || {
+if lock_jobs; then
+  :
+else
   status=$?
   if (( status == 75 )); then
     echo "Active research jobs; deferring $sha to the next timer tick."
     exit 0
   fi
   exit "$status"
-}
+fi
 install -d -m 700 "$backup_dir"
 # Online SQLite backup includes committed changes from WAL without copying a live database file.
 docker exec -i dvoinik python - > "$backup_dir/experiments.sqlite3.tmp" <<'PY_BACKUP'
@@ -155,13 +219,11 @@ with tempfile.TemporaryDirectory(prefix="dvoinik-cd-") as directory:
 PY_BACKUP
 mv "$backup_dir/experiments.sqlite3.tmp" "$backup_dir/experiments.sqlite3"
 test -s "$backup_dir/experiments.sqlite3"
-docker stop dvoinik >/dev/null
-old_stopped=1
-docker rename dvoinik "$previous"
-promoted=1
-# Set the flag before docker run: Docker may create a container even if starting it fails.
-replacement_started=1
+docker stop "$original" >/dev/null
+docker rename "$original" "$previous"
 docker run -d --name dvoinik --restart unless-stopped --network host --no-healthcheck \
-  --env-file "$env_file" -v "$volume:/data" "$image" >/dev/null
+  --label "io.dvoinik.deploy-attempt=$token" --env-file "$env_file" -v "$volume:/data" "$image" >/dev/null
 check "$origin"
+remove_candidate "$token"
+clear_pending
 echo "Deployed $sha; rollback container: $previous"
