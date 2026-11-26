@@ -10,9 +10,10 @@ env_file=/etc/dvoinik/runtime.active.env
 volume=dvoinik-misisx-data
 
 git_remote() {
-  local attempt status output
+  local limit=$1 attempt status output
+  shift
   for attempt in 1 2; do
-    if output=$(timeout --kill-after=5s 35s git "$@"); then
+    if output=$(timeout --kill-after=5s "$limit" git "$@"); then
       printf '%s' "$output"
       return 0
     else
@@ -28,7 +29,7 @@ install -d -m 700 "$state" "$state/backups"
 exec 9>"$state/lock"
 flock -n 9 || exit 0
 
-result=$(git_remote ls-remote "$repo" "$ref") || exit $?
+result=$(git_remote 35s ls-remote "$repo" "$ref") || exit $?
 [[ -n "$result" ]] || { echo "No tested revision has been promoted yet."; exit 0; }
 sha=${result%%$'\t'*}
 [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
@@ -69,10 +70,11 @@ trap cleanup EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 
-if ! docker image inspect "$image" >/dev/null 2>&1; then
+image_sha=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image" 2>/dev/null) || image_sha=""
+if [[ "$image_sha" != "$sha" ]]; then
   # Fetch only the promoted ref. If it moved since ls-remote, try on the next tick.
   git -C "$work" init --quiet
-  git_remote -C "$work" fetch --quiet --depth=1 "$repo" "$ref" || exit $?
+  git_remote 120s -C "$work" fetch --quiet --depth=1 "$repo" "$ref" || exit $?
   [[ "$(git -C "$work" rev-parse FETCH_HEAD)" == "$sha" ]] || exit 1
   # Keep the enclosing build directory private, but make image sources readable
   # by the unprivileged runtime user after Docker COPY.
@@ -109,7 +111,7 @@ fi
 docker exec "$candidate" test -f /data/.deploy-jobs.lock
 
 # Avoid restarting the app if a newer revision was promoted while this image was building.
-result=$(git_remote ls-remote "$repo" "$ref") || exit $?
+result=$(git_remote 35s ls-remote "$repo" "$ref") || exit $?
 if [[ "${result%%$'\t'*}" != "$sha" ]]; then
   echo "Promoted commit changed during deployment; retrying on the next timer tick." >&2
   exit 1
