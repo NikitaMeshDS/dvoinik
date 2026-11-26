@@ -209,36 +209,43 @@ function mergeSnapshots(
   };
 }
 
+function readStaged(owner: string) {
+  let snapshot: DraftSnapshot | null = null;
+  let warning = "";
+  try {
+    for (const key of stagedKeys(owner)) {
+      const staged = readSnapshot(key, owner);
+      snapshot = mergeSnapshots(snapshot, staged.snapshot);
+      warning ||= staged.warning;
+    }
+  } catch {
+    warning = "Не удалось прочитать часть сохранённых черновиков.";
+  }
+  return { snapshot, warning };
+}
+
 export function readDrafts(owner: string) {
   const encoded = encodeURIComponent(owner);
   const current = readSnapshot(PREFIX + encoded, owner);
   const dormant = readSnapshot(DORMANT_PREFIX + encoded, owner);
-  let secondary = dormant.snapshot;
-  let stagedWarning = "";
-  try {
-    for (const key of stagedKeys(owner)) {
-      const staged = readSnapshot(key, owner);
-      secondary = mergeSnapshots(secondary, staged.snapshot);
-      stagedWarning ||= staged.warning;
-    }
-  } catch {
-    stagedWarning = "Не удалось прочитать часть сохранённых черновиков.";
-  }
+  const staged = readStaged(owner);
   const savedBackups = readBackups(BACKUP_PREFIX + encoded, owner);
   const legacyBackups = readBackups(LEGACY_BACKUP_PREFIX + encoded, owner);
+  // An older client can edit its regular slots without knowing about staging.
+  const secondary = mergeSnapshots(staged.snapshot, dormant.snapshot);
   const snapshot = mergeSnapshots(secondary, current.snapshot);
-  const collisions: DraftBackups = Object.fromEntries(
-    Object.entries(secondary?.drafts ?? {})
-      .filter(([key, draft]) => {
-        const active = current.snapshot?.drafts[key];
-        return active && JSON.stringify(active) !== JSON.stringify(draft);
-      })
-      .map(([key, draft]) => [key, [draft]]),
-  );
-  const backups = mergeBackups(
-    mergeBackups(savedBackups.backups, legacyBackups.backups),
-    collisions,
-  );
+  let backups = mergeBackups(savedBackups.backups, legacyBackups.backups);
+  for (const source of [staged.snapshot, dormant.snapshot]) {
+    backups = mergeBackups(
+      backups,
+      Object.fromEntries(
+        Object.entries(source?.drafts ?? {}).map(([key, draft]) => [
+          key,
+          [draft],
+        ]),
+      ),
+    );
+  }
   for (const [key, copies] of Object.entries(backups)) {
     const active = snapshot?.drafts[key];
     const distinct = copies.filter(
@@ -253,7 +260,7 @@ export function readDrafts(owner: string) {
     warning:
       current.warning ||
       ((dormant.warning ||
-        stagedWarning ||
+        staged.warning ||
         savedBackups.warning ||
         legacyBackups.warning) &&
         "Не удалось загрузить часть сохранённых копий черновиков."),
@@ -386,7 +393,14 @@ export function saveActiveDrafts(
     const dormant = readSnapshot(dormantKey, snapshot.owner).snapshot;
     if (hidden.length) {
       // Replacing the main slot must leave a durable copy of every hidden draft and its step.
-      if (!dormant || hidden.some((key) => !sameDraft(dormant, snapshot, key)))
+      const secondary = mergeSnapshots(
+        readStaged(snapshot.owner).snapshot,
+        dormant,
+      );
+      if (
+        !secondary ||
+        hidden.some((key) => !sameDraft(secondary, snapshot, key))
+      )
         return false;
     }
     const previous = dormant && readSnapshot(mainKey, snapshot.owner).snapshot;

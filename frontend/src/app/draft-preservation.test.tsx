@@ -2,7 +2,12 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useDrafts } from "./useDrafts";
-import { readDrafts, saveDrafts, type DraftSnapshot } from "./draftStorage";
+import {
+  readDrafts,
+  saveActiveDrafts,
+  saveDrafts,
+  type DraftSnapshot,
+} from "./draftStorage";
 import { api } from "../api";
 import { useSession } from "./useSession";
 import { draftFromScenario } from "../draft";
@@ -420,6 +425,9 @@ it.each(["none", "main", "dormant"])(
       returned.description.length,
     );
     expect(recovered.steps).toEqual(snapshot.steps);
+    if (rejected === "dormant") {
+      expect(saveActiveDrafts(recovered, catalog)).toBe(true);
+    }
     write.mockRestore();
     expect(
       saveDrafts(rejected === "main" ? updated : recovered, catalog, {}),
@@ -427,6 +435,36 @@ it.each(["none", "main", "dormant"])(
     expect(sessionStorage.length).toBe(2);
   },
 );
+it("keeps edits made by the older client and the distinct staged version", () => {
+  const draft = draftFromScenario(sample.scenario, "removed");
+  const snapshot = {
+    version: 1,
+    owner: "alice",
+    activeKey: draft.key,
+    steps: {},
+  };
+  for (const [slot, title] of [
+    ["dormant:alice", "Edited after rollback"],
+    ["staged:alice:removed", "Staged earlier"],
+  ]) {
+    sessionStorage.setItem(
+      "dvoinik:drafts:v1:" + slot,
+      JSON.stringify({
+        ...snapshot,
+        drafts: { [draft.key]: { ...draft, title } },
+      }),
+    );
+  }
+  const hook = renderHook(() => useDrafts(catalog, session()));
+  hook.unmount();
+  const recovered = readDrafts("alice");
+  expect(recovered.snapshot?.drafts.removed.title).toBe(
+    "Edited after rollback",
+  );
+  expect(recovered.backups.removed.map((value) => value.title)).toEqual([
+    "Staged earlier",
+  ]);
+});
 it("keeps a readable snapshot when changed text exceeds the storage format limit", () => {
   const first = renderHook(() => useDrafts(catalog, session()));
   const key = "dvoinik:drafts:v1:alice";
