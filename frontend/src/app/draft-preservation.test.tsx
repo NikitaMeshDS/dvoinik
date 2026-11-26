@@ -2,6 +2,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useDrafts } from "./useDrafts";
+import { readDrafts, saveDrafts, type DraftSnapshot } from "./draftStorage";
 import { api } from "../api";
 import { useSession } from "./useSession";
 import { draftFromScenario } from "../draft";
@@ -351,6 +352,81 @@ it.each([
     );
   }
 });
+it.each(["none", "main", "dormant"])(
+  "protects a large catalog swap (rejected slot: %s)",
+  (rejected) => {
+    const main = "dvoinik:drafts:v1:alice";
+    const dormant = "dvoinik:drafts:v1:dormant:alice";
+    const active = draftFromScenario(sample.scenario, "custom");
+    const removed = {
+      ...draftFromScenario(sample.scenario, "removed"),
+      description: "r".repeat(1_100_000),
+    };
+    const returned = {
+      ...draftFromScenario(sample.scenario, "student_card"),
+      description: "s".repeat(1_100_000),
+    };
+    const snapshot: DraftSnapshot = {
+      version: 1,
+      owner: "alice",
+      activeKey: active.key,
+      drafts: { custom: active, removed, student_card: returned },
+      steps: { removed: 1, student_card: 1 },
+    };
+    sessionStorage.setItem(
+      main,
+      JSON.stringify({
+        ...snapshot,
+        drafts: { custom: active, removed },
+        steps: { removed: 1 },
+      }),
+    );
+    sessionStorage.setItem(
+      dormant,
+      JSON.stringify({
+        ...snapshot,
+        activeKey: returned.key,
+        drafts: { student_card: returned },
+        steps: { student_card: 1 },
+      }),
+    );
+    const setItem = Storage.prototype.setItem;
+    const write = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(function (this: Storage, key, value) {
+        if (
+          (key === main && rejected === "main") ||
+          (key === dormant && rejected === "dormant")
+        )
+          throw new Error("quota");
+        setItem.call(this, key, value);
+      });
+    const updated = {
+      ...snapshot,
+      drafts: {
+        ...snapshot.drafts,
+        custom: { ...active, title: "Saved edit" },
+      },
+    };
+    expect(saveDrafts(updated, catalog, {})).toBe(rejected === "none");
+    const recovered = readDrafts("alice").snapshot!;
+    expect(recovered.drafts.custom.title).toBe(
+      rejected === "main" ? active.title : "Saved edit",
+    );
+    expect(recovered.drafts.removed.description.length).toBe(
+      removed.description.length,
+    );
+    expect(recovered.drafts.student_card.description.length).toBe(
+      returned.description.length,
+    );
+    expect(recovered.steps).toEqual(snapshot.steps);
+    write.mockRestore();
+    expect(
+      saveDrafts(rejected === "main" ? updated : recovered, catalog, {}),
+    ).toBe(true);
+    expect(sessionStorage.length).toBe(2);
+  },
+);
 it("keeps a readable snapshot when changed text exceeds the storage format limit", () => {
   const first = renderHook(() => useDrafts(catalog, session()));
   const key = "dvoinik:drafts:v1:alice";
