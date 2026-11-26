@@ -132,6 +132,10 @@ def test_interrupted_run_is_recoverable_by_owner_after_restart(tmp_path, monkeyp
 
     after = create_app(snapshot, mode="local", persist_runs=True)
     try:
+        reopened = TestClient(after, base_url="http://127.0.0.1")
+        reopened.cookies.update(alice.cookies)
+        reopened.headers.update(alice.headers)
+        assert reopened.get(f"/api/runs/{job_id}").status_code == 200
         owner, other = login(after), login(after, "bob")
         assert owner.get("/api/runs").json() == {"jobs": []}
         recovered = owner.get("/api/recovery").json()["jobs"]
@@ -144,7 +148,7 @@ def test_interrupted_run_is_recoverable_by_owner_after_restart(tmp_path, monkeyp
         assert other.get(f"/api/runs/{job_id}").status_code == 404
         endpoint = f"/api/recovery/{job_id}"
         assert other.delete(endpoint).status_code == 404
-        assert owner.delete(endpoint).status_code == 200
+        assert reopened.delete(endpoint).status_code == 200
         assert owner.get("/api/recovery").json() == {"jobs": []}
     finally:
         after.state.jobs.close()

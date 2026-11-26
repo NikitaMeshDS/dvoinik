@@ -77,27 +77,27 @@ export function useDrafts(catalog: Catalog | null, session: Session) {
     });
   };
   const reuseDraft = (value: Draft): boolean => {
-    if (!available) return false;
-    const existing = state.drafts.custom;
-    const base =
-      catalog?.scenarios.custom &&
-      draftFromScenario(
-        catalog.scenarios.custom,
-        "custom",
-        session.default_mock !== false,
-      );
+    const key = value.key;
+    if (!available || !catalog || !Object.hasOwn(catalog.scenarios, key))
+      return false;
+    const existing = state.drafts[key];
+    const base = draftFromScenario(
+      catalog.scenarios[key],
+      key,
+      session.default_mock !== false,
+    );
     if (
       existing &&
       JSON.stringify(existing) !== JSON.stringify(base) &&
       !window.confirm(
-        "Заменить незавершённый черновик своего сценария новой итерацией? Отмена сохранит прежний черновик.",
+        "Заменить незавершённый черновик? Отмена сохранит текущие правки.",
       )
     )
       return false;
     change({
-      drafts: { ...state.drafts, custom: { ...value, key: "custom" } },
-      activeKey: "custom",
-      steps: { ...state.steps, custom: 0 },
+      drafts: { ...state.drafts, [key]: value },
+      activeKey: key,
+      steps: { ...state.steps, [key]: 0 },
     });
     return true;
   };

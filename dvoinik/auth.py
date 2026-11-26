@@ -66,6 +66,7 @@ class AuthStore:
         self.clock = clock
         self.allow_demo = allow_demo
         self.persist_runs = persist_runs
+        self.csrf_key = None
         with self.connection() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS users (
@@ -80,6 +81,15 @@ class AuthStore:
                     handle_hash TEXT PRIMARY KEY, session_hash TEXT NOT NULL,
                     payload BLOB NOT NULL, mime TEXT NOT NULL, filename TEXT NOT NULL, expires_at REAL NOT NULL);
             """)
+            if persist_runs:
+                db.execute(
+                    "CREATE TABLE IF NOT EXISTS service_keys (name TEXT PRIMARY KEY, secret BLOB NOT NULL)"
+                )
+                db.execute(
+                    "INSERT OR IGNORE INTO service_keys VALUES ('csrf', ?)", (secrets.token_bytes(32),)
+                )
+                row = db.execute("SELECT secret FROM service_keys WHERE name = 'csrf'").fetchone()
+                self.csrf_key = row["secret"]
 
     @contextmanager
     def connection(self):

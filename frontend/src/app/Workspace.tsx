@@ -81,6 +81,8 @@ export default function Workspace({
     archive.updated(value);
   };
   const dismissInterrupted = async (id: string) => {
+    if (!window.confirm("Удалить сохранённые настройки прерванного запуска?"))
+      return;
     setDismissBusy(id);
     try {
       await api.request("/recovery/" + encodeURIComponent(id), "DELETE");
@@ -303,6 +305,12 @@ export default function Workspace({
                 return;
               }
               if (
+                !Object.hasOwn(catalog.scenarios, runs.job.request.scenario_key)
+              ) {
+                setToast("Шаблон этого исследования больше недоступен.");
+                return;
+              }
+              if (
                 drafts.reuseDraft(
                   draftFromRun(runs.job.request, session.user.role === "demo"),
                 )
@@ -337,11 +345,13 @@ export default function Workspace({
                           </a>
                           <button
                             className="text-link"
-                            aria-label={`Убрать из списка: ${title}`}
+                            aria-label={`Удалить настройки: ${title}`}
                             disabled={dismissBusy !== null}
                             onClick={() => void dismissInterrupted(job.id)}
                           >
-                            {dismissBusy === job.id ? "Убираем…" : "Убрать"}
+                            {dismissBusy === job.id
+                              ? "Удаляем…"
+                              : "Удалить настройки"}
                           </button>
                         </div>
                       </li>

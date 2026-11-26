@@ -29,7 +29,7 @@ const request: RunPayload = {
 };
 it("restores exact scenario and run parameters without inventing a new origin", () => {
   const draft = draftFromRun(request, false);
-  expect(runPayload(draft)).toEqual({ ...request, scenario_key: "custom" });
+  expect(runPayload(draft)).toEqual(request);
   draft.variants.A = "changed";
   expect(request.scenario.variants.A).not.toBe("changed");
 });
@@ -67,7 +67,11 @@ it("recovers failed job settings after a fresh workspace load without starting a
     <T,>(path: string, method?: string, body?: unknown) => {
       if (path === "/catalog")
         return Promise.resolve({
-          scenarios: { student_card: sample.scenario, custom: sample.scenario },
+          scenarios: {
+            student_card: sample.scenario,
+            senior_deposit: sample.scenario,
+            custom: sample.scenario,
+          },
           segments: {},
         }) as Promise<T>;
       if (path === "/experiments")
@@ -120,17 +124,25 @@ it("discovers interrupted runs from the archive and opens their settings", async
     request,
   };
   const starts: unknown[] = [];
+  const dismiss = vi.fn();
+  const confirmation = vi.spyOn(window, "confirm").mockReturnValue(false);
   vi.spyOn(api, "request").mockImplementation(
     <T,>(path: string, method?: string, body?: unknown) => {
       if (path === "/catalog")
         return Promise.resolve({
-          scenarios: { student_card: sample.scenario, custom: sample.scenario },
+          scenarios: {
+            student_card: sample.scenario,
+            senior_deposit: sample.scenario,
+            custom: sample.scenario,
+          },
           segments: {},
         }) as Promise<T>;
       if (path === "/experiments")
         return Promise.resolve({ records: [] }) as Promise<T>;
       if (path === "/recovery")
         return Promise.resolve({ jobs: [interrupted] }) as Promise<T>;
+      if (path === "/recovery/interrupted-run" && method === "DELETE")
+        dismiss();
       if (path === "/runs" && method === "POST") starts.push(body);
       if (path === "/runs") return Promise.resolve({ jobs: [] }) as Promise<T>;
       return Promise.resolve(interrupted) as Promise<T>;
@@ -152,6 +164,13 @@ it("discovers interrupted runs from the archive and opens their settings", async
       onLogout={() => {}}
     />,
   );
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: `Удалить настройки: ${request.scenario.title}`,
+    }),
+  );
+  expect(confirmation).toHaveBeenCalled();
+  expect(dismiss).not.toHaveBeenCalled();
   fireEvent.click(
     await screen.findByRole("link", { name: request.scenario.title }),
   );

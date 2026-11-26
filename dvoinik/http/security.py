@@ -39,7 +39,7 @@ class Security:
         ):
             raise ValueError("DVOINIK_PUBLIC_ORIGIN должен быть HTTPS-адресом домена без порта и пути.")
         self.https_only = https_only == "1" or bool(self.public_origin)
-        self.csrf_secret = secrets.token_bytes(32)
+        self.csrf_secret = runtime.auth.csrf_key or secrets.token_bytes(32)
 
     def csrf(self, token):
         return hmac.new(self.csrf_secret, token.encode(), hashlib.sha256).hexdigest()

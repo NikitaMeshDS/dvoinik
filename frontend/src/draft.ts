@@ -101,7 +101,11 @@ export function draftFromHypothesis(
 /** Recover the submitted inputs without generating new provenance or submitting a job. */
 export function draftFromRun(request: RunPayload, demo = false): Draft {
   return {
-    ...draftFromScenario(request.scenario, "custom", demo || request.mock),
+    ...draftFromScenario(
+      request.scenario,
+      request.scenario_key,
+      demo || request.mock,
+    ),
     weights: { ...request.scenario.population },
     n: request.n,
     seed: request.seed,
