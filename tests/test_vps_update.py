@@ -120,7 +120,7 @@ esac
         assert calls.index("removed " + "c" * 64) < calls.index("curl")
 
 
-@pytest.mark.parametrize("flaky", [False, True], ids=["rollback", "retry-api"])
+@pytest.mark.parametrize("flaky", [False, True], ids=["rollback", "reset-api-errors"])
 def test_switch_with_public_check_errors(tmp_path, flaky):
     state = tmp_path / "state"
     volume = tmp_path / "volume"
@@ -136,13 +136,16 @@ def test_switch_with_public_check_errors(tmp_path, flaky):
         "timeout": r"""printf '%s\trefs/heads/deploy/vps\n' "$SHA" """,
         "date": r"""if [[ $1 == +%s ]]; then echo "$NOW"; else echo 20261127090000; fi""",
         "curl": r"""
-if [[ "$*" == *https://demo.example* && -f "$REPLACEMENT" ]]; then
-  if [[ "$*" == *"/api/experiments"* ]]; then
-    if [[ "$FLAKY" == 0 ]] || ! grep -qx api-timeout "$TRACE"; then
-      echo api-timeout >> "$TRACE"
-      exit 28
-    fi
+if [[ "$*" == *https://demo.example*/api/experiments* && -f "$REPLACEMENT" ]]; then
+  echo archive-probe >> "$TRACE"
+  if [[ "$FLAKY" == 1 ]]; then
+    case $(grep -c '^archive-probe$' "$TRACE") in
+      3) printf 503; exit 0;;
+      5) printf 401; exit 0;;
+    esac
   fi
+  echo api-timeout >> "$TRACE"
+  exit 28
 fi
 if [[ "$*" == *"/api/experiments"* ]]; then printf 401; else printf '<div id="root"></div>'; fi
 """,
@@ -214,7 +217,8 @@ esac
     now = 1_800_000_000
     result, calls = run(failed_sha, now)
     if flaky:
-        assert "api-timeout" in calls
+        assert calls.count("archive-probe") == 5
+        assert calls.count("api-timeout") == 3
         assert result.returncode == 0 and "Deployed " + failed_sha in result.stdout, result.stderr
         assert "start" not in calls
         assert not (state / "pending").exists()
