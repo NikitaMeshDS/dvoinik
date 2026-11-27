@@ -107,7 +107,6 @@ recover_pending() {
       return "$status"
     fi
   fi
-  remove_candidate "$token" || return
   if [[ "$live" != "$original" ]]; then
     if [[ -n "$live" ]]; then remove_transaction_container "$live" "$token" || return; fi
     docker rename "$original" dvoinik || return
@@ -118,6 +117,7 @@ recover_pending() {
   live=$(container_id dvoinik) || return
   running=$(docker container inspect -f '{{.State.Running}}' "$original") || return
   [[ "$live" == "$original" && "$running" == true ]] || return 1
+  remove_candidate "$token" || return
   clear_pending || return
   echo "Recovered the previous container from the pending deployment."
 }
