@@ -59,9 +59,10 @@ def main():
     fixture = load_experiment(Path("examples/senior-deposit.demo.json").read_bytes())
     with tempfile.TemporaryDirectory(prefix="restore-", dir="/data") as directory:
         source = Path(directory) / "source.sqlite3"
-        restored = Path(directory) / "restored.sqlite3"
+        backup = Path(directory) / "snapshot.sqlite3"
+        restored = Path(directory) / "restored" / "experiments.sqlite3"
         owner = AuthStore(source).create_user("owner", "Restore smoke test", password)
-        with closing(sqlite3.connect(source)) as live, closing(sqlite3.connect(restored)) as snapshot:
+        with closing(sqlite3.connect(source)) as live, closing(sqlite3.connect(backup)) as snapshot:
             assert live.execute("PRAGMA journal_mode=WAL").fetchone() == ("wal",)
             live.execute("SELECT count(*) FROM users").fetchone()
             record = ExperimentStore(source, owner_id=owner).save(fixture)
@@ -69,6 +70,8 @@ def main():
             live.backup(snapshot)
             assert snapshot.execute("PRAGMA quick_check").fetchall() == [("ok",)]
         source.unlink()
+        restored.parent.mkdir()
+        backup.replace(restored)
 
         client = build_opener(ProxyHandler({}), HTTPCookieProcessor(http.cookiejar.CookieJar()))
         env = {**os.environ, "DVOINIK_STORAGE_PATH": str(restored)}
