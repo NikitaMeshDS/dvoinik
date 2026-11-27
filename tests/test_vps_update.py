@@ -118,3 +118,117 @@ esac
         )
     if live == "health-error":
         assert calls.index("removed " + "c" * 64) < calls.index("curl")
+
+
+@pytest.mark.parametrize("flaky", [False, True], ids=["rollback", "retry-api"])
+def test_switch_with_public_check_errors(tmp_path, flaky):
+    state = tmp_path / "state"
+    volume = tmp_path / "volume"
+    volume.mkdir()
+    (volume / ".deploy-jobs.lock").touch()
+    runtime = tmp_path / "runtime.env"
+    runtime.write_text("DVOINIK_PUBLIC_ORIGIN=https://demo.example\n")
+    trace = tmp_path / "deploy.log"
+    stubs = {
+        "flock": "exit 0",
+        "sync": "exit 0",
+        "sleep": "exit 0",
+        "timeout": r"""printf '%s\trefs/heads/deploy/vps\n' "$SHA" """,
+        "date": r"""if [[ $1 == +%s ]]; then echo "$NOW"; else echo 20261127090000; fi""",
+        "curl": r"""
+if [[ "$*" == *https://demo.example* && -f "$REPLACEMENT" ]]; then
+  if [[ "$FLAKY" == 0 ]]; then exit 22; fi
+  if [[ "$*" == *"/api/experiments"* ]] && ! grep -qx api-timeout "$TRACE"; then
+    echo api-timeout >> "$TRACE"
+    exit 28
+  fi
+fi
+if [[ "$*" == *"/api/experiments"* ]]; then printf 401; else printf '<div id="root"></div>'; fi
+""",
+        "docker": r"""
+printf '%s\n' "$1" >> "$TRACE"
+case "$1" in
+  ps)
+    if [[ "$*" == *'^/dvoinik$'* ]]; then
+      if [[ -f "$REPLACEMENT" ]]; then echo "$NEW_ID"; else echo "$OLD_ID"; fi
+    fi;;
+  inspect)
+    case "$*" in
+      *Config.Env*) echo DVOINIK_DEPLOY_LOCK=/data/.deploy-jobs.lock;;
+      *.Mounts*) echo dvoinik-misisx-data;;
+      *) echo "true $OLD_SHA";;
+    esac;;
+  image) echo "$SHA";;
+  container)
+    if [[ ${@: -1} == "$OLD_ID" ]]; then
+      if grep -qx start "$TRACE"; then echo true; else echo false; fi
+    else
+      read -r original token < "$PENDING"
+      echo "$token"
+    fi;;
+  volume) echo "$VOLUME";;
+  exec) if [[ $2 == -i ]]; then echo sqlite; fi;;
+  run) if [[ "$*" == *'--name dvoinik --restart'* ]]; then touch "$REPLACEMENT"; fi;;
+  stop|rename|start) :;;
+  rm) rm -f "$REPLACEMENT";;
+  *) exit 90;;
+esac
+""",
+    }
+    for name, body in stubs.items():
+        target = tmp_path / name
+        target.write_text("#!/bin/bash\n" + body + "\n")
+        target.chmod(0o700)
+
+    script = (
+        UPDATER.read_text()
+        .replace("/var/lib/dvoinik-cd", str(state))
+        .replace("/etc/dvoinik/runtime.active.env", str(runtime))
+    )
+
+    def run(sha, now):
+        trace.write_text("")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            env={
+                **os.environ,
+                "PATH": f"{tmp_path}:{os.environ['PATH']}",
+                "TRACE": str(trace),
+                "OLD_ID": PREVIOUS_ID,
+                "NEW_ID": "b" * 64,
+                "OLD_SHA": "c" * 40 if flaky else "",
+                "SHA": sha,
+                "NOW": str(now),
+                "FLAKY": str(int(flaky)),
+                "PENDING": str(state / "pending"),
+                "REPLACEMENT": str(tmp_path / "replacement"),
+                "VOLUME": str(volume),
+            },
+            capture_output=True,
+            text=True,
+        )
+        return result, trace.read_text().splitlines()
+
+    failed_sha = "d" * 40
+    now = 1_800_000_000
+    result, calls = run(failed_sha, now)
+    if flaky:
+        assert "api-timeout" in calls
+        assert result.returncode == 0 and "Deployed " + failed_sha in result.stdout, result.stderr
+        assert "start" not in calls
+        assert not (state / "pending").exists()
+        return
+
+    assert result.returncode != 0 and {"stop", "start"} <= set(calls), result.stderr
+    assert not (state / "pending").exists()
+    result, calls = run(failed_sha, now + 899)
+    assert result.returncode == 0 and calls == ["inspect"], result.stderr
+    result, calls = run(failed_sha, now + 900)
+    assert result.returncode != 0 and "stop" in calls, result.stderr
+    new_sha = "e" * 40
+    result, calls = run(new_sha, now + 901)
+    assert result.returncode != 0 and "stop" in calls, result.stderr
+    result, calls = run(new_sha, now + 800)
+    assert result.returncode == 0 and calls == ["inspect"], result.stderr
+    result, calls = run(new_sha, now + 1700)
+    assert result.returncode != 0 and "stop" in calls, result.stderr

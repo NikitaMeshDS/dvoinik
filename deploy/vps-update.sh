@@ -30,6 +30,8 @@ exec 9>"$state/lock"
 flock -n 9 || exit 0
 
 pending="$state/pending"
+last_switch="$state/last-switch"
+switch_retry_seconds=900
 
 read_origin() {
   local configured
@@ -66,6 +68,12 @@ remove_candidate() {
   [[ -z "$id" ]] || remove_transaction_container "$id" "$token"
 }
 
+record_switch() {
+  printf '%s %s\n' "$sha" "$1" > "$last_switch.tmp"
+  mv -- "$last_switch.tmp" "$last_switch"
+  sync -f "$state"
+}
+
 clear_pending() {
   rm -- "$pending" || return
   sync -f "$state"
@@ -76,9 +84,11 @@ check() {
   shift
   local page status
   for _ in {1..20}; do
-    if page=$(curl --noproxy '*' -fsS --max-time 3 "$@" "$base/") && [[ "$page" == *'id="root"'* ]]; then
-      status=$(curl --noproxy '*' -sS --max-time 3 -o /dev/null -w '%{http_code}' "$@" "$base/api/experiments")
-      [[ "$status" == 401 ]] && return 0
+    if page=$(curl --noproxy '*' -fsS --max-time 3 "$@" "$base/") &&
+       [[ "$page" == *'id="root"'* ]] &&
+       status=$(curl --noproxy '*' -sS --max-time 3 -o /dev/null -w '%{http_code}' "$@" "$base/api/experiments") &&
+       [[ "$status" == 401 ]]; then
+      return 0
     fi
     sleep 1
   done
@@ -131,8 +141,22 @@ result=$(git_remote 35s ls-remote "$repo" "$ref") || exit $?
 [[ -n "$result" ]] || { echo "No tested revision has been promoted yet."; exit 0; }
 sha=${result%%$'\t'*}
 [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
-running=$(docker inspect -f '{{if .State.Running}}{{index .Config.Labels "org.opencontainers.image.revision"}}{{end}}' dvoinik)
-[[ "$running" != "$sha" ]] || exit 0
+container_state=$(docker inspect -f '{{.State.Running}} {{index .Config.Labels "org.opencontainers.image.revision"}}' dvoinik)
+[[ "$container_state" != "true $sha" ]] || exit 0
+if [[ "$container_state" == 'true '* && -f "$last_switch" ]] &&
+   read -r attempted_sha attempted_at < "$last_switch" &&
+   [[ "$attempted_sha" == "$sha" && "$attempted_at" =~ ^[1-9][0-9]{0,11}$ ]]; then
+  now=$(date +%s)
+  elapsed=$((now - attempted_at))
+  if (( elapsed < 0 )); then
+    record_switch "$now"
+    elapsed=0
+  fi
+  if (( elapsed < switch_retry_seconds )); then
+    echo "Deferring another switch to $sha for $((switch_retry_seconds - elapsed)) seconds."
+    exit 0
+  fi
+fi
 
 origin=$(read_origin)
 host=${origin#https://}
@@ -232,6 +256,9 @@ with tempfile.TemporaryDirectory(prefix="dvoinik-cd-") as directory:
 PY_BACKUP
 mv "$backup_dir/experiments.sqlite3.tmp" "$backup_dir/experiments.sqlite3"
 test -s "$backup_dir/experiments.sqlite3"
+# Persist the attempt before interrupting service, including when this process is killed.
+switch_at=$(date +%s)
+record_switch "$switch_at"
 docker stop "$original" >/dev/null
 docker rename "$original" "$previous"
 docker run -d --name dvoinik --restart unless-stopped --network host --no-healthcheck \
