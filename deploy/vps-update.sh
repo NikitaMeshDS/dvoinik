@@ -30,8 +30,13 @@ exec 9>"$state/lock"
 flock -n 9 || exit 0
 
 pending="$state/pending"
-origin=$(sed -n 's/^DVOINIK_PUBLIC_ORIGIN=//p' "$env_file")
-[[ "$origin" =~ ^https://[a-z0-9.-]+$ ]]
+
+read_origin() {
+  local configured
+  configured=$(sed -n 's/^DVOINIK_PUBLIC_ORIGIN=//p' "$env_file") || return
+  [[ "$configured" =~ ^https://[a-z0-9.-]+$ ]] || return 1
+  printf '%s' "$configured"
+}
 
 lock_jobs() {
   local volume_path
@@ -81,7 +86,7 @@ check() {
 }
 
 recover_pending() {
-  local original token extra live running
+  local original token extra live running origin status
   read -r original token extra < "$pending" || return
   if [[ ! "$original" =~ ^[0-9a-f]{64}$ || ! "$token" =~ ^[A-Za-z0-9]{8}$ || -n "$extra" ]]; then
     echo "Invalid pending deployment journal." >&2
@@ -89,12 +94,26 @@ recover_pending() {
   fi
   running=$(docker container inspect -f '{{.State.Running}}' "$original") || return
   live=$(container_id dvoinik) || return
+  # Stopping a replacement can interrupt work. Starting an absent or stopped original cannot.
+  if [[ "${1:-}" == startup && -n "$live" && "$live" != "$original" ]]; then
+    if lock_jobs; then
+      :
+    else
+      status=$?
+      if (( status == 75 )); then
+        echo "Active research jobs; deferring deployment recovery."
+        return 0
+      fi
+      return "$status"
+    fi
+  fi
   remove_candidate "$token" || return
   if [[ "$live" != "$original" ]]; then
     if [[ -n "$live" ]]; then remove_transaction_container "$live" "$token" || return; fi
     docker rename "$original" dvoinik || return
   fi
   if [[ "$running" != true ]]; then docker start "$original" >/dev/null || return; fi
+  origin=$(read_origin) || return
   check "$origin" || return
   live=$(container_id dvoinik) || return
   running=$(docker container inspect -f '{{.State.Running}}' "$original") || return
@@ -104,17 +123,8 @@ recover_pending() {
 }
 
 if [[ -f "$pending" ]]; then
-  if lock_jobs; then
-    recover_pending
-    exit $?
-  else
-    status=$?
-    if (( status == 75 )); then
-      echo "Active research jobs; deferring deployment recovery."
-      exit 0
-    fi
-    exit "$status"
-  fi
+  recover_pending startup || exit $?
+  exit 0
 fi
 
 result=$(git_remote 35s ls-remote "$repo" "$ref") || exit $?
@@ -124,6 +134,7 @@ sha=${result%%$'\t'*}
 running=$(docker inspect -f '{{if .State.Running}}{{index .Config.Labels "org.opencontainers.image.revision"}}{{end}}' dvoinik)
 [[ "$running" != "$sha" ]] || exit 0
 
+origin=$(read_origin)
 host=${origin#https://}
 image="dvoinik:git-$sha"
 work=$(mktemp -d "$state/build.XXXXXXXX")
@@ -193,6 +204,8 @@ else
   status=$?
   if (( status == 75 )); then
     echo "Active research jobs; deferring $sha to the next timer tick."
+    remove_candidate "$token"
+    clear_pending
     exit 0
   fi
   exit "$status"

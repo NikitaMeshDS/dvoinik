@@ -11,16 +11,20 @@ PREVIOUS_ID = "a" * 64
 TOKEN = "Test1234"
 
 
-@pytest.mark.parametrize("live", ["missing", "old", "replacement", "foreign", "busy"])
+@pytest.mark.parametrize(
+    "live", ["missing", "old", "replacement", "foreign", "busy", "no-settings", "no-lock"]
+)
 def test_recovers_after_interruption(tmp_path, live):
     state = tmp_path / "state"
     state.mkdir()
     (state / "pending").write_text(f"{PREVIOUS_ID} {TOKEN}\n")
     volume = tmp_path / "volume"
     volume.mkdir()
-    (volume / ".deploy-jobs.lock").touch()
+    if live != "no-lock":
+        (volume / ".deploy-jobs.lock").touch()
     runtime = tmp_path / "runtime.env"
-    runtime.write_text("DVOINIK_PUBLIC_ORIGIN=https://demo.example\n")
+    if live != "no-settings":
+        runtime.write_text("DVOINIK_PUBLIC_ORIGIN=https://demo.example\n")
     trace = tmp_path / "docker.log"
     stubs = {
         "flock": """if [[ "$*" == *"75 8"* && "$LIVE" == busy ]]; then exit 75; fi""",
@@ -32,11 +36,11 @@ printf '%s %s\n' "$1" "$2" >> "$TRACE"
 case "$1,$2" in
   ps,*) if [[ "$*" == *'^/dvoinik$'* ]]; then
     if grep -Fqx "rename $OLD_ID" "$TRACE"; then echo "$OLD_ID"; else
-      case "$LIVE" in old) echo "$OLD_ID";; replacement|foreign) echo "$NEW_ID";; esac
+      case "$LIVE" in old|no-lock) echo "$OLD_ID";; replacement|foreign|busy) echo "$NEW_ID";; esac
     fi
-  elif [[ "$LIVE" == replacement ]]; then echo "$CANDIDATE_ID"; fi;;
+  elif [[ "$LIVE" == replacement || "$LIVE" == no-lock ]]; then echo "$CANDIDATE_ID"; fi;;
   container,inspect) case "${@: -1}" in
-    "$OLD_ID") if grep -Fqx "start $OLD_ID" "$TRACE"; then echo true; else echo false; fi;;
+    "$OLD_ID") if [[ "$LIVE" == no-lock ]] || grep -Fqx "start $OLD_ID" "$TRACE"; then echo true; else echo false; fi;;
     "$NEW_ID"|"$CANDIDATE_ID") if [[ "$LIVE" == foreign ]]; then echo another; else echo "$TOKEN"; fi;;
     *) exit 1;;
   esac;;
@@ -76,10 +80,11 @@ esac
     )
     calls = trace.read_text().splitlines()
     deferred = live in {"foreign", "busy"}
-    assert result.returncode == int(live == "foreign"), result.stderr
-    assert (state / "pending").exists() is deferred
-    assert (f"rename {PREVIOUS_ID}" in calls) is (live in {"missing", "replacement"})
-    assert (f"start {PREVIOUS_ID}" in calls) is not deferred
-    assert {call for call in calls if call.startswith("removed ")} == (
-        {"removed " + "b" * 64, "removed " + "c" * 64} if live == "replacement" else set()
-    )
+    assert (result.returncode != 0) is (live in {"foreign", "no-settings"}), result.stderr
+    assert (state / "pending").exists() is (deferred or live == "no-settings")
+    assert (f"rename {PREVIOUS_ID}" in calls) is (live in {"missing", "replacement", "no-settings"})
+    assert (f"start {PREVIOUS_ID}" in calls) is (not deferred and live != "no-lock")
+    expected_removed = {"removed " + "c" * 64} if live in {"replacement", "no-lock"} else set()
+    if live == "replacement":
+        expected_removed.add("removed " + "b" * 64)
+    assert {call for call in calls if call.startswith("removed ")} == expected_removed
