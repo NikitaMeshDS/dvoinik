@@ -228,6 +228,8 @@ esac
         assert "stop" not in calls
         assert not list((state / "backups").iterdir())
         assert not (state / "pending").exists()
+        result, calls = run(failed_sha, now + 60)
+        assert result.returncode == 0 and calls == ["inspect"], result.stderr
         return
 
     if scenario == "reset-api-errors":

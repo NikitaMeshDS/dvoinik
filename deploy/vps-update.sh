@@ -236,6 +236,9 @@ else
   fi
   exit "$status"
 fi
+# Pace attempts that lock research jobs, including failures during backup or cutover.
+attempt_at=$(date +%s)
+record_switch "$attempt_at"
 # Online SQLite backup includes committed changes from WAL without copying a live database file.
 snapshot_file="$work/experiments.sqlite3"
 docker exec -i dvoinik python - > "$snapshot_file" <<'PY_BACKUP'
@@ -261,9 +264,7 @@ PY_BACKUP
 test -s "$snapshot_file"
 install -d -m 700 "$backup_dir"
 mv -- "$snapshot_file" "$backup_dir/experiments.sqlite3"
-# Persist the attempt before interrupting service, including when this process is killed.
-switch_at=$(date +%s)
-record_switch "$switch_at"
+sync -f "$state"
 docker stop "$original" >/dev/null
 docker rename "$original" "$previous"
 docker run -d --name dvoinik --restart unless-stopped --network host --no-healthcheck \
