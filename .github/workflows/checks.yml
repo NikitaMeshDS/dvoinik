@@ -38,6 +38,13 @@ jobs:
       - run: docker build -t dvoinik .
       - name: Simulation works without any network
         run: docker run --rm --network none dvoinik python cli.py senior_deposit --mock --n 50
+      - name: Restore SQLite and open a report without network access
+        timeout-minutes: 2
+        run: |
+          docker run --rm -i --network none --no-healthcheck \
+            --tmpfs /data:uid=10001,gid=10001,mode=0700 \
+            -e DVOINIK_HOST=127.0.0.1 -e DVOINIK_AUTH_MODE=local \
+            dvoinik python - < tests/smoke_restore.py
       - name: Service starts in the container
         run: |
           docker run -d --name dvoinik -p 127.0.0.1:8501:8501 -e DVOINIK_AUTH_MODE=demo dvoinik
