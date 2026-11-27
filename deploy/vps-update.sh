@@ -82,13 +82,15 @@ clear_pending() {
 check() {
   local base="$1"
   shift
-  local page status
+  local page status api_errors=0
   for _ in {1..20}; do
-    if page=$(curl --noproxy '*' -fsS --max-time 3 "$@" "$base/") &&
-       [[ "$page" == *'id="root"'* ]] &&
-       status=$(curl --noproxy '*' -sS --max-time 3 -o /dev/null -w '%{http_code}' "$@" "$base/api/experiments") &&
-       [[ "$status" == 401 ]]; then
-      return 0
+    if page=$(curl --noproxy '*' -fsS --max-time 3 "$@" "$base/") && [[ "$page" == *'id="root"'* ]]; then
+      if status=$(curl --noproxy '*' -sS --max-time 3 -o /dev/null -w '%{http_code}' "$@" "$base/api/experiments"); then
+        [[ "$status" != 401 ]] || return 0
+        api_errors=0
+      else
+        (( ++api_errors < 3 )) || return 1
+      fi
     fi
     sleep 1
   done

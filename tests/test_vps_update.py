@@ -137,10 +137,11 @@ def test_switch_with_public_check_errors(tmp_path, flaky):
         "date": r"""if [[ $1 == +%s ]]; then echo "$NOW"; else echo 20261127090000; fi""",
         "curl": r"""
 if [[ "$*" == *https://demo.example* && -f "$REPLACEMENT" ]]; then
-  if [[ "$FLAKY" == 0 ]]; then exit 22; fi
-  if [[ "$*" == *"/api/experiments"* ]] && ! grep -qx api-timeout "$TRACE"; then
-    echo api-timeout >> "$TRACE"
-    exit 28
+  if [[ "$*" == *"/api/experiments"* ]]; then
+    if [[ "$FLAKY" == 0 ]] || ! grep -qx api-timeout "$TRACE"; then
+      echo api-timeout >> "$TRACE"
+      exit 28
+    fi
   fi
 fi
 if [[ "$*" == *"/api/experiments"* ]]; then printf 401; else printf '<div id="root"></div>'; fi
@@ -220,6 +221,7 @@ esac
         return
 
     assert result.returncode != 0 and {"stop", "start"} <= set(calls), result.stderr
+    assert calls.count("api-timeout") == 3
     assert not (state / "pending").exists()
     result, calls = run(failed_sha, now + 899)
     assert result.returncode == 0 and calls == ["inspect"], result.stderr
