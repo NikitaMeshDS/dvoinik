@@ -36,13 +36,14 @@ def test_recovers_after_interruption(tmp_path, live):
     runtime = tmp_path / "runtime.env"
     if live != "no-settings":
         runtime.write_text("DVOINIK_PUBLIC_ORIGIN=https://demo.example\n")
-    trace = tmp_path / "docker.log"
+    trace = tmp_path / "recovery.log"
     stubs = {
         "flock": """if [[ "$*" == *"75 8"* && "$LIVE" == busy ]]; then exit 75; fi""",
         "sync": "exit 0",
         "sleep": "exit 0",
         "git": "exit 97",
-        "curl": """if [[ "$LIVE" == health-error ]]; then exit 22; fi
+        "curl": r"""printf 'curl\n' >> "$TRACE"
+if [[ "$LIVE" == health-error ]]; then exit 22; fi
 if [[ "$*" == *"/api/experiments"* ]]; then printf 401; else printf '<div id="root"></div>'; fi""",
         "docker": """
 printf '%s %s\n' "$1" "$2" >> "$TRACE"
@@ -115,3 +116,5 @@ esac
         assert calls.index(f"start {PREVIOUS_ID}") < max(
             index for index, call in enumerate(calls) if call == "rm -f"
         )
+    if live == "health-error":
+        assert calls.index("removed " + "c" * 64) < calls.index("curl")
