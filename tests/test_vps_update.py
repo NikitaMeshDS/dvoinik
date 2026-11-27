@@ -1,7 +1,10 @@
 """An interrupted deployment must recover the exact previous Docker container before reading GitHub."""
 
 import os
+import sqlite3
 import subprocess
+import sys
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -120,8 +123,8 @@ esac
         assert calls.index("removed " + "c" * 64) < calls.index("curl")
 
 
-@pytest.mark.parametrize("flaky", [False, True], ids=["rollback", "reset-api-errors"])
-def test_switch_with_public_check_errors(tmp_path, flaky):
+@pytest.mark.parametrize("scenario", ["rollback", "reset-api-errors", "backup-failed"])
+def test_switch_with_errors(tmp_path, scenario):
     state = tmp_path / "state"
     volume = tmp_path / "volume"
     volume.mkdir()
@@ -138,7 +141,7 @@ def test_switch_with_public_check_errors(tmp_path, flaky):
         "curl": r"""
 if [[ "$*" == *https://demo.example*/api/experiments* && -f "$REPLACEMENT" ]]; then
   echo archive-probe >> "$TRACE"
-  if [[ "$FLAKY" == 1 ]]; then
+  if [[ "$SCENARIO" == reset-api-errors ]]; then
     case $(grep -c '^archive-probe$' "$TRACE") in
       3) printf 503; exit 0;;
       5) printf 401; exit 0;;
@@ -171,7 +174,11 @@ case "$1" in
       echo "$token"
     fi;;
   volume) echo "$VOLUME";;
-  exec) if [[ $2 == -i ]]; then echo sqlite; fi;;
+  exec)
+    if [[ $2 == -i ]]; then
+      echo sqlite
+      if [[ "$SCENARIO" == backup-failed ]]; then exit 1; fi
+    fi;;
   run) if [[ "$*" == *'--name dvoinik --restart'* ]]; then touch "$REPLACEMENT"; fi;;
   stop|rename|start) :;;
   rm) rm -f "$REPLACEMENT";;
@@ -200,10 +207,10 @@ esac
                 "TRACE": str(trace),
                 "OLD_ID": PREVIOUS_ID,
                 "NEW_ID": "b" * 64,
-                "OLD_SHA": "c" * 40 if flaky else "",
+                "OLD_SHA": "c" * 40 if scenario == "reset-api-errors" else "",
                 "SHA": sha,
                 "NOW": str(now),
-                "FLAKY": str(int(flaky)),
+                "SCENARIO": scenario,
                 "PENDING": str(state / "pending"),
                 "REPLACEMENT": str(tmp_path / "replacement"),
                 "VOLUME": str(volume),
@@ -216,7 +223,14 @@ esac
     failed_sha = "d" * 40
     now = 1_800_000_000
     result, calls = run(failed_sha, now)
-    if flaky:
+    if scenario == "backup-failed":
+        assert result.returncode != 0
+        assert "stop" not in calls
+        assert not list((state / "backups").iterdir())
+        assert not (state / "pending").exists()
+        return
+
+    if scenario == "reset-api-errors":
         assert calls.count("archive-probe") == 5
         assert calls.count("api-timeout") == 3
         assert result.returncode == 0 and "Deployed " + failed_sha in result.stdout, result.stderr
@@ -238,3 +252,36 @@ esac
     assert result.returncode == 0 and calls == ["inspect"], result.stderr
     result, calls = run(new_sha, now + 1700)
     assert result.returncode != 0 and "stop" in calls, result.stderr
+
+
+@pytest.mark.parametrize("valid", [True, False], ids=["wal", "invalid"])
+def test_backup_checks_snapshot_before_exporting(tmp_path, valid):
+    source = tmp_path / "source.sqlite3"
+    updater = UPDATER.read_text()
+    program = updater.split("<<'PY_BACKUP'\n", 1)[1].split("\nPY_BACKUP", 1)[0]
+    with closing(sqlite3.connect(source)) as db:
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("CREATE TABLE example(value INTEGER CHECK (value > 0))")
+        if not valid:
+            db.execute("PRAGMA ignore_check_constraints=ON")
+        db.execute("INSERT INTO example VALUES (?)", (1 if valid else -1,))
+        db.commit()
+        assert source.with_suffix(".sqlite3-wal").stat().st_size > 0
+
+        result = subprocess.run(
+            [sys.executable, "-c", program],
+            cwd=UPDATER.parents[1],
+            env={**os.environ, "DVOINIK_STORAGE_PATH": str(source)},
+            capture_output=True,
+        )
+
+    if valid:
+        assert result.returncode == 0, result.stderr
+        snapshot = tmp_path / "snapshot.sqlite3"
+        snapshot.write_bytes(result.stdout)
+        with closing(sqlite3.connect(snapshot)) as db:
+            assert db.execute("SELECT value FROM example").fetchall() == [(1,)]
+    else:
+        assert result.returncode != 0
+        assert not result.stdout
+        assert b"SQLite snapshot failed quick_check" in result.stderr

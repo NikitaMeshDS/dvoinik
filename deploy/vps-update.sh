@@ -236,9 +236,9 @@ else
   fi
   exit "$status"
 fi
-install -d -m 700 "$backup_dir"
 # Online SQLite backup includes committed changes from WAL without copying a live database file.
-docker exec -i dvoinik python - > "$backup_dir/experiments.sqlite3.tmp" <<'PY_BACKUP'
+snapshot_file="$work/experiments.sqlite3"
+docker exec -i dvoinik python - > "$snapshot_file" <<'PY_BACKUP'
 import shutil
 import sqlite3
 import sys
@@ -253,11 +253,14 @@ with tempfile.TemporaryDirectory(prefix="dvoinik-cd-") as directory:
     with closing(sqlite3.connect(storage_path().as_uri() + "?mode=ro", uri=True)) as source:
         with closing(sqlite3.connect(target)) as snapshot:
             source.backup(snapshot)
+            if snapshot.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
+                raise SystemExit("SQLite snapshot failed quick_check; deployment stopped.")
     with target.open("rb") as stream:
         shutil.copyfileobj(stream, sys.stdout.buffer)
 PY_BACKUP
-mv "$backup_dir/experiments.sqlite3.tmp" "$backup_dir/experiments.sqlite3"
-test -s "$backup_dir/experiments.sqlite3"
+test -s "$snapshot_file"
+install -d -m 700 "$backup_dir"
+mv -- "$snapshot_file" "$backup_dir/experiments.sqlite3"
 # Persist the attempt before interrupting service, including when this process is killed.
 switch_at=$(date +%s)
 record_switch "$switch_at"
