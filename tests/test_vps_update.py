@@ -12,7 +12,18 @@ TOKEN = "Test1234"
 
 
 @pytest.mark.parametrize(
-    "live", ["missing", "old", "replacement", "foreign", "busy", "no-settings", "no-lock", "cleanup-error"]
+    "live",
+    [
+        "missing",
+        "old",
+        "replacement",
+        "foreign",
+        "busy",
+        "no-settings",
+        "no-lock",
+        "cleanup-error",
+        "health-error",
+    ],
 )
 def test_recovers_after_interruption(tmp_path, live):
     state = tmp_path / "state"
@@ -29,8 +40,10 @@ def test_recovers_after_interruption(tmp_path, live):
     stubs = {
         "flock": """if [[ "$*" == *"75 8"* && "$LIVE" == busy ]]; then exit 75; fi""",
         "sync": "exit 0",
+        "sleep": "exit 0",
         "git": "exit 97",
-        "curl": """if [[ "$*" == *"/api/experiments"* ]]; then printf 401; else printf '<div id="root"></div>'; fi""",
+        "curl": """if [[ "$LIVE" == health-error ]]; then exit 22; fi
+if [[ "$*" == *"/api/experiments"* ]]; then printf 401; else printf '<div id="root"></div>'; fi""",
         "docker": """
 printf '%s %s\n' "$1" "$2" >> "$TRACE"
 case "$1,$2" in
@@ -38,7 +51,7 @@ case "$1,$2" in
     if grep -Fqx "rename $OLD_ID" "$TRACE"; then echo "$OLD_ID"; else
       case "$LIVE" in old|no-lock) echo "$OLD_ID";; replacement|foreign|busy) echo "$NEW_ID";; esac
     fi
-  elif [[ "$LIVE" == replacement || "$LIVE" == no-lock || "$LIVE" == cleanup-error ]]; then echo "$CANDIDATE_ID"; fi;;
+  elif [[ "$LIVE" == replacement || "$LIVE" == no-lock || "$LIVE" == cleanup-error || "$LIVE" == no-settings || "$LIVE" == health-error ]]; then echo "$CANDIDATE_ID"; fi;;
   container,inspect) case "${@: -1}" in
     "$OLD_ID") if [[ "$LIVE" == no-lock ]] || grep -Fqx "start $OLD_ID" "$TRACE"; then echo true; else echo false; fi;;
     "$NEW_ID"|"$CANDIDATE_ID") if [[ "$LIVE" == foreign ]]; then echo another; else echo "$TOKEN"; fi;;
@@ -80,13 +93,25 @@ esac
     )
     calls = trace.read_text().splitlines()
     deferred = live in {"foreign", "busy"}
-    assert (result.returncode != 0) is (live in {"foreign", "no-settings", "cleanup-error"}), result.stderr
-    assert (state / "pending").exists() is (deferred or live in {"no-settings", "cleanup-error"})
+    assert (result.returncode != 0) is (
+        live in {"foreign", "no-settings", "cleanup-error", "health-error"}
+    ), result.stderr
+    assert (state / "pending").exists() is (
+        deferred or live in {"no-settings", "cleanup-error", "health-error"}
+    )
     assert (f"rename {PREVIOUS_ID}" in calls) is (
-        live in {"missing", "replacement", "no-settings", "cleanup-error"}
+        live in {"missing", "replacement", "no-settings", "cleanup-error", "health-error"}
     )
     assert (f"start {PREVIOUS_ID}" in calls) is (not deferred and live != "no-lock")
-    expected_removed = {"removed " + "c" * 64} if live in {"replacement", "no-lock"} else set()
+    expected_removed = (
+        {"removed " + "c" * 64}
+        if live in {"replacement", "no-lock", "no-settings", "health-error"}
+        else set()
+    )
     if live == "replacement":
         expected_removed.add("removed " + "b" * 64)
     assert {call for call in calls if call.startswith("removed ")} == expected_removed
+    if live in {"replacement", "no-settings", "cleanup-error", "health-error"}:
+        assert calls.index(f"start {PREVIOUS_ID}") < max(
+            index for index, call in enumerate(calls) if call == "rm -f"
+        )
